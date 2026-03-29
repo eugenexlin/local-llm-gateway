@@ -22,7 +22,7 @@ app.use(express.json());
 // Routes
 app.use('/api/api-keys', apiKeys);
 app.use('/api/stats', metrics);
-app.use('/v1/chat/completions', auth.validateApiKey, proxy);
+app.use('/v1', auth.validateApiKey, proxy);
 
 // Health check
 app.get('/health', (req, res) => {

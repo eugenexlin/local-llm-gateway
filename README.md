@@ -20,8 +20,9 @@ local-llm-gateway/
 │   ├── database.js        # SQLite database operations
 │   ├── routes/            # API routes
 │   │   ├── auth.js        # Authentication routes
-│   │   ├── proxy.js       # Proxy routes
-│   │   └── usage.js       # Usage tracking routes
+│   │   ├── proxy.js       # Proxy routes (OpenAI API compatible)
+│   │   ├── apiKeys.js     # API key management
+│   │   └── metrics.js     # Metrics and stats routes
 │   ├── middleware/        # Express middleware
 │   └── utils/             # Utility functions
 ├── frontend/
@@ -86,8 +87,10 @@ Frontend runs on: http://localhost:5173
 - `POST /api/auth/register` - Register new API key
 - `POST /api/auth/login` - Login and get token
 
-### Proxy
-- `POST /api/proxy/chat/completions` - Forward chat completion requests
+### Proxy (OpenAI API compatible)
+- `POST /v1/chat/completions` - Forward chat completion requests
+- `GET /v1/models` - List available models
+- Any `/v1/*` path is proxied to the LLM provider
 
 ### Usage
 - `GET /api/usage/requests` - Get request history
