@@ -234,7 +234,7 @@ PORT=3000
 LLM_API_URL=http://localhost:8080/v1
 
 # Database
-DATABASE_PATH=./llm_firewall.db
+DATABASE_PATH=./local_llm_gateway.db
 
 # Security
 JWT_SECRET=your-secret-key-here

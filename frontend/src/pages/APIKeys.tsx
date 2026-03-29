@@ -1,14 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { Key, Copy, Trash2, Plus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
+interface ApiKey {
+  id: string;
+  name: string;
+  description: string | null;
+  api_key: string;
+  created_at: string;
+  user_id: string | null;
+}
+
 function APIKeys() {
   const { user } = useAuth();
-  const [apiKeys, setApiKeys] = useState([]);
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [newKeyName, setNewKeyName] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [createdKey, setCreatedKey] = useState(null);
+  const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -33,7 +42,7 @@ function APIKeys() {
     }
   };
 
-  const handleCreateKey = async (e) => {
+  const handleCreateKey = async (e: FormEvent) => {
     e.preventDefault();
     if (!newKeyName.trim() || !user?.id) return;
 
@@ -58,7 +67,7 @@ function APIKeys() {
     }
   };
 
-  const handleRevokeKey = async (keyId) => {
+  const handleRevokeKey = async (keyId: string) => {
     if (!confirm('Are you sure you want to revoke this API key?')) return;
 
     try {
@@ -74,7 +83,7 @@ function APIKeys() {
     }
   };
 
-  const copyToClipboard = async (key) => {
+  const copyToClipboard = async (key: string) => {
     await navigator.clipboard.writeText(key);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -167,7 +176,7 @@ function APIKeys() {
                         </p>
                         <div className="mt-2 flex items-center space-x-4">
                           <code className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-700">
-                            {key.key.substring(0, 16)}...{key.key.slice(-8)}
+                            {key.api_key.substring(0, 16)}...{key.api_key.slice(-8)}
                           </code>
                           <span className="text-xs text-gray-500">
                             Created: {new Date(key.created_at).toLocaleDateString()}
@@ -176,7 +185,7 @@ function APIKeys() {
                       </div>
                       <div className="ml-4 flex-shrink-0 space-x-2">
                         <button
-                          onClick={() => copyToClipboard(key.key)}
+                          onClick={() => copyToClipboard(key.api_key)}
                           className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
                         >
                           {copied ? (

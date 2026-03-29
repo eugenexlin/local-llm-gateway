@@ -5,6 +5,13 @@ import { User } from 'lucide-react';
 
 const VITE_DEV_TEST_LOGIN = import.meta.env.VITE_DEV_TEST_LOGIN === 'true';
 
+interface GoogleUser {
+  id: string;
+  name: string;
+  email: string;
+  oauthProvider: string;
+}
+
 function Login() {
   const [loading, setLoading] = useState(false);
   const { login, testLogin } = useAuth();
@@ -13,7 +20,7 @@ function Login() {
   const handleGoogleLogin = () => {
     setLoading(true);
     setTimeout(() => {
-      const googleUser = {
+      const googleUser: GoogleUser = {
         id: 'google-oauth-user-001',
         name: 'Google User',
         email: 'user@gmail.com',

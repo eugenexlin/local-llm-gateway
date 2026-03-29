@@ -1,15 +1,33 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { Key, Activity, Users, TrendingUp, LogOut, Menu, X, ChevronRight } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Key, Activity, TrendingUp, LogOut, ChevronRight } from 'lucide-react';
+
+interface Summary {
+  total_requests: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  avg_latency_ms: number;
+}
+
+interface AggregatedDataPoint {
+  group: string;
+  total_tokens: number;
+}
+
+interface Stat {
+  name: string;
+  value: string | number;
+  icon: React.ElementType;
+  color: string;
+}
 
 function Dashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [summary, setSummary] = useState(null);
-  const [aggregatedData, setAggregatedData] = useState([]);
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [aggregatedData, setAggregatedData] = useState<AggregatedDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -40,7 +58,7 @@ function Dashboard() {
     navigate('/login');
   };
 
-  const stats = [
+  const stats: Stat[] = [
     {
       name: 'Total Requests',
       value: summary?.total_requests || 0,
@@ -65,12 +83,6 @@ function Dashboard() {
       icon: Activity,
       color: 'bg-orange-500',
     },
-  ];
-
-  const menuItems = [
-    { name: 'Dashboard', path: '/', icon: Activity },
-    { name: 'API Keys', path: '/api-keys', icon: Key },
-    { name: 'Usage', path: '/usage', icon: Users },
   ];
 
   return (

@@ -5,7 +5,15 @@ import APIKeys from './pages/APIKeys';
 import Usage from './pages/Usage';
 import Login from './pages/Login';
 
-function PrivateRoute({ children }) {
+interface PrivateRouteProps {
+  children: React.ReactNode;
+}
+
+interface PublicRouteProps {
+  children: React.ReactNode;
+}
+
+function PrivateRoute({ children }: PrivateRouteProps) {
   const { user, loading } = useAuth();
   
   if (loading) {
@@ -19,7 +27,7 @@ function PrivateRoute({ children }) {
   return user ? children : <Navigate to="/login" replace />;
 }
 
-function PublicRoute({ children }) {
+function PublicRoute({ children }: PublicRouteProps) {
   const { user, loading } = useAuth();
   
   if (loading) {

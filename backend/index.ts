@@ -1,15 +1,15 @@
-const express = require('express');
-const cors = require('cors');
-require('dotenv').config();
+import express, { Application, NextFunction, Request, Response } from 'express';
+import cors from 'cors';
+import 'dotenv/config';
 
-const database = require('./database');
-const auth = require('./middleware/auth');
-const apiKeys = require('./routes/apiKeys');
-const metrics = require('./routes/metrics');
-const proxy = require('./routes/proxy');
-const config = require('./config');
+import * as database from './database';
+import { validateApiKey } from './middleware/auth';
+import apiKeys from './routes/apiKeys';
+import metrics from './routes/metrics';
+import proxy from './routes/proxy';
+import config from './config';
 
-const app = express();
+const app: Application = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
@@ -22,15 +22,15 @@ app.use(express.json());
 // Routes
 app.use('/api/api-keys', apiKeys);
 app.use('/api/stats', metrics);
-app.use('/v1', auth.validateApiKey, proxy);
+app.use('/v1', validateApiKey, proxy);
 
 // Health check
-app.get('/health', (req, res) => {
+app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok' });
 });
 
 // Error handling
-app.use((err, req, res, next) => {
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   console.error(err.stack);
   res.status(500).json({ error: 'Internal server error' });
 });

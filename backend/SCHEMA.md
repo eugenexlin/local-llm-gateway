@@ -1,6 +1,6 @@
 # Database Schema
 
-This document describes the database schema for the LLM Firewall. The database is stored in `backend/llm_firewall.db` using SQLite.
+This document describes the database schema for the LLM Firewall. The database is stored in `backend/local_llm_gateway.db` using SQLite.
 
 **Note:** If you need to reset the database, simply delete the `.db` file and restart the server. All tables will be recreated automatically.
 

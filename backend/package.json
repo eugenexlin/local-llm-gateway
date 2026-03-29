@@ -2,11 +2,12 @@
   "name": "llm-firewall-backend",
   "version": "1.0.0",
   "description": "Proxy server for local LLM with authentication and usage tracking",
-  "main": "index.js",
+  "main": "dist/index.js",
   "type": "commonjs",
   "scripts": {
-    "dev": "nodemon index.js",
-    "start": "node index.js"
+    "build": "tsc",
+    "dev": "bun --watch index.ts",
+    "start": "bun index.ts"
   },
   "keywords": [],
   "author": "",
@@ -19,6 +20,13 @@
     "uuid": "^9.0.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2"
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^25.5.0",
+    "@types/node-fetch": "^2.6.13",
+    "@types/sql.js": "^1.0.7",
+    "@types/uuid": "^11.0.0",
+    "typescript": "^6.0.2"
   }
 }

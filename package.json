@@ -3,12 +3,9 @@
   "version": "1.0.0",
   "description": "LLM Firewall Proxy - Backend and Frontend",
   "scripts": {
-    "dev": "concurrently -n backend,frontend -c blue,green \"cd backend && node index.js\" \"cd frontend && bun run dev\"",
-    "dev:backend": "cd backend && node index.js",
+    "dev": "bun run --parallel dev:backend dev:frontend",
+    "dev:backend": "cd backend && bun run dev",
     "dev:frontend": "cd frontend && bun run dev",
     "install:all": "cd backend && bun install && cd ../frontend && bun install"
-  },
-  "devDependencies": {
-    "concurrently": "^8.2.2"
   }
 }

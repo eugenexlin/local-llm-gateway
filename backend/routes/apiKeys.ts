@@ -1,12 +1,18 @@
-const express = require('express');
-const { v4: uuidv4 } = require('uuid');
-const database = require('../database');
-const { generateApiKey, hashApiKey } = require('../utils/hash');
+import express, { Request, Response } from 'express';
+import { v4 as uuidv4 } from 'uuid';
+import * as database from '../database';
+import { generateApiKey, hashApiKey } from '../utils/hash';
 
 const router = express.Router();
 
+interface CreateApiKeyBody {
+  name: string;
+  description?: string;
+  user_id?: string;
+}
+
 // Create API key
-router.post('/', (req, res) => {
+router.post('/', (req: Request<{}, {}, CreateApiKeyBody>, res: Response) => {
   try {
     const { name, description, user_id } = req.body;
     
@@ -21,8 +27,8 @@ router.post('/', (req, res) => {
     database.createApiKey({
       id,
       name,
+      key_hash: hashedKey,
       description: description || null,
-      api_key: hashedKey,
       user_id: user_id || null
     });
 
@@ -41,7 +47,7 @@ router.post('/', (req, res) => {
 });
 
 // List API keys
-router.get('/', (req, res) => {
+router.get('/', (_req: Request, res: Response) => {
   try {
     const apiKeys = database.getApiKeys();
     res.json(apiKeys.map(({ id, name, description, created_at, user_id }) => ({
@@ -58,7 +64,7 @@ router.get('/', (req, res) => {
 });
 
 // Revoke API key
-router.delete('/:id', (req, res) => {
+router.delete('/:id', (req: Request<{ id: string }>, res: Response) => {
   try {
     const { id } = req.params;
     const deleted = database.deleteApiKey(id);
@@ -75,7 +81,7 @@ router.delete('/:id', (req, res) => {
 });
 
 // Get API key stats
-router.get('/:id/stats', (req, res) => {
+router.get('/:id/stats', (req: Request<{ id: string }>, res: Response) => {
   try {
     const { id } = req.params;
     const stats = database.getApiKeyStats(id);
@@ -91,4 +97,4 @@ router.get('/:id/stats', (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

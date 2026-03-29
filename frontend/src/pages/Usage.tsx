@@ -1,11 +1,31 @@
 import { useState, useEffect } from 'react';
 import { Activity, Download, Filter } from 'lucide-react';
 
+interface UsageLog {
+  id: number;
+  api_key: string;
+  model: string;
+  endpoint: string;
+  method: string;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  total_tokens: number | null;
+  status_code: number;
+  latency_ms: number | null;
+  created_at: string;
+}
+
+interface Filters {
+  limit: number;
+  model: string;
+  apiKey: string;
+}
+
 function Usage() {
-  const [logs, setLogs] = useState([]);
-  const [filteredLogs, setFilteredLogs] = useState([]);
+  const [logs, setLogs] = useState<UsageLog[]>([]);
+  const [filteredLogs, setFilteredLogs] = useState<UsageLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({
+  const [filters, setFilters] = useState<Filters>({
     limit: 50,
     model: '',
     apiKey: '',

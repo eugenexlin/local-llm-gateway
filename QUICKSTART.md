@@ -34,7 +34,7 @@ Backend (`backend/.env`):
 ```env
 PORT=3000
 LLM_API_URL=http://localhost:8080/v1
-DATABASE_PATH=./llm_firewall.db
+DATABASE_PATH=./local_llm_gateway.db
 JWT_SECRET=your-secret-key-here
 GOOGLE_CLIENT_ID=your-client-id
 GOOGLE_CLIENT_SECRET=your-client-secret
