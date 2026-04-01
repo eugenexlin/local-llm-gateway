@@ -106,7 +106,7 @@ const DashboardStats: React.FC = () => {
   ];
 
   return (
-    <Box sx={{ p: 3 }}>
+    <>
       {loading && (
         <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -115,10 +115,6 @@ const DashboardStats: React.FC = () => {
 
       {!loading && (
         <>
-          <Typography variant="h4" gutterBottom>
-            LLM Gateway Dashboard
-          </Typography>
-
           <Box sx={{ mb: 2 }}>
             <Typography variant="h6" gutterBottom>
               Lifetime Metrics
@@ -212,7 +208,7 @@ const DashboardStats: React.FC = () => {
           />
         </>
       )}
-    </Box>
+    </>
   );
 };
 

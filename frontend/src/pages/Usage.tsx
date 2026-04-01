@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Activity, Download, Filter } from 'lucide-react';
+import MainLayout from '../components/MainLayout';
 
 interface UsageLog {
   id: number;
@@ -106,17 +107,8 @@ function Usage() {
   const uniqueAPIKeys = [...new Set(logs.map(log => log.api_key))];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-bold text-gray-900">LLM Firewall</h1>
-            </div>
-          </div>
-        </div>
-      </nav>
-
+    <MainLayout>
+    <div className="bg-gray-50">
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           <div className="mb-6 flex items-center justify-between">
@@ -279,8 +271,9 @@ function Usage() {
             </div>
           )}
         </div>
-      </main>
+       </main>
     </div>
+    </MainLayout>
   );
 }
 

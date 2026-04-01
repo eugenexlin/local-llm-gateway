@@ -1,6 +1,7 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { Key, Copy, Trash2, Plus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import MainLayout from '../components/MainLayout';
 
 interface ApiKey {
   id: string;
@@ -94,17 +95,8 @@ function APIKeys() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-bold text-gray-900">LLM Firewall</h1>
-            </div>
-          </div>
-        </div>
-      </nav>
-
+    <MainLayout>
+    <div className="bg-gray-50">
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           <div className="mb-6 flex items-center justify-between">
@@ -245,8 +237,9 @@ function APIKeys() {
             </div>
           )}
         </div>
-      </main>
+       </main>
     </div>
+    </MainLayout>
   );
 }
 

@@ -43,7 +43,7 @@ const TopNav: React.FC<{ onMenuClick: () => void }> = ({ onMenuClick }) => {
       left: 0,
       right: 0,
     }} id="top-navigation-appbar">
-      <Toolbar id="top-navigation-toolbar">
+      <Toolbar id="top-navigation-toolbar" sx={{ minHeight: 64 }}>
         <IconButton
           color="inherit"
           edge="start"
