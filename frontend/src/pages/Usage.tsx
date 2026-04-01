@@ -41,7 +41,7 @@ function Usage() {
 
   const fetchUsageLogs = async () => {
     try {
-      const response = await fetch('http://localhost:3000/stats/usage?limit=100');
+      const response = await fetch('http://localhost:3000/api/stats/usage?limit=100');
       if (response.ok) {
         const data = await response.json();
         setLogs(data);

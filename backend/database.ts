@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import config from './config';
 
-const DB_PATH = config.databasePath;
+const DB_PATH = path.join(__dirname, '../', config.databasePath);
 
 let db: any = null;
 let SQL: any = null;
@@ -55,6 +55,41 @@ export interface ApiKeyStats {
   total_input_tokens: number;
   total_output_tokens: number;
   avg_latency_ms: number;
+}
+
+export interface TrendsDataPoint {
+  date: string;
+  requests: number;
+  input_tokens: number;
+  output_tokens: number;
+}
+
+export interface LifetimeMetrics {
+  total_tokens: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  tokens_per_sec: number;
+  request_count: number;
+}
+
+export interface RangeMetrics {
+  total_tokens: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  tokens_per_sec: number;
+  request_count: number;
+  duration_seconds: number;
+}
+
+export interface ProgressiveDataPoint {
+  timestamp: string;
+  value: number;
+}
+
+export interface Granularity {
+  startDate: string;
+  endDate: string;
+  granularity: 'hourly' | 'daily' | 'weekly' | 'monthly';
 }
 
 export async function init(): Promise<void> {
@@ -341,6 +376,211 @@ export function getApiKeyStats(apiKeyId: string): ApiKeyStats | null {
   };
 }
 
+export function getUsageTrends(startDate: string, endDate: string): TrendsDataPoint[] {
+  const result = db!.exec(`
+    SELECT 
+      DATE(timestamp) as date,
+      COUNT(*) as requests,
+      SUM(request_tokens) as input_tokens,
+      SUM(response_tokens) as output_tokens
+    FROM usage_logs 
+    WHERE timestamp >= ? AND timestamp <= ?
+    GROUP BY DATE(timestamp)
+    ORDER BY date ASC
+  `, [startDate, endDate]);
+  
+  if (result.length === 0 || result[0].values.length === 0) {
+    return [];
+  }
+  
+  const columns = result[0].columns as string[];
+  const values = result[0].values as (string | number | null)[][];
+  
+  return values.map(row => {
+    const obj: any = {};
+    columns.forEach((col, i) => {
+      obj[col] = row[i];
+    });
+    return {
+      date: obj.date,
+      requests: typeof obj.requests === 'number' ? obj.requests : 0,
+      input_tokens: typeof obj.input_tokens === 'number' ? obj.input_tokens : 0,
+      output_tokens: typeof obj.output_tokens === 'number' ? obj.output_tokens : 0
+    };
+  });
+}
+
+export function getLifetimeMetrics(): LifetimeMetrics {
+  const result = db!.exec(`
+    SELECT 
+      COUNT(*) as request_count,
+      SUM(request_tokens) as total_input_tokens,
+      SUM(response_tokens) as total_output_tokens,
+      MIN(timestamp) as first_request,
+      MAX(timestamp) as last_request
+    FROM usage_logs
+  `);
+  
+  if (result.length === 0 || result[0].values.length === 0) {
+    return {
+      total_tokens: 0,
+      total_input_tokens: 0,
+      total_output_tokens: 0,
+      tokens_per_sec: 0,
+      request_count: 0
+    };
+  }
+  
+  const row = result[0].values[0] as (string | number | null)[];
+  const requestCount: number = Number(row[0] || 0);
+  const totalInputTokens: number = Number(row[1] || 0);
+  const totalOutputTokens: number = Number(row[2] || 0);
+  const firstRequest: string | null = row[3]?.toString() || null;
+  const lastRequest: string | null = row[4]?.toString() || null;
+  
+  let tokensPerSec = 0;
+  if (firstRequest && lastRequest) {
+    const firstDate = new Date(firstRequest);
+    const lastDate = new Date(lastRequest);
+    const durationSecs = (lastDate.getTime() - firstDate.getTime()) / 1000;
+    if (durationSecs > 0) {
+      tokensPerSec = (totalInputTokens + totalOutputTokens) / durationSecs;
+    }
+  }
+  
+  return {
+    total_tokens: totalInputTokens + totalOutputTokens,
+    total_input_tokens: totalInputTokens,
+    total_output_tokens: totalOutputTokens,
+    tokens_per_sec: Math.round(tokensPerSec * 100) / 100,
+    request_count: requestCount
+  };
+}
+
+export function getRangeMetrics(startDate: string, endDate: string): RangeMetrics {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const durationSeconds = (end.getTime() - start.getTime()) / 1000 + 1;
+  
+  const result = db!.exec(`
+    SELECT 
+      COUNT(*) as request_count,
+      SUM(request_tokens) as total_input_tokens,
+      SUM(response_tokens) as total_output_tokens
+    FROM usage_logs 
+    WHERE timestamp >= ? AND timestamp <= ?
+  `, [startDate, endDate]);
+  
+  if (result.length === 0 || result[0].values.length === 0) {
+    return {
+      total_tokens: 0,
+      total_input_tokens: 0,
+      total_output_tokens: 0,
+      tokens_per_sec: 0,
+      request_count: 0,
+      duration_seconds: durationSeconds
+    };
+  }
+  
+  const row = result[0].values[0] as (string | number | null)[];
+  const requestCount: number = Number(row[0] || 0);
+  const totalInputTokens: number = Number(row[1] || 0);
+  const totalOutputTokens: number = Number(row[2] || 0);
+  const totalTokens = totalInputTokens + totalOutputTokens;
+  
+  const tokensPerSec = durationSeconds > 0 ? totalTokens / durationSeconds : 0;
+  
+  return {
+    total_tokens: totalTokens,
+    total_input_tokens: totalInputTokens,
+    total_output_tokens: totalOutputTokens,
+    tokens_per_sec: Math.round(tokensPerSec * 100) / 100,
+    request_count: requestCount,
+    duration_seconds: durationSeconds
+  };
+}
+
+export function getProgressiveData(
+  startDate: string, 
+  endDate: string, 
+  granularity: 'hourly' | 'daily' | 'weekly' | 'monthly',
+  metric: 'total_tokens' | 'input_tokens' | 'output_tokens' | 'requests' | 'tokens_per_sec'
+): Promise<ProgressiveDataPoint[]> {
+  return new Promise((resolve) => {
+    let groupByClause: string;
+    switch (granularity) {
+      case 'hourly':
+        groupByClause = 'strftime("%Y-%m-%d %H:00:00", timestamp)';
+        break;
+      case 'daily':
+        groupByClause = 'DATE(timestamp)';
+        break;
+      case 'weekly':
+        groupByClause = 'strftime("%Y-%W", timestamp)';
+        break;
+      case 'monthly':
+        groupByClause = 'strftime("%Y-%m", timestamp)';
+        break;
+    }
+    
+    let selectClause: string;
+    switch (metric) {
+      case 'total_tokens':
+        selectClause = 'SUM(request_tokens + response_tokens) as value';
+        break;
+      case 'input_tokens':
+        selectClause = 'SUM(request_tokens) as value';
+        break;
+      case 'output_tokens':
+        selectClause = 'SUM(response_tokens) as value';
+        break;
+      case 'requests':
+        selectClause = 'COUNT(*) as value';
+        break;
+      case 'tokens_per_sec':
+        selectClause = `
+          ROUND(
+            SUM(request_tokens + response_tokens) * 1.0 / 
+            MAX(strftime("%s", timestamp)) - MIN(strftime("%s", timestamp)) + 1,
+            2
+          ) as value
+        `;
+        break;
+    }
+    
+    const query = `
+      SELECT ${groupByClause} as timestamp, ${selectClause}
+      FROM usage_logs 
+      WHERE timestamp >= ? AND timestamp <= ?
+      GROUP BY ${groupByClause}
+      ORDER BY timestamp ASC
+    `;
+    
+    const result = db!.exec(query, [startDate, endDate]);
+    
+    if (result.length === 0 || result[0].values.length === 0) {
+      resolve([]);
+      return;
+    }
+    
+    const columns = result[0].columns as string[];
+    const values = result[0].values as (string | number | null)[][];
+    
+    const dataPoints: ProgressiveDataPoint[] = values.map(row => {
+      const obj: any = {};
+      columns.forEach((col, i) => {
+        obj[col] = row[i];
+      });
+      return {
+        timestamp: obj.timestamp,
+        value: typeof obj.value === 'number' ? obj.value : 0
+      };
+    });
+    
+    resolve(dataPoints);
+  });
+}
+
 export default {
   init,
   isReady,
@@ -354,5 +594,9 @@ export default {
   getUsageLogs,
   getAggregatedUsage,
   getUsageSummary,
-  getApiKeyStats
+  getApiKeyStats,
+  getUsageTrends,
+  getLifetimeMetrics,
+  getRangeMetrics,
+  getProgressiveData
 };

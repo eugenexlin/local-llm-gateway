@@ -41,6 +41,20 @@ function PublicRoute({ children }: PublicRouteProps) {
   return user ? <Navigate to="/" replace /> : children;
 }
 
+function RootRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+  
+  return children;
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -51,11 +65,7 @@ function App() {
               <Login />
             </PublicRoute>
           } />
-          <Route path="/" element={
-            <PrivateRoute>
-              <Dashboard />
-            </PrivateRoute>
-          } />
+          <Route path="/" element={<RootRoute><Dashboard /></RootRoute>} />
           <Route path="/api-keys" element={
             <PrivateRoute>
               <APIKeys />

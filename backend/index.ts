@@ -14,14 +14,14 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: 'http://localhost:5173',
   credentials: true
 }));
 app.use(express.json());
 
 // Routes
 app.use('/api/api-keys', apiKeys);
-app.use('/api/stats', metrics);
+app.use('/api/metrics', metrics);
 app.use('/v1', validateApiKey, proxy);
 
 // Health check

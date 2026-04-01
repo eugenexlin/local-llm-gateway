@@ -54,4 +54,86 @@ router.get('/usage/summary', (_req: Request, res: Response) => {
   }
 });
 
+// Get usage trends
+router.get('/trends', (req: Request, res: Response) => {
+  try {
+    const start = req.query.start as string | undefined;
+    const end = req.query.end as string | undefined;
+    
+    if (!start || !end) {
+      return res.status(400).json({ error: 'start and end dates required' });
+    }
+    
+    const trends = database.getUsageTrends(start, end);
+    res.json(trends);
+  } catch (error) {
+    console.error('Error getting usage trends:', error);
+    res.status(500).json({ error: 'Failed to get usage trends' });
+  }
+});
+
+// Get lifetime metrics
+router.get('/lifetime', (_req: Request, res: Response) => {
+  try {
+    const metrics = database.getLifetimeMetrics();
+    res.json(metrics);
+  } catch (error) {
+    console.error('Error getting lifetime metrics:', error);
+    res.status(500).json({ error: 'Failed to get lifetime metrics' });
+  }
+});
+
+// Get range metrics
+router.get('/range', (req: Request, res: Response) => {
+  try {
+    const start = req.query.start as string | undefined;
+    const end = req.query.end as string | undefined;
+    
+    if (!start || !end) {
+      return res.status(400).json({ error: 'start and end dates required' });
+    }
+    
+    const metrics = database.getRangeMetrics(start, end);
+    res.json(metrics);
+  } catch (error) {
+    console.error('Error getting range metrics:', error);
+    res.status(500).json({ error: 'Failed to get range metrics' });
+  }
+});
+
+// Get progressive data for graph
+router.get('/progressive', async (req: Request, res: Response) => {
+  try {
+    const start = req.query.start as string | undefined;
+    const end = req.query.end as string | undefined;
+    const granularity = req.query.granularity as 'hourly' | 'daily' | 'weekly' | 'monthly' | undefined;
+    const metric = req.query.metric as 'total_tokens' | 'input_tokens' | 'output_tokens' | 'requests' | 'tokens_per_sec' | undefined;
+    
+    if (!start || !end) {
+      return res.status(400).json({ error: 'start and end dates required' });
+    }
+    
+    if (!granularity || !['hourly', 'daily', 'weekly', 'monthly'].includes(granularity)) {
+      return res.status(400).json({ error: 'valid granularity required' });
+    }
+    
+    if (!metric || !['total_tokens', 'input_tokens', 'output_tokens', 'requests', 'tokens_per_sec'].includes(metric)) {
+      return res.status(400).json({ error: 'valid metric required' });
+    }
+    
+    const dataPoints = await database.getProgressiveData(start, end, granularity, metric);
+    
+    res.setHeader('Content-Type', 'application/json');
+    res.json(dataPoints);
+  } catch (error) {
+    console.error('Error getting progressive data:', error);
+    res.status(500).json({ error: 'Failed to get progressive data' });
+  }
+});
+
+// Catch-all to prevent returning HTML
+router.use((req: Request, res: Response) => {
+  res.status(404).json({ error: 'Endpoint not found' });
+});
+
 export default router;
