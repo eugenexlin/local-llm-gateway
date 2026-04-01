@@ -81,7 +81,7 @@ const DashboardStats: React.FC = () => {
 
       <Box sx={{ mb: 2 }}>
         <Typography variant="h6" gutterBottom>
-          Filters
+          Time Range
         </Typography>
       </Box>
 
@@ -95,19 +95,13 @@ const DashboardStats: React.FC = () => {
       />
 
       <MetricsSection
-        title="Selected Range Metrics"
+        title="Time Range Metrics"
         total_tokens={rangeMetrics?.total_tokens}
         total_input_tokens={rangeMetrics?.total_input_tokens}
         total_output_tokens={rangeMetrics?.total_output_tokens}
         tokens_per_sec={rangeMetrics?.tokens_per_sec}
         request_count={rangeMetrics?.request_count}
       />
-
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="h6" gutterBottom>
-          Tokens Over Time
-        </Typography>
-      </Box>
 
       <ProgressiveGraph
         startDate={startDate}

@@ -19,8 +19,8 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  ReferenceLine
 } from 'recharts';
+import { metricLabels } from '../utils/metricsLabels';
 
 interface ProgressiveGraphProps {
   startDate: Date | null;
@@ -28,14 +28,6 @@ interface ProgressiveGraphProps {
   granularity: 'hourly' | 'daily' | 'weekly' | 'monthly';
   metric: 'total_tokens' | 'input_tokens' | 'output_tokens' | 'requests' | 'tokens_per_sec';
 }
-
-const metricLabels: Record<string, string> = {
-  total_tokens: 'Total Tokens',
-  input_tokens: 'Input Tokens',
-  output_tokens: 'Output Tokens',
-  requests: 'Requests',
-  tokens_per_sec: 'Tokens/Sec'
-};
 
 const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
   startDate,
@@ -125,10 +117,6 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
 
   return (
     <Paper sx={{ p: 2 }}>
-      <Typography variant="h6" gutterBottom>
-        Tokens Over Time
-      </Typography>
-
       <Box sx={{ mb: 2 }}>
         <FormControl sx={{ minWidth: 200 }}>
           <InputLabel>Metric</InputLabel>

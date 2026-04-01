@@ -37,107 +37,41 @@ const MetricsSection: React.FC<MetricsSectionProps> = ({
   tokens_per_sec,
   request_count,
 }) => {
+  const cards = [
+    { key: "total_tokens" as const, value: total_tokens, color: colors[0] },
+    { key: "total_input_tokens" as const, value: total_input_tokens, color: colors[1] },
+    { key: "total_output_tokens" as const, value: total_output_tokens, color: colors[2] },
+    { key: "tokens_per_sec" as const, value: tokens_per_sec, color: colors[3] },
+    { key: "request_count" as const, value: request_count, color: colors[4] },
+  ];
+
   return (
     <Box sx={{ mb: 3 }}>
       <Typography variant="h6" gutterBottom>
         {title}
       </Typography>
       <Grid container spacing={2}>
-        <Grid
-          item
-          sx={{
-            mb: 1,
-            gridColumn: {
-              xs: "span 12",
-              sm: "span 6",
-              md: "span 4",
-              lg: "span 2.4",
-            },
-            minWidth: 0,
-          }}
-        >
-          <MetricCard
-            title="Total Tokens"
-            titleColor={colors[0]}
-            value={formatValue(total_tokens)}
-          />
-        </Grid>
-        <Grid
-          item
-          sx={{
-            mb: 1,
-            gridColumn: {
-              xs: "span 12",
-              sm: "span 6",
-              md: "span 4",
-              lg: "span 2.4",
-            },
-            minWidth: 0,
-          }}
-        >
-          <MetricCard
-            title="Total Input"
-            titleColor={colors[1]}
-            value={formatValue(total_input_tokens)}
-          />
-        </Grid>
-        <Grid
-          item
-          sx={{
-            mb: 1,
-            gridColumn: {
-              xs: "span 12",
-              sm: "span 6",
-              md: "span 4",
-              lg: "span 2.4",
-            },
-            minWidth: 0,
-          }}
-        >
-          <MetricCard
-            title="Total Output"
-            titleColor={colors[2]}
-            value={formatValue(total_output_tokens)}
-          />
-        </Grid>
-        <Grid
-          item
-          sx={{
-            mb: 1,
-            gridColumn: {
-              xs: "span 12",
-              sm: "span 6",
-              md: "span 4",
-              lg: "span 2.4",
-            },
-            minWidth: 0,
-          }}
-        >
-          <MetricCard
-            title="Tokens/Sec"
-            titleColor={colors[3]}
-            value={formatValue(tokens_per_sec)}
-          />
-        </Grid>
-        <Grid
-          item
-          sx={{
-            mb: 1,
-            gridColumn: {
-              xs: "span 12",
-              sm: "span 6",
-              md: "span 4",
-              lg: "span 2.4",
-            },
-            minWidth: 0,
-          }}
-        >
-          <MetricCard
-            title="Request Count"
-            titleColor={colors[4]}
-            value={formatValue(request_count)}
-          />
-        </Grid>
+        {cards.map((card) => (
+          <Grid
+            key={card.key}
+            sx={{
+              mb: 1,
+              gridColumn: {
+                xs: "span 12",
+                sm: "span 6",
+                md: "span 4",
+                lg: "span 2.4",
+              },
+              minWidth: 0,
+            }}
+          >
+            <MetricCard
+              metricKey={card.key}
+              titleColor={card.color}
+              value={formatValue(card.value)}
+            />
+          </Grid>
+        ))}
       </Grid>
     </Box>
   );

@@ -2,6 +2,14 @@ import { useState, useEffect, FormEvent } from 'react';
 import { Key, Copy, Trash2, Plus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import MainLayout from '../components/MainLayout';
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  TextField,
+} from '@mui/material';
 
 interface ApiKey {
   id: string;
@@ -18,6 +26,7 @@ function APIKeys() {
   const [newKeyName, setNewKeyName] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showCreatedKeyDialog, setShowCreatedKeyDialog] = useState(false);
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -61,7 +70,7 @@ function APIKeys() {
         setApiKeys([data, ...apiKeys]);
         setNewKeyName('');
         setShowForm(false);
-        setCreatedKey(data.key);
+        setShowCreatedKeyDialog(true);
       }
     } catch (error) {
       console.error('Failed to create API key:', error);
@@ -91,7 +100,7 @@ function APIKeys() {
   };
 
   const handleCloseCreatedKey = () => {
-    setCreatedKey(null);
+    setShowCreatedKeyDialog(false);
   };
 
   return (
@@ -107,42 +116,42 @@ function APIKeys() {
               </p>
             </div>
             <button
-              onClick={() => setShowForm(!showForm)}
+              onClick={() => setShowForm(true)}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
             >
               <Plus className="h-4 w-4 mr-2" />
-              {showForm ? 'Cancel' : 'Create Key'}
+              Create Key
             </button>
           </div>
 
-          {showForm && (
-            <div className="bg-white shadow rounded-lg p-6 mb-6">
-              <form onSubmit={handleCreateKey}>
-                <div>
-                  <label htmlFor="keyName" className="block text-sm font-medium text-gray-700 mb-1">
-                    Key Name
-                  </label>
-                  <input
-                    type="text"
-                    id="keyName"
-                    value={newKeyName}
-                    onChange={(e) => setNewKeyName(e.target.value)}
-                    placeholder="e.g., Production Key"
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md px-3 py-2 border"
-                    required
-                  />
-                </div>
-                <div className="mt-4 flex justify-end">
-                  <button
-                    type="submit"
-                    className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-                  >
-                    Create API Key
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
+          <Dialog open={showForm} onClose={() => setShowForm(false)} maxWidth="sm" fullWidth>
+            <form onSubmit={handleCreateKey}>
+              <DialogTitle>Create New API Key</DialogTitle>
+              <DialogContent>
+                <TextField
+                  autoFocus
+                  margin="dense"
+                  id="keyName"
+                  label="Key Name"
+                  type="text"
+                  fullWidth
+                  variant="outlined"
+                  value={newKeyName}
+                  onChange={(e) => setNewKeyName(e.target.value)}
+                  placeholder="e.g., Production Key"
+                  required
+                />
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setShowForm(false)} color="primary">
+                  Cancel
+                </Button>
+                <Button type="submit" color="primary" variant="contained">
+                  Create API Key
+                </Button>
+              </DialogActions>
+            </form>
+          </Dialog>
 
           {loading ? (
             <div className="flex items-center justify-center py-12">
@@ -204,38 +213,32 @@ function APIKeys() {
             </div>
           )}
 
-          {createdKey && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Your API Key
-                </h3>
-                <p className="text-sm text-gray-600 mb-2">
-                  Copy this key now. You won't be able to see it again.
-                </p>
-                <code className="block bg-gray-100 p-3 rounded-md text-sm break-all mb-4">
-                  {createdKey}
-                </code>
-                <div className="flex justify-end space-x-3">
-                  <button
-                    onClick={handleCloseCreatedKey}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-                  >
-                    Dismiss
-                  </button>
-                  <button
-                    onClick={() => {
-                      copyToClipboard(createdKey);
-                      handleCloseCreatedKey();
-                    }}
-                    className="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700"
-                  >
-                    {copied ? 'Copied!' : 'Copy Key'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+                   <Dialog open={showCreatedKeyDialog} onClose={handleCloseCreatedKey} maxWidth="sm" fullWidth>
+            <DialogTitle>Your API Key</DialogTitle>
+            <DialogContent>
+              <p className="text-sm text-gray-600 mb-2">
+                Copy this key now. You won't be able to see it again.
+              </p>
+              <code className="block bg-gray-100 p-3 rounded-md text-sm break-all mb-4">
+                {createdKey}
+              </code>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={handleCloseCreatedKey} color="primary">
+                Dismiss
+              </Button>
+              <Button
+                onClick={() => {
+                  copyToClipboard(createdKey!);
+                  handleCloseCreatedKey();
+                }}
+                color="primary"
+                variant="contained"
+              >
+                {copied ? 'Copied!' : 'Copy Key'}
+              </Button>
+            </DialogActions>
+          </Dialog>
         </div>
        </main>
     </div>
