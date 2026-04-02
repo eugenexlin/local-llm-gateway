@@ -7,10 +7,12 @@ import { ExtendedRequest } from '../middleware/auth';
 
 const router = express.Router();
 
-interface ProxyResult {
-  status: number;
-  response: any;
-  duration: number;
+interface StreamMetrics {
+  chunks: Buffer[];
+  statusCode: number | null;
+  headers: any;
+  startTime: number;
+  error: string | null;
 }
 
 // Proxy any request starting with /v1/
@@ -49,40 +51,31 @@ router.all('/*', (req: ExtendedRequest, res: Response, next: (err?: any) => void
     timestamp: new Date().toISOString()
   });
 
-  // Proxy request
-  proxyRequest(fullUrl, body, req.apiKeyId!, requestId, req.method, (result: ProxyResult) => {
-    console.log('\n=== PROXY RESPONSE ===');
-    console.log('Status:', result.status);
-    console.log('Duration:', result.duration, 'ms');
-    console.log('Response:', JSON.stringify(result.response));
-    console.log('====================\n');
-    // Log response
-    database.logResponse({
-      request_id: requestId,
-      response_body: result.response,
-      status_code: result.status,
-      response_time_ms: result.duration
-    });
-
-    // Update API key stats
-    database.incrementApiKeyStats(req.apiKeyId!);
-
-    res.status(result.status).json(result.response);
-  });
+  // Proxy request with streaming
+  proxyRequestStreaming(fullUrl, body, req.apiKeyId!, requestId, req.method, res, req.headers);
 });
 
-function proxyRequest(
+function proxyRequestStreaming(
   fullUrl: string,
   body: any,
   apiKeyId: string,
   requestId: string,
   method: string,
-  callback: (result: ProxyResult) => void
+  res: Response,
+  reqHeaders: any
 ): void {
-  const startTime: number = Date.now();
+  const metrics: StreamMetrics = {
+    chunks: [],
+    statusCode: null,
+    headers: null,
+    startTime: Date.now(),
+    error: null
+  };
+
   const url = new URL(fullUrl);
-  
   const protocol = url.protocol === 'https:' ? https : http;
+  
+  const contentType = (reqHeaders['content-type'] as string) || 'application/json';
   
   const options: http.RequestOptions = {
     hostname: url.hostname,
@@ -90,47 +83,80 @@ function proxyRequest(
     path: url.pathname + url.search,
     method: method,
     headers: {
-      'Content-Type': 'application/json',
+      'Content-Type': contentType,
       'User-Agent': 'LLM-Firewall-Proxy/1.0'
     }
   };
+  
+  const upstreamReq = protocol.request(options, (response: http.IncomingMessage) => {
+    metrics.statusCode = response.statusCode ?? null;
+    metrics.headers = response.headers;
 
-  const req = protocol.request(options, (res: http.IncomingMessage) => {
-    let data = '';
-    
-    res.on('data', (chunk: Buffer) => {
-      data += chunk;
+    // Pipe response directly to client for streaming
+    response.pipe(res);
+
+    // Collect chunks for metrics
+    response.on('data', (chunk: Buffer) => {
+      metrics.chunks.push(chunk);
     });
-    
-    res.on('end', () => {
-      const duration: number = Date.now() - startTime;
+
+    response.on('end', async () => {
+      const duration = Date.now() - metrics.startTime;
       
-      let response: any;
+      // Combine all chunks
+      const buffer = Buffer.concat(metrics.chunks);
+      const data = buffer.toString('utf-8');
+      
+      let responseBody: any;
       try {
-        response = JSON.parse(data);
+        responseBody = JSON.parse(data);
       } catch (e) {
-        response = { raw: data };
+        responseBody = { raw: data };
       }
 
-      callback({
-        status: res.statusCode as number,
-        response,
-        duration
-      });
+      // Log response asynchronously (non-blocking)
+      try {
+        database.logResponse({
+          request_id: requestId,
+          response_body: responseBody,
+          status_code: metrics.statusCode as number,
+          response_time_ms: duration
+        });
+
+        // Update API key stats
+        database.incrementApiKeyStats(apiKeyId);
+      } catch (logError) {
+        console.error('Error logging response:', logError);
+      }
+
+      console.log('\n=== PROXY RESPONSE ===');
+      console.log('Status:', metrics.statusCode);
+      console.log('Duration:', duration, 'ms');
+      console.log('====================\n');
     });
   });
 
-  req.on('error', (error: Error) => {
-    const duration: number = Date.now() - startTime;
-    callback({
-      status: 500,
-      response: { error: error.message },
-      duration
+  upstreamReq.on('error', (error: Error) => {
+    metrics.error = error.message;
+    const duration = Date.now() - metrics.startTime;
+    
+    console.error('Proxy error:', error);
+    
+    if (!res.headersSent) {
+      res.status(500).json({ error: error.message });
+    }
+
+    // Log error asynchronously
+    database.logResponse({
+      request_id: requestId,
+      response_body: { error: error.message },
+      status_code: 500,
+      response_time_ms: duration
     });
   });
 
-  req.write(JSON.stringify(body));
-  req.end();
+  upstreamReq.write(JSON.stringify(body));
+  upstreamReq.end();
 }
 
 export default router;
