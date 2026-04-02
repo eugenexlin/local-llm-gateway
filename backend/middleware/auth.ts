@@ -17,33 +17,39 @@ function validateApiKey(req: ExtendedRequest, res: Response, next: NextFunction)
     return;
   }
 
-  const apiKey = req.headers['x-api-key'];
+  // Check X-API-Key header first
+  const xApiKey = req.headers['x-api-key'];
+  if (xApiKey && typeof xApiKey === 'string') {
+    const keyHash = hashKey(xApiKey);
+    const keyData = database.validateApiKey(keyHash);
 
-  if (!apiKey) {
-    res.status(401).json({
-      error: 'API key required',
-      message: 'Please provide an API key in the x-api-key header'
-    });
-    return;
+    if (keyData) {
+      req.apiKeyId = keyData.id;
+      req.apiKeyHash = keyHash;
+      req.keyData = keyData;
+      return next();
+    }
   }
 
-  const keyHash = hashKey(apiKey as string);
+  // Check Authorization header with Bearer token
+  const authHeader = req.headers.authorization;
+  if (authHeader && typeof authHeader === 'string' && authHeader.toLowerCase().startsWith('bearer ')) {
+    const bearerKey = authHeader.substring(7);
+    const keyHash = hashKey(bearerKey);
+    const keyData = database.validateApiKey(keyHash);
 
-  const keyData = database.validateApiKey(keyHash);
-
-  if (!keyData) {
-    res.status(401).json({
-      error: 'Invalid API key',
-      message: 'The provided API key is not valid'
-    });
-    return;
+    if (keyData) {
+      req.apiKeyId = keyData.id;
+      req.apiKeyHash = keyHash;
+      req.keyData = keyData;
+      return next();
+    }
   }
 
-  req.apiKeyId = keyData.id;
-  req.apiKeyHash = keyHash;
-  req.keyData = keyData;
-
-  next();
+  res.status(401).json({
+    error: 'API key required',
+    message: 'Please provide an API key using either: Authorization: Bearer <key> or X-API-Key: <key>'
+  });
 }
 
 export { validateApiKey };

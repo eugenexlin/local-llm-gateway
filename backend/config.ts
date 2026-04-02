@@ -7,7 +7,11 @@ interface Config {
   secretKey: string;
   jwtExpiryHours: number;
   apiKeyName: string;
+  googleClientId: string;
+  googleClientSecret: string;
+  googleCallbackUrl: string;
 }
+
 
 const config: Config = {
   port: parseInt(process.env.PORT || '3000', 10),
@@ -15,7 +19,10 @@ const config: Config = {
   databasePath: process.env.DATABASE_PATH || './local_llm_gateway.db',
   secretKey: process.env.SECRET_KEY || 'dev-secret-key-change-in-production',
   jwtExpiryHours: parseInt(process.env.JWT_EXPIRY_HOURS || '24', 10),
-  apiKeyName: process.env.API_KEY_HEADER || 'x-api-key'
+  apiKeyName: process.env.API_KEY_HEADER || 'x-api-key',
+  googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+  googleCallbackUrl: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/auth/google/callback',
 };
 
 export default config;

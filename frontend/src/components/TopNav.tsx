@@ -5,7 +5,6 @@ import { AppBar, Toolbar, Typography, IconButton, Menu, MenuItem, Avatar } from 
 import MenuIcon from '@mui/icons-material/Menu';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import KeyIcon from '@mui/icons-material/Key';
-import BarChartIcon from '@mui/icons-material/BarChart';
 import LogoutIcon from '@mui/icons-material/Logout';
 
 const TopNav: React.FC<{ onMenuClick: () => void }> = ({ onMenuClick }) => {
@@ -98,13 +97,6 @@ const TopNav: React.FC<{ onMenuClick: () => void }> = ({ onMenuClick }) => {
           >
             <KeyIcon />
           </IconButton>
-          <IconButton
-            color={isActive('/usage') ? 'primary' : 'inherit'}
-            onClick={() => navigateTo('/usage')}
-            sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
-          >
-            <BarChartIcon />
-          </IconButton>
 
           <IconButton
             color="inherit"
@@ -133,10 +125,6 @@ const TopNav: React.FC<{ onMenuClick: () => void }> = ({ onMenuClick }) => {
             <MenuItem onClick={() => navigateTo('/api-keys')}>
               <KeyIcon fontSize="small" sx={{ mr: 1 }} />
               API Keys
-            </MenuItem>
-            <MenuItem onClick={() => navigateTo('/usage')}>
-              <BarChartIcon fontSize="small" sx={{ mr: 1 }} />
-              Usage
             </MenuItem>
             <MenuItem onClick={handleLogout}>
               <LogoutIcon fontSize="small" sx={{ mr: 1 }} />

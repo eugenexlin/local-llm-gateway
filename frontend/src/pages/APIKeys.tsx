@@ -40,10 +40,13 @@ function APIKeys() {
     if (!user?.id) return;
     
     try {
-      const response = await fetch(`http://localhost:3000/api-keys?user_id=${user.id}`);
+      const response = await fetch(`http://localhost:3000/api/api-keys?user_id=${user.id}`);
       if (response.ok) {
         const data = await response.json();
-        setApiKeys(data);
+        setApiKeys(data.map((key: ApiKey) => ({
+          ...key,
+          api_key: null
+        })));
       }
     } catch (error) {
       console.error('Failed to fetch API keys:', error);
@@ -57,7 +60,7 @@ function APIKeys() {
     if (!newKeyName.trim() || !user?.id) return;
 
     try {
-      const response = await fetch('http://localhost:3000/api-keys', {
+      const response = await fetch('http://localhost:3000/api/api-keys', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -81,7 +84,7 @@ function APIKeys() {
     if (!confirm('Are you sure you want to revoke this API key?')) return;
 
     try {
-      const response = await fetch(`http://localhost:3000/api-keys/${keyId}?user_id=${user?.id}`, {
+      const response = await fetch(`http://localhost:3000/api/api-keys/${keyId}?user_id=${user?.id}`, {
         method: 'DELETE',
       });
 
@@ -177,7 +180,7 @@ function APIKeys() {
                         </p>
                         <div className="mt-2 flex items-center space-x-4">
                           <code className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-700">
-                            {key.api_key.substring(0, 16)}...{key.api_key.slice(-8)}
+                            {key.api_key ? `${key.api_key.substring(0, 16)}...${key.api_key.slice(-8)}` : '••••••••••••••••'}
                           </code>
                           <span className="text-xs text-gray-500">
                             Created: {new Date(key.created_at).toLocaleDateString()}
@@ -186,8 +189,9 @@ function APIKeys() {
                       </div>
                       <div className="ml-4 flex-shrink-0 space-x-2">
                         <button
-                          onClick={() => copyToClipboard(key.api_key)}
-                          className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
+                          onClick={() => key.api_key && copyToClipboard(key.api_key)}
+                          disabled={!key.api_key}
+                          className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {copied ? (
                             <span className="text-green-600">Copied!</span>

@@ -46,9 +46,17 @@ router.post("/", (req: Request<{}, {}, CreateApiKeyBody>, res: Response) => {
 });
 
 // List API keys
-router.get("/", (_req: Request, res: Response) => {
+router.get("/", (req: Request, res: Response) => {
   try {
-    const apiKeys = database.getApiKeys();
+    const { user_id } = req.query;
+    let apiKeys: any[];
+    
+    if (user_id) {
+      apiKeys = database.getApiKeysByUserId(user_id as string);
+    } else {
+      apiKeys = database.getApiKeys();
+    }
+    
     res.json(
       apiKeys.map(({ id, name, description, created_at, user_id }) => ({
         id,

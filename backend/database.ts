@@ -21,6 +21,15 @@ export interface ApiKey {
   last_used_at?: string;
 }
 
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  oauth_id: string | null;
+  oauth_provider: string | null;
+  created_at: string;
+}
+
 export interface UsageLog {
   id: string;
   request_id: string;
@@ -116,6 +125,17 @@ export function isReady(): boolean {
 
 function createSchema(): void {
   db!.run(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      name TEXT,
+      oauth_id TEXT,
+      oauth_provider TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  db!.run(`
     CREATE TABLE IF NOT EXISTS api_keys (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -145,6 +165,7 @@ function createSchema(): void {
     )
   `);
 
+  db!.run(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
   db!.run(`CREATE INDEX IF NOT EXISTS idx_api_key_hash ON api_keys(key_hash)`);
   db!.run(`CREATE INDEX IF NOT EXISTS idx_api_key_id ON usage_logs(api_key_id)`);
   db!.run(`CREATE INDEX IF NOT EXISTS idx_usage_timestamp ON usage_logs(timestamp)`);
@@ -192,10 +213,122 @@ export function getApiKeys(): Array<{
   });
 }
 
+export function getApiKeysByUserId(userId: string): Array<{
+  id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  user_id: string | null;
+}> {
+  const result = db!.exec('SELECT id, name, description, created_at, user_id FROM api_keys WHERE is_active = 1 AND user_id = ? ORDER BY created_at DESC', [userId]);
+  if (result.length === 0) return [];
+  
+  const columns = result[0].columns as string[];
+  const values = result[0].values as (string | number | null)[][];
+  
+  return values.map(row => {
+    const obj: any = {};
+    columns.forEach((col, i) => {
+      obj[col] = row[i];
+    });
+    return obj;
+  });
+}
+
 export function deleteApiKey(id: string): boolean {
   db!.run('UPDATE api_keys SET is_active = 0 WHERE id = ?', [id]);
   saveDatabase();
   return true;
+}
+
+export function findUserByEmail(email: string): User | null {
+  const result = db!.exec('SELECT id, email, name, oauth_id, oauth_provider, created_at FROM users WHERE email = ?', [email]);
+  if (result.length === 0 || result[0].values.length === 0) return null;
+  
+  const columns = result[0].columns as string[];
+  const values = result[0].values as (string | number | null)[][];
+  const row = values[0];
+  
+  const obj: any = {};
+  columns.forEach((col, i) => {
+    obj[col] = row[i];
+  });
+  
+  return {
+    id: obj.id,
+    email: obj.email,
+    name: obj.name || '',
+    oauth_id: obj.oauth_id,
+    oauth_provider: obj.oauth_provider,
+    created_at: obj.created_at,
+  };
+}
+
+export function createUser({ id, email, name, oauth_id, oauth_provider }: {
+  id: string;
+  email: string;
+  name: string;
+  oauth_id: string | null;
+  oauth_provider: string | null;
+}): User {
+  db!.run(
+    'INSERT INTO users (id, email, name, oauth_id, oauth_provider, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    [id, email, name, oauth_id || null, oauth_provider || null, new Date().toISOString()]
+  );
+  saveDatabase();
+  
+  return { id, email, name, oauth_id, oauth_provider, created_at: new Date().toISOString() };
+}
+
+export function updateUserOauth(id: string, oauth_id: string, oauth_provider: string): void {
+  db!.run('UPDATE users SET oauth_id = ?, oauth_provider = ? WHERE id = ?', [oauth_id, oauth_provider, id]);
+  saveDatabase();
+}
+
+export function findUserByOauthId(oauth_id: string): User | null {
+  const result = db!.exec('SELECT id, email, name, oauth_id, oauth_provider, created_at FROM users WHERE oauth_id = ?', [oauth_id]);
+  if (result.length === 0 || result[0].values.length === 0) return null;
+  
+  const columns = result[0].columns as string[];
+  const values = result[0].values as (string | number | null)[][];
+  const row = values[0];
+  
+  const obj: any = {};
+  columns.forEach((col, i) => {
+    obj[col] = row[i];
+  });
+  
+  return {
+    id: obj.id,
+    email: obj.email,
+    name: obj.name || '',
+    oauth_id: obj.oauth_id,
+    oauth_provider: obj.oauth_provider,
+    created_at: obj.created_at,
+  };
+}
+
+export function findUserById(id: string): User | null {
+  const result = db!.exec('SELECT id, email, name, oauth_id, oauth_provider, created_at FROM users WHERE id = ?', [id]);
+  if (result.length === 0 || result[0].values.length === 0) return null;
+  
+  const columns = result[0].columns as string[];
+  const values = result[0].values as (string | number | null)[][];
+  const row = values[0];
+  
+  const obj: any = {};
+  columns.forEach((col, i) => {
+    obj[col] = row[i];
+  });
+  
+  return {
+    id: obj.id,
+    email: obj.email,
+    name: obj.name || '',
+    oauth_id: obj.oauth_id,
+    oauth_provider: obj.oauth_provider,
+    created_at: obj.created_at,
+  };
 }
 
 export function validateApiKey(keyHash: string): {
@@ -586,6 +719,7 @@ export default {
   isReady,
   createApiKey,
   getApiKeys,
+  getApiKeysByUserId,
   deleteApiKey,
   validateApiKey,
   logUsage,
@@ -598,5 +732,10 @@ export default {
   getUsageTrends,
   getLifetimeMetrics,
   getRangeMetrics,
-  getProgressiveData
+  getProgressiveData,
+  findUserByEmail,
+  createUser,
+  updateUserOauth,
+  findUserByOauthId,
+  findUserById
 };

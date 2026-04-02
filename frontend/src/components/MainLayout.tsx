@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Box, Drawer, List, ListItem, ListItemIcon, ListItemText, Divider, Typography, Toolbar } from '@mui/material';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import KeyIcon from '@mui/icons-material/Key';
-import BarChartIcon from '@mui/icons-material/BarChart';
 import { useNavigate, useLocation } from 'react-router-dom';
 import TopNav from './TopNav';
 
@@ -24,7 +23,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
     { text: 'API Keys', icon: <KeyIcon />, path: '/api-keys' },
-    { text: 'Usage', icon: <BarChartIcon />, path: '/usage' },
   ];
 
   const drawer = (

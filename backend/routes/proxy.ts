@@ -14,17 +14,30 @@ interface ProxyResult {
 }
 
 // Proxy any request starting with /v1/
-router.all('/v1/*', (req: ExtendedRequest, res: Response, next: (err?: any) => void) => {
-  const relativePath = req.path.substring('/v1/'.length);
-  (req as ExtendedRequest & { proxyPath: string }).proxyPath = relativePath;
+router.all('/*', (req: ExtendedRequest, res: Response, next: (err?: any) => void) => {
+  const pathWithoutLeadingSlash = req.path.substring(1);
+  (req as ExtendedRequest & { proxyPath: string }).proxyPath = pathWithoutLeadingSlash;
+  const fullUrl = `${config.llamaCppUrl}/${pathWithoutLeadingSlash}`;
+  console.log('\n=== INCOMING REQUEST ===');
+  console.log('Method:', req.method);
+  console.log('Full URL:', fullUrl);
+  console.log('Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('====================\n');
   next();
 }, (req: ExtendedRequest, res: Response) => {
   const keyData = req.keyData;
 
   const body = req.body;
   const targetUrl = config.llamaCppUrl;
-  const relativePath = (req as ExtendedRequest & { proxyPath: string }).proxyPath;
-  const endpoint = `/v1/${relativePath}`;
+  const pathWithoutLeadingSlash = (req as ExtendedRequest & { proxyPath: string }).proxyPath;
+  const endpoint = `/v1/${pathWithoutLeadingSlash}`;
+  const fullUrl = `${config.llamaCppUrl}/${pathWithoutLeadingSlash}`;
+
+  console.log('\n=== FORWARDING REQUEST ===');
+  console.log('API Key ID:', req.apiKeyId);
+  console.log('Full URL:', fullUrl);
+  console.log('Body: [HIDDEN]');
+  console.log('====================\n');
 
   // Log the request
   const requestId = `req_${Date.now()}`;
@@ -37,7 +50,12 @@ router.all('/v1/*', (req: ExtendedRequest, res: Response, next: (err?: any) => v
   });
 
   // Proxy request
-  proxyRequest(targetUrl, body, req.apiKeyId!, requestId, req.method, relativePath, (result: ProxyResult) => {
+  proxyRequest(fullUrl, body, req.apiKeyId!, requestId, req.method, (result: ProxyResult) => {
+    console.log('\n=== PROXY RESPONSE ===');
+    console.log('Status:', result.status);
+    console.log('Duration:', result.duration, 'ms');
+    console.log('Response:', JSON.stringify(result.response));
+    console.log('====================\n');
     // Log response
     database.logResponse({
       request_id: requestId,
@@ -54,23 +72,22 @@ router.all('/v1/*', (req: ExtendedRequest, res: Response, next: (err?: any) => v
 });
 
 function proxyRequest(
-  targetUrl: string,
+  fullUrl: string,
   body: any,
   apiKeyId: string,
   requestId: string,
   method: string,
-  relativePath: string,
   callback: (result: ProxyResult) => void
 ): void {
   const startTime: number = Date.now();
-  const url = new URL(targetUrl);
+  const url = new URL(fullUrl);
   
   const protocol = url.protocol === 'https:' ? https : http;
   
   const options: http.RequestOptions = {
     hostname: url.hostname,
     port: url.port || (url.protocol === 'https:' ? 443 : 80),
-    path: relativePath,
+    path: url.pathname + url.search,
     method: method,
     headers: {
       'Content-Type': 'application/json',

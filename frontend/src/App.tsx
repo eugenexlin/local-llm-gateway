@@ -1,9 +1,9 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import Dashboard from './pages/Dashboard';
-import APIKeys from './pages/APIKeys';
-import Usage from './pages/Usage';
-import Login from './pages/Login';
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import Dashboard from "./pages/Dashboard";
+import APIKeys from "./pages/APIKeys";
+import Login from "./pages/Login";
+import AuthCallback from "./pages/AuthCallback";
 
 interface PrivateRouteProps {
   children: React.ReactNode;
@@ -15,7 +15,7 @@ interface PublicRouteProps {
 
 function PrivateRoute({ children }: PrivateRouteProps) {
   const { user, loading } = useAuth();
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -23,13 +23,13 @@ function PrivateRoute({ children }: PrivateRouteProps) {
       </div>
     );
   }
-  
+
   return user ? children : <Navigate to="/login" replace />;
 }
 
 function PublicRoute({ children }: PublicRouteProps) {
   const { user, loading } = useAuth();
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -37,13 +37,13 @@ function PublicRoute({ children }: PublicRouteProps) {
       </div>
     );
   }
-  
-  return user ? <Navigate to="/" replace /> : children;
+
+  return user ? <Navigate to="/dashboard" replace /> : children;
 }
 
 function RootRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -51,7 +51,7 @@ function RootRoute({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  
+
   return children;
 }
 
@@ -60,22 +60,39 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          <Route path="/login" element={
-            <PublicRoute>
-              <Login />
-            </PublicRoute>
-          } />
-          <Route path="/" element={<RootRoute><Dashboard /></RootRoute>} />
-          <Route path="/api-keys" element={
-            <PrivateRoute>
-              <APIKeys />
-            </PrivateRoute>
-          } />
-          <Route path="/usage" element={
-            <PrivateRoute>
-              <Usage />
-            </PrivateRoute>
-          } />
+          <Route
+            path="/login"
+            element={
+              <PublicRoute>
+                <Login />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/auth/callback"
+            element={
+              <RootRoute>
+                <AuthCallback />
+              </RootRoute>
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+              <PrivateRoute>
+                <Dashboard />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/api-keys"
+            element={
+              <PrivateRoute>
+                <APIKeys />
+              </PrivateRoute>
+            }
+          />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
