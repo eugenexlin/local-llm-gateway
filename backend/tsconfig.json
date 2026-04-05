@@ -14,7 +14,8 @@
     "ignoreDeprecations": "6.0",
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "types": ["node", "jest"]
   },
   "include": ["**/*.ts"],
   "exclude": ["node_modules", "dist", "*.db"]

@@ -4,15 +4,18 @@ import https from 'https';
 import database from '../database';
 import config from '../config';
 import { ExtendedRequest } from '../middleware/auth';
+import { extractTokensFromStream } from '../utils/streaming-token-parser';
 
 const router = express.Router();
 
 interface StreamMetrics {
-  chunks: Buffer[];
   statusCode: number | null;
-  headers: any;
   startTime: number;
   error: string | null;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  chunks: Buffer[];
 }
 
 // Proxy any request starting with /v1/
@@ -41,15 +44,7 @@ router.all('/*', (req: ExtendedRequest, res: Response, next: (err?: any) => void
   console.log('Body: [HIDDEN]');
   console.log('====================\n');
 
-  // Log the request
   const requestId = `req_${Date.now()}`;
-  database.logUsage({
-    request_id: requestId,
-    api_key_id: req.apiKeyId!,
-    endpoint: endpoint,
-    request_body: body,
-    timestamp: new Date().toISOString()
-  });
 
   // Proxy request with streaming
   proxyRequestStreaming(fullUrl, body, req.apiKeyId!, requestId, req.method, res, req.headers);
@@ -65,11 +60,13 @@ function proxyRequestStreaming(
   reqHeaders: any
 ): void {
   const metrics: StreamMetrics = {
-    chunks: [],
     statusCode: null,
-    headers: null,
     startTime: Date.now(),
-    error: null
+    error: null,
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+    chunks: []
   };
 
   const url = new URL(fullUrl);
@@ -90,48 +87,53 @@ function proxyRequestStreaming(
   
   const upstreamReq = protocol.request(options, (response: http.IncomingMessage) => {
     metrics.statusCode = response.statusCode ?? null;
-    metrics.headers = response.headers;
 
-    // Pipe response directly to client for streaming
+    // Stream directly to client
     response.pipe(res);
-
-    // Collect chunks for metrics
+    
+    // Accumulate chunks for token extraction
     response.on('data', (chunk: Buffer) => {
       metrics.chunks.push(chunk);
     });
-
-    response.on('end', async () => {
+    
+    // Log metrics when stream ends
+    response.on('end', () => {
       const duration = Date.now() - metrics.startTime;
       
-      // Combine all chunks
-      const buffer = Buffer.concat(metrics.chunks);
-      const data = buffer.toString('utf-8');
+      // Extract tokens from accumulated chunks
+      const tokenResult = extractTokensFromStream(metrics.chunks);
+      if (tokenResult) {
+        metrics.promptTokens = tokenResult.promptTokens;
+        metrics.completionTokens = tokenResult.completionTokens;
+        metrics.totalTokens = tokenResult.totalTokens;
+      }
       
-      let responseBody: any;
-      try {
-        responseBody = JSON.parse(data);
-      } catch (e) {
-        responseBody = { raw: data };
-      }
-
-      // Log response asynchronously (non-blocking)
-      try {
-        database.logResponse({
-          request_id: requestId,
-          response_body: responseBody,
-          status_code: metrics.statusCode as number,
-          response_time_ms: duration
-        });
-
-        // Update API key stats
-        database.incrementApiKeyStats(apiKeyId);
-      } catch (logError) {
-        console.error('Error logging response:', logError);
-      }
+      // Fire-and-forget logging (non-blocking)
+      setImmediate(() => {
+        try {
+          database.logUsage({
+            request_id: requestId,
+            api_key_id: apiKeyId,
+            prompt_tokens: metrics.promptTokens,
+            completion_tokens: metrics.completionTokens,
+            total_tokens: metrics.totalTokens,
+            duration_ms: duration,
+            timestamp: new Date().toISOString()
+          });
+          
+          // Update API key stats
+          database.incrementApiKeyStats(apiKeyId);
+        } catch (logError) {
+          console.error('Error logging response:', logError);
+        }
+      });
 
       console.log('\n=== PROXY RESPONSE ===');
       console.log('Status:', metrics.statusCode);
       console.log('Duration:', duration, 'ms');
+      console.log('Prompt Tokens:', metrics.promptTokens);
+      console.log('Completion Tokens:', metrics.completionTokens);
+      console.log('Total Tokens:', metrics.totalTokens);
       console.log('====================\n');
     });
   });
@@ -147,11 +149,20 @@ function proxyRequestStreaming(
     }
 
     // Log error asynchronously
-    database.logResponse({
-      request_id: requestId,
-      response_body: { error: error.message },
-      status_code: 500,
-      response_time_ms: duration
+    setImmediate(() => {
+      try {
+        database.logUsage({
+          request_id: requestId,
+          api_key_id: apiKeyId,
+          prompt_tokens: 0,
+          completion_tokens: 0,
+          total_tokens: 0,
+          duration_ms: duration,
+          timestamp: new Date().toISOString()
+        });
+      } catch (logError) {
+        console.error('Error logging error:', logError);
+      }
     });
   });
 

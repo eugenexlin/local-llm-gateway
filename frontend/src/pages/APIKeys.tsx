@@ -56,29 +56,30 @@ function APIKeys() {
   };
 
   const handleCreateKey = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!newKeyName.trim() || !user?.id) return;
+     e.preventDefault();
+     if (!newKeyName.trim() || !user?.id) return;
 
-    try {
-      const response = await fetch('http://localhost:3000/api/api-keys', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ name: newKeyName, user_id: user.id }),
-      });
+     try {
+       const response = await fetch('http://localhost:3000/api/api-keys', {
+         method: 'POST',
+         headers: {
+           'Content-Type': 'application/json',
+         },
+         body: JSON.stringify({ name: newKeyName, user_id: user.id }),
+       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setApiKeys([data, ...apiKeys]);
-        setNewKeyName('');
-        setShowForm(false);
-        setShowCreatedKeyDialog(true);
-      }
-    } catch (error) {
-      console.error('Failed to create API key:', error);
-    }
-  };
+       if (response.ok) {
+         const data = await response.json();
+         setApiKeys([{ ...data, api_key: null }, ...apiKeys]);
+         setNewKeyName('');
+         setShowForm(false);
+         setCreatedKey(data.api_key);
+         setShowCreatedKeyDialog(true);
+       }
+     } catch (error) {
+       console.error('Failed to create API key:', error);
+     }
+   };
 
   const handleRevokeKey = async (keyId: string) => {
     if (!confirm('Are you sure you want to revoke this API key?')) return;

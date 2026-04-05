@@ -34,13 +34,10 @@ export interface UsageLog {
   id: string;
   request_id: string;
   api_key_id: string;
-  endpoint: string;
-  request_body: string;
-  response_body: string;
-  status_code: number;
-  request_tokens: number;
-  response_tokens: number;
-  latency_ms: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  duration_ms: number;
   timestamp: string;
   api_key_name?: string;
 }
@@ -153,15 +150,12 @@ function createSchema(): void {
       id TEXT PRIMARY KEY,
       request_id TEXT NOT NULL,
       api_key_id TEXT NOT NULL,
-      endpoint TEXT NOT NULL,
-      request_body TEXT,
-      response_body TEXT,
-      status_code INTEGER,
-      request_tokens INTEGER DEFAULT 0,
-      response_tokens INTEGER DEFAULT 0,
-      latency_ms INTEGER DEFAULT 0,
+      prompt_tokens INTEGER DEFAULT 0,
+      completion_tokens INTEGER DEFAULT 0,
+      total_tokens INTEGER DEFAULT 0,
+      duration_ms INTEGER DEFAULT 0,
       timestamp TEXT NOT NULL,
-      FOREIGN KEY (api_key_id) REFERENCES api_keys(id)
+      FOREIGN KEY (api_key_id) REFERENCES api_keys(id) ON DELETE CASCADE
     )
   `);
 
@@ -169,6 +163,7 @@ function createSchema(): void {
   db!.run(`CREATE INDEX IF NOT EXISTS idx_api_key_hash ON api_keys(key_hash)`);
   db!.run(`CREATE INDEX IF NOT EXISTS idx_api_key_id ON usage_logs(api_key_id)`);
   db!.run(`CREATE INDEX IF NOT EXISTS idx_usage_timestamp ON usage_logs(timestamp)`);
+  db!.run(`CREATE INDEX IF NOT EXISTS idx_usage_api_key ON usage_logs(api_key_id)`);
 }
 
 function saveDatabase(): void {
@@ -358,32 +353,33 @@ export function validateApiKey(keyHash: string): {
   return keyData;
 }
 
-export function logUsage({ request_id, api_key_id, endpoint, request_body, timestamp }: {
-  request_id: string;
-  api_key_id: string;
-  endpoint: string;
-  request_body: any;
-  timestamp: string;
-}): void {
-  db!.run(
-    'INSERT INTO usage_logs (id, request_id, api_key_id, endpoint, request_body, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
-    [request_id, request_id, api_key_id, endpoint, JSON.stringify(request_body), timestamp]
-  );
-  saveDatabase();
-}
-
-export function logResponse({ request_id, response_body, status_code, response_time_ms }: {
-  request_id: string;
-  response_body: any;
-  status_code: number;
-  response_time_ms: number;
-}): void {
-  db!.run(
-    'UPDATE usage_logs SET response_body = ?, status_code = ?, latency_ms = ? WHERE request_id = ?',
-    [JSON.stringify(response_body), status_code, response_time_ms, request_id]
-  );
-  saveDatabase();
-}
+export function logUsage({ request_id, api_key_id, prompt_tokens, completion_tokens, total_tokens, duration_ms, timestamp }: {
+   request_id: string;
+   api_key_id: string;
+   prompt_tokens: number;
+   completion_tokens: number;
+   total_tokens: number;
+   duration_ms: number;
+   timestamp: string;
+ }): void {
+   // Check if record exists
+   const exists = db!.exec('SELECT 1 FROM usage_logs WHERE request_id = ?', [request_id]);
+   
+   if (exists.length > 0 && exists[0].values.length > 0) {
+     // Update existing record
+     db!.run(
+       'UPDATE usage_logs SET prompt_tokens = ?, completion_tokens = ?, total_tokens = ?, duration_ms = ?, timestamp = ? WHERE request_id = ?',
+       [prompt_tokens, completion_tokens, total_tokens, duration_ms, timestamp, request_id]
+     );
+   } else {
+     // Insert new record
+     db!.run(
+       'INSERT INTO usage_logs (id, request_id, api_key_id, prompt_tokens, completion_tokens, total_tokens, duration_ms, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+       [request_id, request_id, api_key_id, prompt_tokens, completion_tokens, total_tokens, duration_ms, timestamp]
+     );
+   }
+   saveDatabase();
+ }
 
 export function incrementApiKeyStats(apiKeyId: string): void {
   db!.run(
@@ -398,7 +394,7 @@ export function getUsageLogs({ limit = 100, offset = 0 }: {
   offset?: number;
 }): UsageLog[] {
   const result = db!.exec(
-    `SELECT ul.*, ak.name as api_key_name 
+    `SELECT ul.id, ul.request_id, ul.api_key_id, ul.prompt_tokens, ul.completion_tokens, ul.total_tokens, ul.duration_ms, ul.timestamp, ak.name as api_key_name
      FROM usage_logs ul 
      JOIN api_keys ak ON ul.api_key_id = ak.id 
      ORDER BY ul.timestamp DESC 
@@ -427,9 +423,9 @@ export function getAggregatedUsage(period: string = '7d'): AggregatedUsage {
   const result = db!.exec(`
     SELECT 
       COUNT(*) as total_requests,
-      SUM(request_tokens) as total_input_tokens,
-      SUM(response_tokens) as total_output_tokens,
-      AVG(latency_ms) as avg_latency_ms
+      SUM(prompt_tokens) as total_input_tokens,
+      SUM(completion_tokens) as total_output_tokens,
+      AVG(duration_ms) as avg_latency_ms
     FROM usage_logs 
     WHERE timestamp > ?
   `, [startDate]);
@@ -461,8 +457,8 @@ export function getUsageSummary(): UsageSummary {
     SELECT 
       COUNT(DISTINCT api_key_id) as active_keys,
       COUNT(*) as total_requests,
-      SUM(request_tokens) as total_input_tokens,
-      SUM(response_tokens) as total_output_tokens
+      SUM(prompt_tokens) as total_input_tokens,
+      SUM(completion_tokens) as total_output_tokens
     FROM usage_logs
   `);
   
@@ -488,9 +484,9 @@ export function getApiKeyStats(apiKeyId: string): ApiKeyStats | null {
   const result = db!.exec(`
     SELECT 
       COUNT(*) as total_requests,
-      SUM(request_tokens) as total_input_tokens,
-      SUM(response_tokens) as total_output_tokens,
-      AVG(latency_ms) as avg_latency_ms
+      SUM(prompt_tokens) as total_input_tokens,
+      SUM(completion_tokens) as total_output_tokens,
+      AVG(duration_ms) as avg_latency_ms
     FROM usage_logs 
     WHERE api_key_id = ?
   `, [apiKeyId]);
@@ -514,8 +510,8 @@ export function getUsageTrends(startDate: string, endDate: string): TrendsDataPo
     SELECT 
       DATE(timestamp) as date,
       COUNT(*) as requests,
-      SUM(request_tokens) as input_tokens,
-      SUM(response_tokens) as output_tokens
+      SUM(prompt_tokens) as input_tokens,
+      SUM(completion_tokens) as output_tokens
     FROM usage_logs 
     WHERE timestamp >= ? AND timestamp <= ?
     GROUP BY DATE(timestamp)
@@ -547,8 +543,8 @@ export function getLifetimeMetrics(): LifetimeMetrics {
   const result = db!.exec(`
     SELECT 
       COUNT(*) as request_count,
-      SUM(request_tokens) as total_input_tokens,
-      SUM(response_tokens) as total_output_tokens,
+      SUM(prompt_tokens) as total_input_tokens,
+      SUM(completion_tokens) as total_output_tokens,
       MIN(timestamp) as first_request,
       MAX(timestamp) as last_request
     FROM usage_logs
@@ -598,8 +594,8 @@ export function getRangeMetrics(startDate: string, endDate: string): RangeMetric
   const result = db!.exec(`
     SELECT 
       COUNT(*) as request_count,
-      SUM(request_tokens) as total_input_tokens,
-      SUM(response_tokens) as total_output_tokens
+      SUM(prompt_tokens) as total_input_tokens,
+      SUM(completion_tokens) as total_output_tokens
     FROM usage_logs 
     WHERE timestamp >= ? AND timestamp <= ?
   `, [startDate, endDate]);
@@ -659,13 +655,13 @@ export function getProgressiveData(
     let selectClause: string;
     switch (metric) {
       case 'total_tokens':
-        selectClause = 'SUM(request_tokens + response_tokens) as value';
+        selectClause = 'SUM(prompt_tokens + completion_tokens) as value';
         break;
       case 'input_tokens':
-        selectClause = 'SUM(request_tokens) as value';
+        selectClause = 'SUM(prompt_tokens) as value';
         break;
       case 'output_tokens':
-        selectClause = 'SUM(response_tokens) as value';
+        selectClause = 'SUM(completion_tokens) as value';
         break;
       case 'requests':
         selectClause = 'COUNT(*) as value';
@@ -673,7 +669,7 @@ export function getProgressiveData(
       case 'tokens_per_sec':
         selectClause = `
           ROUND(
-            SUM(request_tokens + response_tokens) * 1.0 / 
+            SUM(prompt_tokens + completion_tokens) * 1.0 / 
             MAX(strftime("%s", timestamp)) - MIN(strftime("%s", timestamp)) + 1,
             2
           ) as value
@@ -723,7 +719,6 @@ export default {
   deleteApiKey,
   validateApiKey,
   logUsage,
-  logResponse,
   incrementApiKeyStats,
   getUsageLogs,
   getAggregatedUsage,
