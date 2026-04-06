@@ -2,6 +2,8 @@ interface TokenExtractResult {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
+  cacheCreationInputTokens?: number;
+  cacheReadInputTokens?: number;
   found: boolean;
 }
 
@@ -42,10 +44,18 @@ export function extractTokensFromStream(chunks: Buffer[]): TokenExtractResult | 
     return null;
   }
 
+  const cacheCreationMatch = usageStr.match(/"cache_creation_input_tokens"\s*:\s*(\d+)/);
+  const cacheReadMatch = usageStr.match(/"cache_read_input_tokens"\s*:\s*(\d+)/);
+
+  const cacheCreationTokens = cacheCreationMatch ? parseInt(cacheCreationMatch[1], 10) : undefined;
+  const cacheReadTokens = cacheReadMatch ? parseInt(cacheReadMatch[1], 10) : undefined;
+
   return {
     promptTokens,
     completionTokens,
     totalTokens,
+    cacheCreationInputTokens: cacheCreationTokens,
+    cacheReadInputTokens: cacheReadTokens,
     found: true
   };
 }

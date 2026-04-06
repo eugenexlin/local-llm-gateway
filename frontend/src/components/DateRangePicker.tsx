@@ -35,6 +35,7 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
   };
 
   const presetRanges = [
+    { label: 'Last 1 day', start: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), end: new Date() },
     { label: 'Last 7 days', start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), end: new Date() },
     { label: 'Last 30 days', start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), end: new Date() },
     { label: 'Last 90 days', start: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000), end: new Date() },
@@ -42,7 +43,7 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
     { label: 'Custom', start: null, end: null }
   ];
 
-  const [presetIndex, setPresetIndex] = React.useState(1);
+  const [presetIndex, setPresetIndex] = React.useState(0);
 
   const applyPreset = (index: number) => {
     const preset = presetRanges[index];

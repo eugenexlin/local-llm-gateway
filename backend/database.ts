@@ -40,6 +40,9 @@ export interface UsageLog {
   duration_ms: number;
   timestamp: string;
   api_key_name?: string;
+  idempotency_key?: string | null;
+  cache_creation_input_tokens?: number;
+  cache_read_input_tokens?: number;
 }
 
 export interface AggregatedUsage {
@@ -76,6 +79,8 @@ export interface LifetimeMetrics {
   total_output_tokens: number;
   tokens_per_sec: number;
   request_count: number;
+  cache_creation_tokens?: number;
+  cache_read_tokens?: number;
 }
 
 export interface RangeMetrics {
@@ -85,6 +90,8 @@ export interface RangeMetrics {
   tokens_per_sec: number;
   request_count: number;
   duration_seconds: number;
+  cache_creation_tokens?: number;
+  cache_read_tokens?: number;
 }
 
 export interface ProgressiveDataPoint {
@@ -106,6 +113,7 @@ export async function init(): Promise<void> {
   if (fs.existsSync(DB_PATH)) {
     const buffer = fs.readFileSync(DB_PATH);
     db = new SQL.Database(buffer);
+    await migrateSchema();
   } else {
     db = new SQL.Database();
     createSchema();
@@ -116,8 +124,39 @@ export async function init(): Promise<void> {
   initialized = true;
 }
 
+async function migrateSchema(): Promise<void> {
+  try {
+    const columns = db.exec("PRAGMA table_info(usage_logs)");
+    const columnNames = columns[0]?.values.map((row: any[]) => row[1]) || [];
+    
+    if (!columnNames.includes('idempotency_key')) {
+      console.log('Migrating: Adding idempotency_key column');
+      db.run('ALTER TABLE usage_logs ADD COLUMN idempotency_key TEXT');
+    }
+    
+    if (!columnNames.includes('cache_creation_input_tokens')) {
+      console.log('Migrating: Adding cache_creation_input_tokens column');
+      db.run('ALTER TABLE usage_logs ADD COLUMN cache_creation_input_tokens INTEGER DEFAULT 0');
+    }
+    
+    if (!columnNames.includes('cache_read_input_tokens')) {
+      console.log('Migrating: Adding cache_read_input_tokens column');
+      db.run('ALTER TABLE usage_logs ADD COLUMN cache_read_input_tokens INTEGER DEFAULT 0');
+    }
+    
+    saveDatabase();
+    console.log('Database migration completed');
+  } catch (error) {
+    console.error('Migration error:', error);
+  }
+}
+
 export function isReady(): boolean {
   return initialized;
+}
+
+export function getDb(): any {
+  return db;
 }
 
 function createSchema(): void {
@@ -353,33 +392,47 @@ export function validateApiKey(keyHash: string): {
   return keyData;
 }
 
-export function logUsage({ request_id, api_key_id, prompt_tokens, completion_tokens, total_tokens, duration_ms, timestamp }: {
-   request_id: string;
-   api_key_id: string;
-   prompt_tokens: number;
-   completion_tokens: number;
-   total_tokens: number;
-   duration_ms: number;
-   timestamp: string;
- }): void {
-   // Check if record exists
-   const exists = db!.exec('SELECT 1 FROM usage_logs WHERE request_id = ?', [request_id]);
-   
-   if (exists.length > 0 && exists[0].values.length > 0) {
-     // Update existing record
-     db!.run(
-       'UPDATE usage_logs SET prompt_tokens = ?, completion_tokens = ?, total_tokens = ?, duration_ms = ?, timestamp = ? WHERE request_id = ?',
-       [prompt_tokens, completion_tokens, total_tokens, duration_ms, timestamp, request_id]
-     );
-   } else {
-     // Insert new record
-     db!.run(
-       'INSERT INTO usage_logs (id, request_id, api_key_id, prompt_tokens, completion_tokens, total_tokens, duration_ms, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-       [request_id, request_id, api_key_id, prompt_tokens, completion_tokens, total_tokens, duration_ms, timestamp]
-     );
-   }
-   saveDatabase();
- }
+export function logUsage({ 
+  request_id, 
+  api_key_id, 
+  prompt_tokens, 
+  completion_tokens, 
+  total_tokens, 
+  duration_ms, 
+  timestamp,
+  idempotency_key = null,
+  cache_creation_input_tokens = 0,
+  cache_read_input_tokens = 0
+}: {
+  request_id: string;
+  api_key_id: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  duration_ms: number;
+  timestamp: string;
+  idempotency_key?: string | null;
+  cache_creation_input_tokens?: number;
+  cache_read_input_tokens?: number;
+}): void {
+  // Check if record exists
+  const exists = db!.exec('SELECT 1 FROM usage_logs WHERE request_id = ?', [request_id]);
+  
+  if (exists.length > 0 && exists[0].values.length > 0) {
+    // Update existing record
+    db!.run(
+      'UPDATE usage_logs SET prompt_tokens = ?, completion_tokens = ?, total_tokens = ?, duration_ms = ?, timestamp = ?, idempotency_key = ?, cache_creation_input_tokens = ?, cache_read_input_tokens = ? WHERE request_id = ?',
+      [prompt_tokens, completion_tokens, total_tokens, duration_ms, timestamp, idempotency_key || null, cache_creation_input_tokens, cache_read_input_tokens, request_id]
+    );
+  } else {
+    // Insert new record
+    db!.run(
+      'INSERT INTO usage_logs (id, request_id, api_key_id, prompt_tokens, completion_tokens, total_tokens, duration_ms, timestamp, idempotency_key, cache_creation_input_tokens, cache_read_input_tokens) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [request_id, request_id, api_key_id, prompt_tokens, completion_tokens, total_tokens, duration_ms, timestamp, idempotency_key || null, cache_creation_input_tokens, cache_read_input_tokens]
+    );
+  }
+  saveDatabase();
+}
 
 export function incrementApiKeyStats(apiKeyId: string): void {
   db!.run(
@@ -394,7 +447,7 @@ export function getUsageLogs({ limit = 100, offset = 0 }: {
   offset?: number;
 }): UsageLog[] {
   const result = db!.exec(
-    `SELECT ul.id, ul.request_id, ul.api_key_id, ul.prompt_tokens, ul.completion_tokens, ul.total_tokens, ul.duration_ms, ul.timestamp, ak.name as api_key_name
+    `SELECT ul.id, ul.request_id, ul.api_key_id, ul.prompt_tokens, ul.completion_tokens, ul.total_tokens, ul.duration_ms, ul.timestamp, ak.name as api_key_name, ul.idempotency_key, ul.cache_creation_input_tokens, ul.cache_read_input_tokens
      FROM usage_logs ul 
      JOIN api_keys ak ON ul.api_key_id = ak.id 
      ORDER BY ul.timestamp DESC 
@@ -545,6 +598,8 @@ export function getLifetimeMetrics(): LifetimeMetrics {
       COUNT(*) as request_count,
       SUM(prompt_tokens) as total_input_tokens,
       SUM(completion_tokens) as total_output_tokens,
+      SUM(cache_creation_input_tokens) as cache_creation_tokens,
+      SUM(cache_read_input_tokens) as cache_read_tokens,
       MIN(timestamp) as first_request,
       MAX(timestamp) as last_request
     FROM usage_logs
@@ -556,7 +611,9 @@ export function getLifetimeMetrics(): LifetimeMetrics {
       total_input_tokens: 0,
       total_output_tokens: 0,
       tokens_per_sec: 0,
-      request_count: 0
+      request_count: 0,
+      cache_creation_tokens: 0,
+      cache_read_tokens: 0
     };
   }
   
@@ -564,8 +621,8 @@ export function getLifetimeMetrics(): LifetimeMetrics {
   const requestCount: number = Number(row[0] || 0);
   const totalInputTokens: number = Number(row[1] || 0);
   const totalOutputTokens: number = Number(row[2] || 0);
-  const firstRequest: string | null = row[3]?.toString() || null;
-  const lastRequest: string | null = row[4]?.toString() || null;
+  const firstRequest: string | null = row[5]?.toString() || null;
+  const lastRequest: string | null = row[6]?.toString() || null;
   
   let tokensPerSec = 0;
   if (firstRequest && lastRequest) {
@@ -582,7 +639,9 @@ export function getLifetimeMetrics(): LifetimeMetrics {
     total_input_tokens: totalInputTokens,
     total_output_tokens: totalOutputTokens,
     tokens_per_sec: Math.round(tokensPerSec * 100) / 100,
-    request_count: requestCount
+    request_count: requestCount,
+    cache_creation_tokens: Number(row[3] || 0),
+    cache_read_tokens: Number(row[4] || 0)
   };
 }
 
@@ -595,7 +654,9 @@ export function getRangeMetrics(startDate: string, endDate: string): RangeMetric
     SELECT 
       COUNT(*) as request_count,
       SUM(prompt_tokens) as total_input_tokens,
-      SUM(completion_tokens) as total_output_tokens
+      SUM(completion_tokens) as total_output_tokens,
+      SUM(cache_creation_input_tokens) as cache_creation_tokens,
+      SUM(cache_read_input_tokens) as cache_read_tokens
     FROM usage_logs 
     WHERE timestamp >= ? AND timestamp <= ?
   `, [startDate, endDate]);
@@ -607,7 +668,9 @@ export function getRangeMetrics(startDate: string, endDate: string): RangeMetric
       total_output_tokens: 0,
       tokens_per_sec: 0,
       request_count: 0,
-      duration_seconds: durationSeconds
+      duration_seconds: durationSeconds,
+      cache_creation_tokens: 0,
+      cache_read_tokens: 0
     };
   }
   
@@ -625,7 +688,9 @@ export function getRangeMetrics(startDate: string, endDate: string): RangeMetric
     total_output_tokens: totalOutputTokens,
     tokens_per_sec: Math.round(tokensPerSec * 100) / 100,
     request_count: requestCount,
-    duration_seconds: durationSeconds
+    duration_seconds: durationSeconds,
+    cache_creation_tokens: Number(row[3] || 0),
+    cache_read_tokens: Number(row[4] || 0)
   };
 }
 
@@ -732,5 +797,6 @@ export default {
   createUser,
   updateUserOauth,
   findUserByOauthId,
-  findUserById
+  findUserById,
+  getDb
 };

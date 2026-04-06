@@ -22,108 +22,35 @@ import {
 } from 'recharts';
 import { metricLabels } from '../utils/metricsLabels';
 
+export interface ProgressiveDataPoint {
+  timestamp: string;
+  value: number;
+}
+
 interface ProgressiveGraphProps {
-  startDate: Date | null;
-  endDate: Date | null;
-  granularity: 'hourly' | 'daily' | 'weekly' | 'monthly';
+  data: ProgressiveDataPoint[];
+  granularity: '5min' | '15min' | 'hourly' | 'daily' | 'weekly' | 'monthly';
   metric: 'total_tokens' | 'input_tokens' | 'output_tokens' | 'requests' | 'tokens_per_sec';
+  loading: boolean;
 }
 
 const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
-  startDate,
-  endDate,
+  data,
   granularity,
-  metric
+  metric,
+  loading
 }) => {
-  const [data, setData] = useState<Array<{ timestamp: string; value: number }>>([]);
-  const [progress, setProgress] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
-
-  const fetchData = async () => {
-    if (!startDate || !endDate) {
-      setError('Please select a date range');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setData([]);
-    setProgress(0);
-
-    // Cancel any existing request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
-    abortControllerRef.current = new AbortController();
-
-    try {
-      const response = await fetch(
-        `/api/metrics/progressive?start=${startDate.toISOString()}&end=${endDate.toISOString()}&granularity=${granularity}&metric=${metric}`,
-        {
-          signal: abortControllerRef.current.signal,
-          headers: {
-            'Accept': 'application/json'
-          }
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch data');
-      }
-
-      const jsonData = await response.json();
-      setData(jsonData);
-      setProgress(100);
-    } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') {
-        console.log('Request cancelled by user');
-        setError(null);
-      } else {
-        setError('Failed to load data. Please try again.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (startDate && endDate) {
-      fetchData();
-    }
-  }, [startDate, endDate, granularity, metric]);
-
-  const handleCancel = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    setLoading(false);
-    setError(null);
-  };
-
-  const handleMetricChange = (event: SelectChangeEvent<string>) => {
-    // Metric change will trigger useEffect
-  };
-
-  if (error && !loading) {
-    return (
-      <Paper sx={{ p: 3 }}>
-        <Typography color="error">{error}</Typography>
-      </Paper>
-    );
-  }
+  // Data and loading state managed by parent component
 
   return (
     <Paper sx={{ p: 2 }}>
-      <Box sx={{ mb: 2 }}>
-        <FormControl sx={{ minWidth: 200 }}>
+      <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+        <FormControl sx={{ minWidth: 150 }}>
           <InputLabel>Metric</InputLabel>
           <Select
             value={metric}
             label="Metric"
-            onChange={handleMetricChange}
+            onChange={() => {}}
           >
             {Object.entries(metricLabels).map(([key, label]) => (
               <MenuItem key={key} value={key}>
@@ -132,25 +59,45 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
             ))}
           </Select>
         </FormControl>
+        
+        <FormControl sx={{ minWidth: 150 }}>
+          <InputLabel>Granularity</InputLabel>
+          <Select
+            value={granularity}
+            label="Granularity"
+            onChange={() => {}}
+          >
+            <MenuItem value="5min">5 minutes</MenuItem>
+            <MenuItem value="15min">15 minutes</MenuItem>
+            <MenuItem value="hourly">Hourly</MenuItem>
+            <MenuItem value="daily">Daily</MenuItem>
+            <MenuItem value="weekly">Weekly</MenuItem>
+            <MenuItem value="monthly">Monthly</MenuItem>
+          </Select>
+        </FormControl>
       </Box>
 
       {loading && (
         <Box sx={{ mb: 2 }}>
           <LinearProgress 
-            variant="determinate" 
-            value={progress} 
-            sx={{ height: 8, borderRadius: 1 }} 
+            variant="indeterminate" 
+            sx={{ 
+              height: 8, 
+              borderRadius: 1,
+              animation: 'sweep 1s ease-in-out infinite',
+              '@keyframes sweep': {
+                '0%': { backgroundPosition: '200% 0' },
+                '100%': { backgroundPosition: '-200% 0' }
+              }
+            }} 
           />
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
-            <Typography variant="caption">{progress.toFixed(0)}%</Typography>
-            <Button 
-              size="small" 
-              variant="outlined"
-              onClick={handleCancel}
-              disabled={!loading}
-            >
-              Cancel
-            </Button>
+            <Typography variant="caption" color="text.secondary">
+              Loading data points...
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {data.length} points loaded
+            </Typography>
           </Box>
         </Box>
       )}
@@ -165,6 +112,9 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                 tick={{ fontSize: 12 }}
                 tickFormatter={(value) => {
                   const date = new Date(value);
+                  if (granularity === '5min' || granularity === '15min') {
+                    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                  }
                   if (granularity === 'hourly') {
                     return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
                   }

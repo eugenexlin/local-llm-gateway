@@ -101,6 +101,37 @@ router.get('/range', (req: Request, res: Response) => {
   }
 });
 
+// Get cache usage summary
+router.get('/cache-summary', (_req: Request, res: Response) => {
+  try {
+    const result = database.getDb()?.exec(`
+      SELECT 
+        SUM(cache_creation_input_tokens) as total_cache_creation,
+        SUM(cache_read_input_tokens) as total_cache_read,
+        COUNT(DISTINCT CASE WHEN cache_creation_input_tokens > 0 OR cache_read_input_tokens > 0 THEN request_id END) as cached_requests
+      FROM usage_logs
+    `);
+    
+    if (result.length === 0 || result[0].values.length === 0) {
+      return res.json({
+        total_cache_creation: 0,
+        total_cache_read: 0,
+        cached_requests: 0
+      });
+    }
+    
+    const row = result[0].values[0] as (string | number | null)[];
+    res.json({
+      total_cache_creation: Number(row[0] || 0),
+      total_cache_read: Number(row[1] || 0),
+      cached_requests: Number(row[2] || 0)
+    });
+  } catch (error) {
+    console.error('Error getting cache summary:', error);
+    res.status(500).json({ error: 'Failed to get cache summary' });
+  }
+});
+
 // Get progressive data for graph
 router.get('/progressive', async (req: Request, res: Response) => {
   try {

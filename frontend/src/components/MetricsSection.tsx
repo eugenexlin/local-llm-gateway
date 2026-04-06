@@ -2,13 +2,7 @@ import React from "react";
 import { Grid, Typography, Box } from "@mui/material";
 import MetricCard from "./MetricCard";
 
-interface Metric {
-  title: string;
-  value?: number;
-}
-
 interface MetricsSectionProps {
-  title: string;
   total_tokens?: number;
   total_input_tokens?: number;
   total_output_tokens?: number;
@@ -30,7 +24,6 @@ const formatValue = (num?: number): string => {
 };
 
 const MetricsSection: React.FC<MetricsSectionProps> = ({
-  title,
   total_tokens,
   total_input_tokens,
   total_output_tokens,
@@ -47,9 +40,6 @@ const MetricsSection: React.FC<MetricsSectionProps> = ({
 
   return (
     <Box sx={{ mb: 3 }}>
-      <Typography variant="h6" gutterBottom>
-        {title}
-      </Typography>
       <Grid container spacing={2}>
         {cards.map((card) => (
           <Grid

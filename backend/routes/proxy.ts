@@ -16,6 +16,9 @@ interface StreamMetrics {
   completionTokens: number;
   totalTokens: number;
   chunks: Buffer[];
+  idempotencyKey: string | null;
+  hasLogged: boolean;
+  usageFound: boolean;
 }
 
 // Proxy any request starting with /v1/
@@ -59,6 +62,11 @@ function proxyRequestStreaming(
   res: Response,
   reqHeaders: any
 ): void {
+  // Extract idempotency key from request headers (OpenAI standard)
+  const idempotencyKey = (reqHeaders['idempotency-key'] || 
+                          reqHeaders['x-idempotency-key'] || 
+                          null) as string | null;
+
   const metrics: StreamMetrics = {
     statusCode: null,
     startTime: Date.now(),
@@ -66,7 +74,10 @@ function proxyRequestStreaming(
     promptTokens: 0,
     completionTokens: 0,
     totalTokens: 0,
-    chunks: []
+    chunks: [],
+    idempotencyKey: idempotencyKey,
+    hasLogged: false,
+    usageFound: false
   };
 
   const url = new URL(fullUrl);
@@ -100,17 +111,37 @@ function proxyRequestStreaming(
     response.on('end', () => {
       const duration = Date.now() - metrics.startTime;
       
+      // Check for duplicate request via idempotency key
+      if (metrics.idempotencyKey) {
+        const existing = database.getDb()?.exec(
+          'SELECT 1 FROM usage_logs WHERE idempotency_key = ?',
+          [metrics.idempotencyKey]
+        );
+        
+        if (existing.length > 0 && existing[0].values.length > 0) {
+          console.log('Duplicate request detected (idempotency key already used), skipping logging');
+          metrics.hasLogged = true;
+          return;
+        }
+      }
+      
       // Extract tokens from accumulated chunks
       const tokenResult = extractTokensFromStream(metrics.chunks);
       if (tokenResult) {
         metrics.promptTokens = tokenResult.promptTokens;
         metrics.completionTokens = tokenResult.completionTokens;
         metrics.totalTokens = tokenResult.totalTokens;
+        metrics.usageFound = true;
       }
       
       // Fire-and-forget logging (non-blocking)
       setImmediate(() => {
         try {
+          if (!metrics.usageFound || metrics.hasLogged) {
+            console.log('Skipping logging: usage not found or already logged');
+            return;
+          }
+          
           database.logUsage({
             request_id: requestId,
             api_key_id: apiKeyId,
@@ -118,10 +149,13 @@ function proxyRequestStreaming(
             completion_tokens: metrics.completionTokens,
             total_tokens: metrics.totalTokens,
             duration_ms: duration,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            idempotency_key: metrics.idempotencyKey,
+            cache_creation_input_tokens: tokenResult?.cacheCreationInputTokens || 0,
+            cache_read_input_tokens: tokenResult?.cacheReadInputTokens || 0
           });
           
-          // Update API key stats
+          metrics.hasLogged = true;
           database.incrementApiKeyStats(apiKeyId);
         } catch (logError) {
           console.error('Error logging response:', logError);
@@ -148,22 +182,26 @@ function proxyRequestStreaming(
       res.status(500).json({ error: error.message });
     }
 
-    // Log error asynchronously
-    setImmediate(() => {
-      try {
-        database.logUsage({
-          request_id: requestId,
-          api_key_id: apiKeyId,
-          prompt_tokens: 0,
-          completion_tokens: 0,
-          total_tokens: 0,
-          duration_ms: duration,
-          timestamp: new Date().toISOString()
-        });
-      } catch (logError) {
-        console.error('Error logging error:', logError);
-      }
-    });
+    // Only log error requests that didn't already have usage logged
+    if (!metrics.usageFound && !metrics.hasLogged) {
+      setImmediate(() => {
+        try {
+          database.logUsage({
+            request_id: requestId,
+            api_key_id: apiKeyId,
+            prompt_tokens: 0,
+            completion_tokens: 0,
+            total_tokens: 0,
+            duration_ms: duration,
+            timestamp: new Date().toISOString(),
+            idempotency_key: metrics.idempotencyKey
+          });
+          metrics.hasLogged = true;
+        } catch (logError) {
+          console.error('Error logging error:', logError);
+        }
+      });
+    }
   });
 
   upstreamReq.write(JSON.stringify(body));
