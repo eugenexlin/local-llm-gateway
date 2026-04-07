@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import * as database from '../database';
+import type { MetricType } from '../types/metrics';
 
 const router = express.Router();
 
@@ -137,22 +138,41 @@ router.get('/progressive', async (req: Request, res: Response) => {
   try {
     const start = req.query.start as string | undefined;
     const end = req.query.end as string | undefined;
-    const granularity = req.query.granularity as 'hourly' | 'daily' | 'weekly' | 'monthly' | undefined;
-    const metric = req.query.metric as 'total_tokens' | 'input_tokens' | 'output_tokens' | 'requests' | 'tokens_per_sec' | undefined;
+    const granularity = req.query.granularity as string | undefined;
+    const metric = req.query.metric as MetricType | undefined;
+    const batchIndex = parseInt(req.query.batchIndex as string || '0');
+    const batchSize = parseInt(req.query.batchSize as string || '16');
     
     if (!start || !end) {
       return res.status(400).json({ error: 'start and end dates required' });
     }
     
-    if (!granularity || !['hourly', 'daily', 'weekly', 'monthly'].includes(granularity)) {
+    const validGranularities = ['5m', '10m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d', '1w', '1M'];
+    if (!granularity || !validGranularities.includes(granularity)) {
       return res.status(400).json({ error: 'valid granularity required' });
     }
     
-    if (!metric || !['total_tokens', 'input_tokens', 'output_tokens', 'requests', 'tokens_per_sec'].includes(metric)) {
+    const validMetrics: MetricType[] = ['total_tokens', 'input_tokens', 'output_tokens', 'requests', 'tokens_per_sec'];
+     if (!metric || !validMetrics.includes(metric)) {
       return res.status(400).json({ error: 'valid metric required' });
     }
     
-    const dataPoints = await database.getProgressiveData(start, end, granularity, metric);
+    if (isNaN(batchIndex) || batchIndex < 0) {
+      return res.status(400).json({ error: 'batchIndex must be a non-negative integer' });
+    }
+    
+    if (isNaN(batchSize) || batchSize <= 0) {
+      return res.status(400).json({ error: 'batchSize must be a positive integer' });
+    }
+    
+    const dataPoints = await database.getProgressiveDataWithInterpolation(
+      start, 
+      end, 
+      granularity, 
+      metric, 
+      batchIndex, 
+      batchSize
+    );
     
     res.setHeader('Content-Type', 'application/json');
     res.json(dataPoints);

@@ -1,9 +1,17 @@
-import React, { useState, useEffect } from "react";
- import { Box, Grid, Typography, Button, CircularProgress, Chip } from "@mui/material";
- import { Refresh } from "@mui/icons-material";
- import DateRangePicker from "./DateRangePicker";
- import ProgressiveGraph from "./ProgressiveGraph";
- import MetricsSection from "./MetricsSection";
+import React, { useState, useEffect, useRef } from "react";
+import { getGranularitySeconds, getRangeSeconds } from "../utils/granularity";
+import { Box, Typography, Button, Chip } from "@mui/material";
+import { Refresh } from "@mui/icons-material";
+import DateRangePicker from "./DateRangePicker";
+import ProgressiveGraph from "./ProgressiveGraph";
+import MetricsSection from "./MetricsSection";
+import type { MetricType } from "../types/metrics";
+
+interface ProgressiveDataPoint {
+  hasValue: boolean;
+  timestamp: string;
+  value: number;
+}
 
 interface Metrics {
   total_tokens: number;
@@ -13,38 +21,21 @@ interface Metrics {
   request_count: number;
 }
 
-const autoSelectGranularity = (start: Date, end: Date): "5min" | "15min" | "hourly" | "daily" | "weekly" | "monthly" => {
-  const diffMs = end.getTime() - start.getTime();
-  const diffDays = diffMs / (1000 * 60 * 60 * 24);
-  
-  if (diffDays <= 1) return "5min";
-  if (diffDays <= 7) return "15min";
-  if (diffDays <= 30) return "hourly";
-  if (diffDays <= 90) return "daily";
-  if (diffDays <= 365) return "weekly";
-  return "monthly";
-};
-
 const DashboardStats: React.FC = () => {
   const [lifetimeMetrics, setLifetimeMetrics] = useState<Metrics | null>(null);
   const [rangeMetrics, setRangeMetrics] = useState<Metrics | null>(null);
   const [startDate, setStartDate] = useState<Date | null>(
-    new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+    new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
   );
   const [endDate, setEndDate] = useState<Date | null>(new Date());
-  const [granularity, setGranularity] = useState<
-    "5min" | "15min" | "hourly" | "daily" | "weekly" | "monthly"
-  >("hourly");
-  const [metric, setMetric] = useState<
-    | "total_tokens"
-    | "input_tokens"
-    | "output_tokens"
-    | "requests"
-    | "tokens_per_sec"
-  >("total_tokens");
-  const [loading, setLoading] = useState(true);
+  const [granularity, setGranularity] = useState<string>("1h");
+  const [metric, setMetric] = useState<MetricType>("total_tokens");
+
   const [graphData, setGraphData] = useState<any[]>([]);
   const [graphLoading, setGraphLoading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const debounceTimerRef = useRef<number | null>(null);
 
   const fetchLifetimeMetrics = async () => {
     try {
@@ -75,94 +66,163 @@ const DashboardStats: React.FC = () => {
   };
 
   const fetchGraphDataProgressive = async (
-  start: Date, 
-  end: Date, 
-  currentGranularity: typeof granularity,
-  metric: typeof metric,
-  onProgress: (data: ProgressiveDataPoint[], done: boolean) => void
-) => {
-  const tickSizeMs = {
-    "5min": 5 * 60 * 1000,
-    "15min": 15 * 60 * 1000,
-    hourly: 60 * 60 * 1000,
-    daily: 24 * 60 * 60 * 1000,
-    weekly: 7 * 24 * 60 * 60 * 1000,
-    monthly: 30 * 24 * 60 * 60 * 1000
-  }[currentGranularity];
-  
-  const batchSize = 8;
-  let allData: ProgressiveDataPoint[] = [];
-  let currentTime = start.getTime();
-  
-  while (currentTime < end.getTime()) {
-    const batchEnd = Math.min(currentTime + tickSizeMs * batchSize, end.getTime());
-    
-    try {
-      const response = await fetch(
-        `/api/metrics/progressive?start=${new Date(currentTime).toISOString()}&end=${new Date(batchEnd).toISOString()}&granularity=${currentGranularity}&metric=${metric}`
+    start: Date,
+    end: Date,
+    currentGranularity: string,
+    metric: string,
+    onProgress: (data: ProgressiveDataPoint[], done: boolean) => void,
+    signal: AbortSignal,
+  ) => {
+    const batchSize = 16;
+    const rangeSeconds = getRangeSeconds(start, end);
+    const granularitySeconds = getGranularitySeconds(currentGranularity);
+    const dataPointCount = Math.ceil(rangeSeconds / granularitySeconds) + 1;
+    const batchCount = Math.ceil(dataPointCount / batchSize);
+    const allData: ProgressiveDataPoint[] = new Array(dataPointCount).fill({
+      hasValue: false,
+      timestamp: "",
+      value: 0,
+    });
+    // set blank
+    onProgress([...allData], false);
+
+    for (
+      let batchIndex = batchCount - 1;
+      batchIndex >= 0 && !signal.aborted;
+      batchIndex--
+    ) {
+      try {
+        const response = await fetch(
+          `/api/metrics/progressive?start=${start.toISOString()}&end=${end.toISOString()}&granularity=${currentGranularity}&metric=${metric}&batchIndex=${batchIndex}&batchSize=${batchSize}`,
+          { signal },
+        );
+
+        if (response.ok) {
+          const data: ProgressiveDataPoint[] = await response.json();
+          const startIndex = batchIndex * batchSize;
+          for (
+            let i = 0;
+            i < data.length && startIndex + i < allData.length;
+            i++
+          ) {
+            allData[startIndex + i] = data[i];
+          }
+          const progress = Math.round(
+            ((batchCount - batchIndex) / batchCount) * 100,
+          );
+          onProgress([...allData], false);
+          setLoadingProgress(progress);
+        } else {
+          console.error(
+            `Batch ${batchIndex} failed with status:`,
+            response.status,
+          );
+        }
+      } catch (error) {
+        if (error.name === "AbortError") {
+          console.log("Request cancelled, stopping fetch");
+          return;
+        }
+        console.error(`Error fetching batch ${batchIndex}:`, error);
+      }
+    }
+
+    if (!signal.aborted) {
+      onProgress(
+        allData.filter((d) => d.timestamp !== ""),
+        true,
       );
-      
-      if (response.ok) {
-        const data: ProgressiveDataPoint[] = await response.json();
-        allData = [...allData, ...data];
-      }
+    }
+  };
+
+  const handleRefreshLifetime = async () => {
+    try {
+      await fetchLifetimeMetrics();
     } catch (error) {
-      console.error('Error fetching batch:', error);
+      console.error("Error fetching lifetime metrics:", error);
     }
-    
-    currentTime += tickSizeMs * batchSize;
-    onProgress(allData, currentTime >= end.getTime());
-  }
-};
+  };
 
-const handleRefreshLifetime = async () => {
-  try {
-    await fetchLifetimeMetrics();
-  } catch (error) {
-    console.error("Error fetching lifetime metrics:", error);
-  }
-};
+  const handleRefreshRange = async () => {
+    try {
+      await fetchRangeMetrics();
+    } catch (error) {
+      console.error("Error fetching range metrics:", error);
+    }
+  };
 
-const handleRefreshRange = async () => {
-  try {
-    await fetchRangeMetrics();
-  } catch (error) {
-    console.error("Error fetching range metrics:", error);
-  }
-};
+  const handleMetricChange = (val: string) => {
+    setMetric(val);
+    setGraphData([]);
+  };
 
-const handleGraphRefresh = async () => {
-  if (!startDate || !endDate) return;
-  
-  setGraphLoading(true);
-  setGraphData([]);
-  
-  const selectedGranularity = autoSelectGranularity(startDate, endDate);
-  setGranularity(selectedGranularity);
-  
-  await fetchGraphDataProgressive(
-    startDate,
-    endDate,
-    selectedGranularity,
-    metric,
-    (data, done) => {
-      setGraphData(data);
-      if (done) {
-        setGraphLoading(false);
+  const handleGraphRefresh = async () => {
+    if (!startDate || !endDate) return;
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    debounceTimerRef.current = setTimeout(async () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
       }
-    }
-  );
-};
 
-useEffect(() => {
-  if (startDate && endDate) {
-    handleGraphRefresh();
-  }
-}, [startDate, endDate, granularity, metric]);
+      const newAbortController = new AbortController();
+      abortControllerRef.current = newAbortController;
+
+      setGraphLoading(true);
+      setLoadingProgress(0);
+
+      await fetchGraphDataProgressive(
+        startDate,
+        endDate,
+        granularity,
+        metric,
+        (data, done) => {
+          setGraphData(data);
+          if (done) {
+            setGraphLoading(false);
+            setLoadingProgress(100);
+            setTimeout(() => setLoadingProgress(0), 500);
+            abortControllerRef.current = null;
+          }
+        },
+        newAbortController.signal,
+      );
+    }, 300);
+  };
+
+  useEffect(() => {
+    fetchLifetimeMetrics();
+    fetchRangeMetrics();
+  }, []);
+
+  useEffect(() => {
+    if (startDate && endDate) {
+      handleGraphRefresh();
+    }
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [startDate, endDate, granularity, metric]);
 
   return (
     <>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 1,
+        }}
+      >
         <Typography variant="h6">Lifetime Metrics</Typography>
         <Button
           onClick={handleRefreshLifetime}
@@ -180,23 +240,21 @@ useEffect(() => {
         request_count={lifetimeMetrics?.request_count}
       />
 
-      <DateRangePicker
-        startDate={startDate}
-        endDate={endDate}
-        onStartDateChange={setStartDate}
-        onEndDateChange={setEndDate}
-        granularity={granularity}
-        onGranularityChange={setGranularity}
-      />
-
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 1,
+        }}
+      >
         <Typography variant="h6">Time Range Metrics</Typography>
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+        <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
           {graphLoading && (
-            <Chip 
-              label="Loading graph..." 
-              size="small" 
-              color="primary" 
+            <Chip
+              label="Loading graph..."
+              size="small"
+              color="primary"
               variant="outlined"
             />
           )}
@@ -209,6 +267,23 @@ useEffect(() => {
           </Button>
         </Box>
       </Box>
+
+      <DateRangePicker
+        startDate={startDate}
+        endDate={endDate}
+        onStartDateChange={(date) => {
+          setStartDate(date);
+          handleGraphRefresh();
+        }}
+        onEndDateChange={(date) => {
+          setEndDate(date);
+          handleGraphRefresh();
+        }}
+        onRefresh={handleGraphRefresh}
+        onGranularityChange={(granularity) => {
+          setGranularity(granularity);
+        }}
+      />
 
       <MetricsSection
         total_tokens={rangeMetrics?.total_tokens}
@@ -223,6 +298,9 @@ useEffect(() => {
         granularity={granularity}
         metric={metric}
         loading={graphLoading}
+        loadingProgress={loadingProgress}
+        onGranularityChange={(value) => setGranularity(value)}
+        onMetricChange={(value) => handleMetricChange(value)}
       />
     </>
   );

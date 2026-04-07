@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from "react";
 import {
   Box,
   Paper,
@@ -9,8 +9,8 @@ import {
   SelectChangeEvent,
   MenuItem,
   LinearProgress,
-  Button
-} from '@mui/material';
+  CircularProgress,
+} from "@mui/material";
 import {
   LineChart,
   Line,
@@ -19,39 +19,122 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-} from 'recharts';
-import { metricLabels } from '../utils/metricsLabels';
+  BarChart,
+  Bar,
+} from "recharts";
+import { metricLabels } from "../utils/metricsLabels";
+import type { MetricType } from "../types/metrics";
 
 export interface ProgressiveDataPoint {
+  hasValue: boolean;
   timestamp: string;
-  value: number;
+  value: number | null;
 }
 
 interface ProgressiveGraphProps {
   data: ProgressiveDataPoint[];
-  granularity: '5min' | '15min' | 'hourly' | 'daily' | 'weekly' | 'monthly';
-  metric: 'total_tokens' | 'input_tokens' | 'output_tokens' | 'requests' | 'tokens_per_sec';
+  granularity: string;
+  metric: MetricType;
   loading: boolean;
+  loadingProgress: number;
+  onGranularityChange?: (granularity: string) => void;
+  onMetricChange?: (metric: MetricType) => void;
 }
+
+const isRateMetric = (metric: MetricType): boolean => {
+  return metric === "tokens_per_sec";
+};
+
+function calculateTickSpacing(dataLength: number): number {
+  if (dataLength <= 8) {
+    return 1;
+  }
+  const targetTicks = 6;
+  let divide = 1;
+  while (dataLength / divide > targetTicks) {
+    divide *= 2;
+  }
+  return divide;
+}
+
+interface CustomGridProps {
+  tickSpacing: number;
+  dataLength: number;
+}
+
+const CustomVerticalGrid: React.FC<CustomGridProps> = ({
+  tickSpacing,
+  dataLength,
+}) => {
+  if (dataLength <= 1) return null;
+
+  const gridLines: React.CSSProperties[] = [];
+
+  for (let i = 0; i < dataLength; i++) {
+    if (i % tickSpacing === 0 || i === dataLength - 1) {
+      const percentage = (i / (dataLength - 1)) * 100;
+      gridLines.push({
+        left: `${percentage}%`,
+        position: "absolute" as const,
+        width: "1px",
+        height: "100%",
+        background: "rgba(0, 0, 0, 0.1)",
+      });
+    }
+  }
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        pointerEvents: "none",
+      }}
+    >
+      {gridLines.map((style, index) => (
+        <div key={index} style={style} />
+      ))}
+    </div>
+  );
+};
 
 const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
   data,
   granularity,
   metric,
-  loading
+  loading,
+  loadingProgress,
+  onGranularityChange,
+  onMetricChange,
 }) => {
-  // Data and loading state managed by parent component
+  const tickSpacingRef = React.useRef<number>(1);
+  const fullDataLength = data.length;
+
+  React.useEffect(() => {
+    tickSpacingRef.current = calculateTickSpacing(fullDataLength);
+  }, [fullDataLength]);
+
+  const handleGranularityChange = (event: SelectChangeEvent<string>) => {
+    if (onGranularityChange) {
+      onGranularityChange(event.target.value);
+    }
+  };
+
+  const handleMetricChange = (event: SelectChangeEvent<string>) => {
+    if (onMetricChange) {
+      onMetricChange(event.target.value);
+    }
+  };
 
   return (
     <Paper sx={{ p: 2 }}>
-      <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+      <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
         <FormControl sx={{ minWidth: 150 }}>
           <InputLabel>Metric</InputLabel>
-          <Select
-            value={metric}
-            label="Metric"
-            onChange={() => {}}
-          >
+          <Select value={metric} label="Metric" onChange={handleMetricChange}>
             {Object.entries(metricLabels).map(([key, label]) => (
               <MenuItem key={key} value={key}>
                 {label}
@@ -59,97 +142,242 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
             ))}
           </Select>
         </FormControl>
-        
+
         <FormControl sx={{ minWidth: 150 }}>
           <InputLabel>Granularity</InputLabel>
           <Select
             value={granularity}
             label="Granularity"
-            onChange={() => {}}
+            onChange={handleGranularityChange}
           >
-            <MenuItem value="5min">5 minutes</MenuItem>
-            <MenuItem value="15min">15 minutes</MenuItem>
-            <MenuItem value="hourly">Hourly</MenuItem>
-            <MenuItem value="daily">Daily</MenuItem>
-            <MenuItem value="weekly">Weekly</MenuItem>
-            <MenuItem value="monthly">Monthly</MenuItem>
+            <MenuItem value="5m">5 minutes</MenuItem>
+            <MenuItem value="10m">10 minutes</MenuItem>
+            <MenuItem value="15m">15 minutes</MenuItem>
+            <MenuItem value="30m">30 minutes</MenuItem>
+            <MenuItem value="1h">1 hour</MenuItem>
+            <MenuItem value="2h">2 hours</MenuItem>
+            <MenuItem value="4h">4 hours</MenuItem>
+            <MenuItem value="6h">6 hours</MenuItem>
+            <MenuItem value="12h">12 hours</MenuItem>
+            <MenuItem value="1d">1 day</MenuItem>
+            <MenuItem value="1w">1 week</MenuItem>
+            <MenuItem value="1M">1 month</MenuItem>
           </Select>
         </FormControl>
       </Box>
 
-      {loading && (
-        <Box sx={{ mb: 2 }}>
-          <LinearProgress 
-            variant="indeterminate" 
-            sx={{ 
-              height: 8, 
-              borderRadius: 1,
-              animation: 'sweep 1s ease-in-out infinite',
-              '@keyframes sweep': {
-                '0%': { backgroundPosition: '200% 0' },
-                '100%': { backgroundPosition: '-200% 0' }
-              }
-            }} 
-          />
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+      <Box sx={{ mb: 2 }}>
+        {loading && (
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+            <CircularProgress size={16} />
             <Typography variant="caption" color="text.secondary">
-              Loading data points...
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {data.length} points loaded
+              Loading data... {Math.round(loadingProgress)}%
             </Typography>
           </Box>
-        </Box>
-      )}
+        )}
+        {loading && (
+          <LinearProgress
+            variant="determinate"
+            value={loadingProgress}
+            sx={{ height: 8, borderRadius: 1 }}
+          />
+        )}
+      </Box>
 
-      {!loading && data.length > 0 && (
+      {data.length > 0 && (
         <Box sx={{ height: 300 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="timestamp" 
-                tick={{ fontSize: 12 }}
-                tickFormatter={(value) => {
-                  const date = new Date(value);
-                  if (granularity === '5min' || granularity === '15min') {
-                    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-                  }
-                  if (granularity === 'hourly') {
-                    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-                  }
-                  if (granularity === 'daily') {
-                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                  }
-                  if (granularity === 'weekly') {
-                    return date.toLocaleDateString('en-US', { week: 'numeric', year: '2-digit' });
-                  }
-                  if (granularity === 'monthly') {
-                    return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-                  }
-                  return value;
-                }}
-              />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip 
-                formatter={(value: number) => [Math.round(value).toLocaleString(), metricLabels[metric]]}
-                labelFormatter={(label) => `Date: ${new Date(label).toLocaleDateString()}`}
-              />
-              <Line
-                type="monotone"
-                dataKey="value"
-                stroke="#1976d2"
-                strokeWidth={2}
-                dot={false}
-                animationDuration={500}
-              />
-            </LineChart>
+            {isRateMetric(metric) ? (
+              <LineChart data={data}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="timestamp"
+                  tick={{ fontSize: 12 }}
+                  tickCount={fullDataLength > 8 ? 6 : fullDataLength}
+                  tickFormatter={(value, index) => {
+                    const date = new Date(value);
+
+                    if (
+                      fullDataLength > 8 &&
+                      index % tickSpacingRef.current !== 0
+                    ) {
+                      return "";
+                    }
+
+                    if (
+                      [
+                        "5m",
+                        "10m",
+                        "15m",
+                        "30m",
+                        "1h",
+                        "2h",
+                        "4h",
+                        "6h",
+                        "12h",
+                      ].includes(granularity)
+                    ) {
+                      return date.toLocaleTimeString("en-US", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      });
+                    }
+                    if (granularity === "1d") {
+                      return date.toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      });
+                    }
+                    if (granularity === "1w") {
+                      return date.toLocaleDateString("en-US", {
+                        month: "short",
+                        year: "numeric",
+                      });
+                    }
+                    if (granularity === "1M") {
+                      return date.toLocaleDateString("en-US", {
+                        month: "short",
+                        year: "numeric",
+                      });
+                    }
+                    return date.toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    });
+                  }}
+                />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip
+                  formatter={(value: number | null) => [
+                    value !== null ? Math.round(value).toLocaleString() : "N/A",
+                    metricLabels[metric],
+                  ]}
+                  labelFormatter={(label) => {
+                    const date = new Date(label);
+                    return `Date: ${date.toLocaleString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}`;
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#1976d2"
+                  strokeWidth={2}
+                  dot={{
+                    r: 4,
+                    fill: "#1976d2",
+                    stroke: "#fff",
+                    strokeWidth: 2,
+                  }}
+                  connectNulls={false}
+                  isAnimationActive={false}
+                />
+              </LineChart>
+            ) : (
+              <Box sx={{ position: "relative", width: "100%", height: "100%" }}>
+                <CustomVerticalGrid
+                  tickSpacing={calculateTickSpacing(fullDataLength)}
+                  dataLength={fullDataLength}
+                />
+                <BarChart data={data}>
+                  <XAxis
+                    dataKey="timestamp"
+                    tick={{ fontSize: 12 }}
+                    tickCount={fullDataLength > 8 ? 6 : fullDataLength}
+                    tickFormatter={(value, index) => {
+                      const date = new Date(value);
+
+                      if (
+                        fullDataLength > 8 &&
+                        index % tickSpacingRef.current !== 0
+                      ) {
+                        return "";
+                      }
+
+                      if (
+                        [
+                          "5m",
+                          "10m",
+                          "15m",
+                          "30m",
+                          "1h",
+                          "2h",
+                          "4h",
+                          "6h",
+                          "12h",
+                        ].includes(granularity)
+                      ) {
+                        return date.toLocaleTimeString("en-US", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        });
+                      }
+                      if (granularity === "1d") {
+                        return date.toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        });
+                      }
+                      if (granularity === "1w") {
+                        return date.toLocaleDateString("en-US", {
+                          month: "short",
+                          year: "numeric",
+                        });
+                      }
+                      if (granularity === "1M") {
+                        return date.toLocaleDateString("en-US", {
+                          month: "short",
+                          year: "numeric",
+                        });
+                      }
+                      return date.toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      });
+                    }}
+                  />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip
+                    formatter={(value: number | null) => [
+                      value !== null ? Math.round(value).toLocaleString() : "0",
+                      metricLabels[metric],
+                    ]}
+                    labelFormatter={(label) => {
+                      const date = new Date(label);
+                      return `Date: ${date.toLocaleString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}`;
+                    }}
+                  />
+                  <Bar
+                    dataKey="value"
+                    fill="#1976d2"
+                    radius={[4, 4, 0, 0]}
+                    isAnimationActive={false}
+                  />
+                </BarChart>
+              </Box>
+            )}
           </ResponsiveContainer>
         </Box>
       )}
 
-      {!loading && data.length === 0 && (
-        <Box sx={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {data.length === 0 && fullDataLength === 0 && !loading && (
+        <Box
+          sx={{
+            height: 300,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
           <Typography color="text.secondary">
             No data available for the selected range
           </Typography>

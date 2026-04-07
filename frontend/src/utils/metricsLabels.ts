@@ -1,12 +1,11 @@
-export const metricLabels: Record<string, string> = {
+import type { MetricType } from '../types/metrics';
+
+export const metricLabels: Record<MetricType, string> = {
   total_tokens: 'Total Tokens',
-  total_input_tokens: 'Total Input',
-  total_output_tokens: 'Total Output',
-  tokens_per_sec: 'Tokens/Sec',
-  request_count: 'Request Count',
   input_tokens: 'Input Tokens',
   output_tokens: 'Output Tokens',
-  requests: 'Request Count',
+  requests: 'Requests',
+  tokens_per_sec: 'Tokens/Sec',
 };
 
 export default metricLabels;

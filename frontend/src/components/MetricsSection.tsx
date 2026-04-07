@@ -1,6 +1,7 @@
 import React from "react";
-import { Grid, Typography, Box } from "@mui/material";
+import { Grid, Box } from "@mui/material";
 import MetricCard from "./MetricCard";
+import type { MetricType } from "../types/metrics";
 
 interface MetricsSectionProps {
   total_tokens?: number;
@@ -31,11 +32,11 @@ const MetricsSection: React.FC<MetricsSectionProps> = ({
   request_count,
 }) => {
   const cards = [
-    { key: "total_tokens" as const, value: total_tokens, color: colors[0] },
-    { key: "total_input_tokens" as const, value: total_input_tokens, color: colors[1] },
-    { key: "total_output_tokens" as const, value: total_output_tokens, color: colors[2] },
-    { key: "tokens_per_sec" as const, value: tokens_per_sec, color: colors[3] },
-    { key: "request_count" as const, value: request_count, color: colors[4] },
+    { key: "total_tokens" as MetricType, value: total_tokens, color: colors[0] },
+    { key: "input_tokens" as MetricType, value: total_input_tokens, color: colors[1] },
+    { key: "output_tokens" as MetricType, value: total_output_tokens, color: colors[2] },
+    { key: "tokens_per_sec" as MetricType, value: tokens_per_sec, color: colors[3] },
+    { key: "requests" as MetricType, value: request_count, color: colors[4] },
   ];
 
   return (
