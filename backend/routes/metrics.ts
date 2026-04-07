@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import * as database from '../database';
-import type { MetricType } from '../types/metrics';
+import type { MetricType, GranularitySeconds } from '../types/metrics';
+import { getAllGranularityDisplayOptions } from '../types/metrics';
 
 const router = express.Router();
 
@@ -138,7 +139,7 @@ router.get('/progressive', async (req: Request, res: Response) => {
   try {
     const start = req.query.start as string | undefined;
     const end = req.query.end as string | undefined;
-    const granularity = req.query.granularity as string | undefined;
+    const granularityValue = req.query.granularity as string | undefined;
     const metric = req.query.metric as MetricType | undefined;
     const batchIndex = parseInt(req.query.batchIndex as string || '0');
     const batchSize = parseInt(req.query.batchSize as string || '16');
@@ -147,14 +148,23 @@ router.get('/progressive', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'start and end dates required' });
     }
     
-    const validGranularities = ['5m', '10m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d', '1w', '1M'];
-    if (!granularity || !validGranularities.includes(granularity)) {
-      return res.status(400).json({ error: 'valid granularity required' });
+    // Convert string granularity value to seconds (e.g., "1h" -> 3600)
+    let granularitySeconds: GranularitySeconds | undefined;
+    if (granularityValue) {
+      const validGranularities = getAllGranularityDisplayOptions();
+      const found = validGranularities.find(opt => opt.value === granularityValue);
+      if (found) {
+        granularitySeconds = found.seconds;
+      }
+    }
+    
+    if (!granularitySeconds) {
+      return res.status(400).json({ error: 'valid granularity required (5m, 10m, 15m, 30m, 1h, 2h, 4h, 6h, 12h, 1d, 1w, 1M)' });
     }
     
     const validMetrics: MetricType[] = ['total_tokens', 'input_tokens', 'output_tokens', 'requests', 'tokens_per_sec'];
-     if (!metric || !validMetrics.includes(metric)) {
-      return res.status(400).json({ error: 'valid metric required' });
+    if (!metric || !validMetrics.includes(metric)) {
+      return res.status(400).json({ error: 'valid metric required (total_tokens, input_tokens, output_tokens, requests, tokens_per_sec)' });
     }
     
     if (isNaN(batchIndex) || batchIndex < 0) {
@@ -168,7 +178,7 @@ router.get('/progressive', async (req: Request, res: Response) => {
     const dataPoints = await database.getProgressiveDataWithInterpolation(
       start, 
       end, 
-      granularity, 
+      granularitySeconds, 
       metric, 
       batchIndex, 
       batchSize

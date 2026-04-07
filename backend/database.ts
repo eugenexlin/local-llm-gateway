@@ -2,7 +2,8 @@ import initSqlJs from 'sql.js';
 import fs from 'fs';
 import path from 'path';
 import config from './config';
-import type { MetricType } from './types/metrics';
+import type { MetricType, GranularitySeconds } from './types/metrics';
+import { roundToGranularity } from './utils/granularity';
 
 const DB_PATH = path.join(__dirname, '../', config.databasePath);
 
@@ -695,35 +696,10 @@ export function getRangeMetrics(startDate: string, endDate: string): RangeMetric
   };
 }
 
-function roundToGranularity(date: Date, granularity: string): Date {
-  const seconds = getGranularitySeconds(granularity);
-  const timestamp = Math.floor(date.getTime() / 1000);
-  const roundedTimestamp = Math.floor(timestamp / seconds) * seconds;
-  return new Date(roundedTimestamp * 1000);
-}
-
-function getGranularitySeconds(granularity: string): number {
-  const map: Record<string, number> = {
-    '5m': 5 * 60,
-    '10m': 10 * 60,
-    '15m': 15 * 60,
-    '30m': 30 * 60,
-    '1h': 60 * 60,
-    '2h': 2 * 60 * 60,
-    '4h': 4 * 60 * 60,
-    '6h': 6 * 60 * 60,
-    '12h': 12 * 60 * 60,
-    '1d': 24 * 60 * 60,
-    '1w': 7 * 24 * 60 * 60,
-    '1M': 30 * 24 * 60 * 60
-  };
-  return map[granularity] || 60 * 60;
-}
-
 export function getProgressiveData(
   startDate: string, 
   endDate: string, 
-  granularity: string,
+  granularity: GranularitySeconds,
   metric: 'total_tokens' | 'input_tokens' | 'output_tokens' | 'requests' | 'tokens_per_sec'
 ): Promise<ProgressiveDataPoint[]> {
   return getProgressiveDataWithInterpolation(startDate, endDate, granularity, metric, 0, 16);
@@ -732,18 +708,19 @@ export function getProgressiveData(
 export function getProgressiveDataWithInterpolation(
   startDate: string, 
   endDate: string, 
-  granularity: string,
+  granularitySeconds: GranularitySeconds,
   metric: 'total_tokens' | 'input_tokens' | 'output_tokens' | 'requests' | 'tokens_per_sec',
   batchIndex: number = 0,
   batchSize: number = 16
 ): Promise<ProgressiveDataPoint[]> {
   return new Promise((resolve) => {
-    const granularitySeconds = getGranularitySeconds(granularity);
+    const start = new Date(startDate);
+    const end = new Date(endDate);
     
-    // Round start date DOWN to granularity boundary
-    const roundedStart = roundToGranularity(new Date(startDate), granularity);
-    // Round end date DOWN, then add one full bucket to ensure inclusive
-    const roundedEnd = roundToGranularity(new Date(endDate), granularity);
+    // Round start down to granularity boundary
+    const roundedStart = roundToGranularity(start, granularitySeconds);
+    // Round end down to granularity boundary and add one full bucket for inclusive range
+    const roundedEnd = roundToGranularity(end, granularitySeconds);
     const inclusiveEnd = new Date(roundedEnd.getTime() + granularitySeconds * 1000);
     
     const roundedStartNum = roundedStart.getTime();
@@ -754,100 +731,59 @@ export function getProgressiveDataWithInterpolation(
     const bucketStartIndex = batchIndex * batchSize;
     const bucketEndIndex = Math.min(bucketStartIndex + batchSize, totalBuckets);
     
-    const selectClause: string = (() => {
+    // Build SQL SELECT clause based on metric
+    const getMetricSelect = (metric: string): string => {
       switch (metric) {
         case 'total_tokens':
-          return 'SUM(COALESCE(prompt_tokens, 0) + COALESCE(completion_tokens, 0)) as value';
+          return 'COALESCE(SUM(COALESCE(prompt_tokens, 0) + COALESCE(completion_tokens, 0)), 0)';
         case 'input_tokens':
-          return 'SUM(COALESCE(prompt_tokens, 0)) as value';
+          return 'COALESCE(SUM(COALESCE(prompt_tokens, 0)), 0)';
         case 'output_tokens':
-          return 'SUM(COALESCE(completion_tokens, 0)) as value';
+          return 'COALESCE(SUM(COALESCE(completion_tokens, 0)), 0)';
         case 'requests':
-          return 'COUNT(*) as value';
+          return 'COUNT(*)';
         case 'tokens_per_sec':
-          return `ROUND(COALESCE(SUM(prompt_tokens + completion_tokens), 0) * 1.0 / ${granularitySeconds}, 2) as value`;
+          return `ROUND(COALESCE(SUM(prompt_tokens + completion_tokens), 0) * 1.0 / ${granularitySeconds}, 2)`;
         default:
-          return 'SUM(prompt_tokens + completion_tokens) as value';
+          return 'COALESCE(SUM(prompt_tokens + completion_tokens), 0)';
       }
-    })();
+    };
     
-    let groupByClause: string;
-    let whereClause: string;
-    let params: string[];
+    const selectExpr = getMetricSelect(metric);
     
-    if (granularity === '1h') {
-      groupByClause = 'strftime("%Y-%m-%d %H:00:00", timestamp)';
-      whereClause = `timestamp >= ? AND timestamp <= ?`;
-      params = [startDate, endDate];
-    } else if (granularity === '2h' || granularity === '4h' || granularity === '6h' || granularity === '12h') {
-      groupByClause = `strftime('%Y-%m-%d %H:00:00', CAST(strftime('%s', timestamp) / ${granularitySeconds} AS INTEGER) * ${granularitySeconds}, 'unixepoch')`;
-      whereClause = `timestamp >= ? AND timestamp <= ?`;
-      params = [startDate, endDate];
-    } else if (granularity === '1d') {
-      groupByClause = 'DATE(timestamp)';
-      whereClause = `timestamp >= ? AND timestamp <= ?`;
-      params = [startDate, endDate];
-    } else if (granularity === '1w') {
-      groupByClause = 'strftime("%Y-%W", timestamp)';
-      whereClause = `timestamp >= ? AND timestamp <= ?`;
-      params = [startDate, endDate];
-    } else if (granularity === '1M') {
-      groupByClause = 'strftime("%Y-%m", timestamp)';
-      whereClause = `timestamp >= ? AND timestamp <= ?`;
-      params = [startDate, endDate];
-    } else if (granularity === '5m' || granularity === '10m' || granularity === '15m' || granularity === '30m') {
-      groupByClause = `strftime('%Y-%m-%d %H:%M:00', CAST(strftime('%s', timestamp) / ${granularitySeconds} AS INTEGER) * ${granularitySeconds}, 'unixepoch')`;
-      whereClause = `timestamp >= ? AND timestamp <= ?`;
-      params = [startDate, endDate];
-    } else {
-      groupByClause = 'strftime("%Y-%m-%d %H:00:00", timestamp)';
-      whereClause = `timestamp >= ? AND timestamp <= ?`;
-      params = [startDate, endDate];
+    // Generate all bucket timestamps in JavaScript
+    const buckets: { start: Date; end: Date }[] = [];
+    for (let t = roundedStartNum; t < inclusiveEndNum; t += granularitySeconds * 1000) {
+      buckets.push({
+        start: new Date(t),
+        end: new Date(t + granularitySeconds * 1000)
+      });
     }
     
-  const orderByClause = (granularity === '2h' || granularity === '4h' || granularity === '6h' || granularity === '12h')
-      ? `CAST(${groupByClause} AS INTEGER)`
-      : `timestamp`;
-    
-    const query = `
-      SELECT ${groupByClause} as timestamp, ${selectClause}
-      FROM usage_logs 
-      WHERE timestamp >= ? AND timestamp <= ?
-      GROUP BY ${groupByClause}
-      ORDER BY ${orderByClause} ASC
-    `;
-    
-    const queryParams = [startDate, endDate];
-    const result = db!.exec(query, queryParams);
-    
-    const actualDataPoints: Record<string, number> = {};
-    if (result.length > 0 && result[0].values.length > 0) {
-      const columns = result[0].columns as string[];
-      const values = result[0].values as (string | number | null)[][];
-      
-      for (const row of values) {
-        const obj: any = {};
-        columns.forEach((col, i) => {
-          obj[col] = row[i];
-        });
-        actualDataPoints[obj.timestamp] = typeof obj.value === 'number' ? obj.value : 0;
-      }
-    }
-    
+    // Query each bucket individually (one query per bucket for simplicity)
     const dataPoints: ProgressiveDataPoint[] = [];
+    
     for (let i = bucketStartIndex; i < bucketEndIndex; i++) {
-      // Use rounded start time to ensure all buckets are aligned
-      const bucketStartTimestamp = new Date(roundedStartNum + i * granularitySeconds * 1000);
-      const bucketTimestamp = bucketStartTimestamp.toISOString();
+      const bucket = buckets[i];
       
-      // Find matching data point by rounding the lookup key
-      const existingPoint = Object.keys(actualDataPoints).find(
-        key => new Date(key).getTime() === bucketStartTimestamp.getTime()
-      );
+      // Simple query for single bucket range
+      const query = `
+        SELECT ${selectExpr} as value
+        FROM usage_logs 
+        WHERE timestamp >= ? AND timestamp < ?
+      `;
+      
+      const queryParams = [bucket.start.toISOString(), bucket.end.toISOString()];
+      const result = db!.exec(query, queryParams);
+      
+      let value: number = 0;
+      if (result.length > 0 && result[0].values.length > 0) {
+        value = Number(result[0].values[0][0]) || 0;
+      }
       
       dataPoints.push({
-        timestamp: bucketTimestamp,
-        value: existingPoint !== undefined ? actualDataPoints[existingPoint] : 0
+        timestamp: bucket.start.toISOString(),
+        value
       });
     }
     

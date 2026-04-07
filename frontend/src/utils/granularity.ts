@@ -99,7 +99,7 @@ export const calculateOptimalGranularity = (
   startDate: Date,
   endDate: Date,
   maxTicks: number = 64,
-) => {
+): string => {
   const rangeSeconds = getRangeSeconds(startDate, endDate);
 
   if (rangeSeconds <= 0) {
@@ -116,3 +116,34 @@ export const calculateOptimalGranularity = (
 
   return "1M";
 };
+
+/**
+ * Calculate optimal granularity and return seconds (new preferred method)
+ */
+export const calculateOptimalGranularitySeconds = (
+  startDate: Date,
+  endDate: Date,
+  maxTicks: number = 64,
+): number => {
+  const rangeSeconds = getRangeSeconds(startDate, endDate);
+
+  if (rangeSeconds <= 0) {
+    return 60 * 60;
+  }
+
+  const requiredGranularitySeconds = rangeSeconds / maxTicks;
+
+  for (const option of granularityOptions) {
+    if (option.seconds >= requiredGranularitySeconds) {
+      return option.seconds;
+    }
+  }
+
+  return 30 * 24 * 60 * 60;
+};
+
+/**
+ * @deprecated Use calculateOptimalGranularitySeconds instead
+ */
+export const calculateOptimalGranularity_DEPRECATED = calculateOptimalGranularity;
+

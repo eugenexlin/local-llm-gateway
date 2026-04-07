@@ -9,7 +9,8 @@ import {
   Select,
   Typography,
 } from "@mui/material";
-import { calculateOptimalGranularity } from "../utils/granularity";
+import { calculateOptimalGranularitySeconds } from "../utils/granularity";
+import type { GranularitySeconds } from "../types/metrics";
 
 interface DateRangePickerProps {
   startDate: Date | null;
@@ -17,7 +18,7 @@ interface DateRangePickerProps {
   onStartDateChange: (date: Date | null) => void;
   onEndDateChange: (date: Date | null) => void;
   onRefresh: () => void;
-  onGranularityChange?: (granularity: string) => void;
+  onGranularityChange?: (granularity: GranularitySeconds) => void;
 }
 
 interface PresetRange {
@@ -153,9 +154,9 @@ const [startDateStr, setStartDateStr] = React.useState("");
 
     // Only calculate and set granularity if it hasn't been set yet
     if (!granularitySet && start && end) {
-      const optimalGranularity = calculateOptimalGranularity(start, end);
+      const optimalGranularitySeconds = calculateOptimalGranularitySeconds(start, end);
       if (onGranularityChange) {
-        onGranularityChange(optimalGranularity);
+        onGranularityChange(optimalGranularitySeconds);
       }
       setGranularitySet(true);
     }

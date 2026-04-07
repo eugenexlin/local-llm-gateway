@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
-import { getGranularitySeconds, getRangeSeconds } from "../utils/granularity";
+import { getRangeSeconds } from "../utils/granularity";
+import { secondsToDisplayValue, displayValueToSeconds } from "../utils/granularityDisplay";
 import { Box, Typography, Button, Chip } from "@mui/material";
 import { Refresh } from "@mui/icons-material";
 import DateRangePicker from "./DateRangePicker";
 import ProgressiveGraph from "./ProgressiveGraph";
 import MetricsSection from "./MetricsSection";
-import type { MetricType } from "../types/metrics";
+import type { MetricType, GranularitySeconds } from "../types/metrics";
 
 interface ProgressiveDataPoint {
   hasValue: boolean;
@@ -28,8 +29,9 @@ const DashboardStats: React.FC = () => {
     new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
   );
   const [endDate, setEndDate] = useState<Date | null>(new Date());
-  const [granularity, setGranularity] = useState<string>("1h");
+  const [granularity, setGranularity] = useState<GranularitySeconds>(60 * 60); // Default to 1 hour
   const [metric, setMetric] = useState<MetricType>("total_tokens");
+  const [displayGranularity, setDisplayGranularity] = useState<string>("1h");
 
   const [graphData, setGraphData] = useState<any[]>([]);
   const [graphLoading, setGraphLoading] = useState(false);
@@ -68,16 +70,16 @@ const DashboardStats: React.FC = () => {
   const fetchGraphDataProgressive = async (
     start: Date,
     end: Date,
-    currentGranularity: string,
+    currentGranularitySeconds: GranularitySeconds,
     metric: string,
     onProgress: (data: ProgressiveDataPoint[], done: boolean) => void,
     signal: AbortSignal,
   ) => {
     const batchSize = 16;
     const rangeSeconds = getRangeSeconds(start, end);
-    const granularitySeconds = getGranularitySeconds(currentGranularity);
-    const dataPointCount = Math.ceil(rangeSeconds / granularitySeconds) + 1;
+    const dataPointCount = Math.ceil(rangeSeconds / currentGranularitySeconds) + 1;
     const batchCount = Math.ceil(dataPointCount / batchSize);
+    const displayValue = secondsToDisplayValue(currentGranularitySeconds) || "1h";
     const allData: ProgressiveDataPoint[] = new Array(dataPointCount).fill({
       hasValue: false,
       timestamp: "",
@@ -93,7 +95,7 @@ const DashboardStats: React.FC = () => {
     ) {
       try {
         const response = await fetch(
-          `/api/metrics/progressive?start=${start.toISOString()}&end=${end.toISOString()}&granularity=${currentGranularity}&metric=${metric}&batchIndex=${batchIndex}&batchSize=${batchSize}`,
+          `/api/metrics/progressive?start=${start.toISOString()}&end=${end.toISOString()}&granularity=${displayValue}&metric=${metric}&batchIndex=${batchIndex}&batchSize=${batchSize}`,
           { signal },
         );
 
@@ -151,9 +153,16 @@ const DashboardStats: React.FC = () => {
     }
   };
 
-  const handleMetricChange = (val: string) => {
+  const handleMetricChange = (val: MetricType) => {
     setMetric(val);
     setGraphData([]);
+  };
+
+  const handleGranularityChange = (value: string) => {
+    const seconds = displayValueToSeconds(value);
+    if (seconds) {
+      setGranularity(seconds);
+    }
   };
 
   const handleGraphRefresh = async () => {
@@ -197,6 +206,14 @@ const DashboardStats: React.FC = () => {
     fetchLifetimeMetrics();
     fetchRangeMetrics();
   }, []);
+
+  useEffect(() => {
+    // Sync display granularity with seconds value
+    const displayValue = secondsToDisplayValue(granularity);
+    if (displayValue) {
+      setDisplayGranularity(displayValue);
+    }
+  }, [granularity]);
 
   useEffect(() => {
     if (startDate && endDate) {
@@ -268,7 +285,7 @@ const DashboardStats: React.FC = () => {
         </Box>
       </Box>
 
-      <DateRangePicker
+<DateRangePicker
         startDate={startDate}
         endDate={endDate}
         onStartDateChange={(date) => {
@@ -280,8 +297,8 @@ const DashboardStats: React.FC = () => {
           handleGraphRefresh();
         }}
         onRefresh={handleGraphRefresh}
-        onGranularityChange={(granularity) => {
-          setGranularity(granularity);
+        onGranularityChange={(seconds) => {
+          setGranularity(seconds);
         }}
       />
 
@@ -295,13 +312,14 @@ const DashboardStats: React.FC = () => {
 
       <ProgressiveGraph
         data={graphData}
-        granularity={granularity}
+        granularity={displayGranularity}
         metric={metric}
         loading={graphLoading}
         loadingProgress={loadingProgress}
-        onGranularityChange={(value) => setGranularity(value)}
+        onGranularityChange={handleGranularityChange}
         onMetricChange={(value) => handleMetricChange(value)}
       />
+
     </>
   );
 };

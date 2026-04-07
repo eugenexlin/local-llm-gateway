@@ -9,6 +9,79 @@ export interface Metrics {
   total_tokens: number;
   input_tokens: number;
   output_tokens: number;
-  requests: number;
   tokens_per_sec: number;
 }
+
+// Granularity is now represented as seconds (integer)
+export type GranularitySeconds = number;
+
+// Predefined granularity constants
+export const Granularity = {
+  FIVE_MINUTES: 5 * 60,
+  TEN_MINUTES: 10 * 60,
+  FIFTEEN_MINUTES: 15 * 60,
+  THIRTY_MINUTES: 30 * 60,
+  ONE_HOUR: 60 * 60,
+  TWO_HOURS: 2 * 60 * 60,
+  FOUR_HOURS: 4 * 60 * 60,
+  SIX_HOURS: 6 * 60 * 60,
+  TWELVE_HOURS: 12 * 60 * 60,
+  ONE_DAY: 24 * 60 * 60,
+  ONE_WEEK: 7 * 24 * 60 * 60,
+  ONE_MONTH: 30 * 24 * 60 * 60,
+} as const;
+
+export type GranularityConstant = typeof Granularity[keyof typeof Granularity];
+
+// API display values (only for UI layer)
+export interface GranularityDisplayOption {
+  seconds: number;
+  label: string;
+  value: string; // Legacy API value for dropdown
+}
+
+export const GranularityDisplay: Record<string, GranularityDisplayOption> = {
+  '5m': { seconds: 5 * 60, label: '5 minutes', value: '5m' },
+  '10m': { seconds: 10 * 60, label: '10 minutes', value: '10m' },
+  '15m': { seconds: 15 * 60, label: '15 minutes', value: '15m' },
+  '30m': { seconds: 30 * 60, label: '30 minutes', value: '30m' },
+  '1h': { seconds: 60 * 60, label: '1 hour', value: '1h' },
+  '2h': { seconds: 2 * 60 * 60, label: '2 hours', value: '2h' },
+  '4h': { seconds: 4 * 60 * 60, label: '4 hours', value: '4h' },
+  '6h': { seconds: 6 * 60 * 60, label: '6 hours', value: '6h' },
+  '12h': { seconds: 12 * 60 * 60, label: '12 hours', value: '12h' },
+  '1d': { seconds: 24 * 60 * 60, label: '1 day', value: '1d' },
+  '1w': { seconds: 7 * 24 * 60 * 60, label: '1 week', value: '1w' },
+  '1M': { seconds: 30 * 24 * 60 * 60, label: '1 month', value: '1M' },
+};
+
+export const getAllGranularityDisplayOptions = (): GranularityDisplayOption[] => {
+  return Object.values(GranularityDisplay);
+};
+
+export const getGranularityDisplayBySeconds = (seconds: number): GranularityDisplayOption | undefined => {
+  return Object.values(GranularityDisplay).find(opt => opt.seconds === seconds);
+};
+
+export const getGranularityDisplayByValue = (value: string): GranularityDisplayOption | undefined => {
+  return GranularityDisplay[value];
+};
+
+export const secondsToDisplayValue = (seconds: number): string | undefined => {
+  const option = getGranularityDisplayBySeconds(seconds);
+  return option?.value;
+};
+
+export const displayValueToSeconds = (value: string): number | undefined => {
+  const option = getGranularityDisplayByValue(value);
+  return option?.seconds;
+};
+
+export const displayLabelToSeconds = (label: string): number | undefined => {
+  return Object.values(GranularityDisplay).find(opt => opt.label === label)?.seconds;
+};
+
+export const secondsToDisplayLabel = (seconds: number): string | undefined => {
+  const option = getGranularityDisplayBySeconds(seconds);
+  return option?.label;
+};

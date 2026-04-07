@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React from "react";
 import {
   Box,
   Paper,
@@ -23,7 +23,8 @@ import {
   Bar,
 } from "recharts";
 import { metricLabels } from "../utils/metricsLabels";
-import type { MetricType } from "../types/metrics";
+import { getAllGranularityOptions, secondsToDisplayValue } from "../utils/granularityDisplay";
+import type { MetricType, GranularitySeconds } from "../types/metrics";
 
 export interface ProgressiveDataPoint {
   hasValue: boolean;
@@ -33,11 +34,11 @@ export interface ProgressiveDataPoint {
 
 interface ProgressiveGraphProps {
   data: ProgressiveDataPoint[];
-  granularity: string;
+  granularity: string; // Display value (e.g., "1h")
   metric: MetricType;
   loading: boolean;
   loadingProgress: number;
-  onGranularityChange?: (granularity: string) => void;
+  onGranularityChange?: (value: string) => void;
   onMetricChange?: (metric: MetricType) => void;
 }
 
@@ -112,6 +113,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
 }) => {
   const tickSpacingRef = React.useRef<number>(1);
   const fullDataLength = data.length;
+  const granularityOptions = getAllGranularityOptions();
 
   React.useEffect(() => {
     tickSpacingRef.current = calculateTickSpacing(fullDataLength);
@@ -143,27 +145,20 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
           </Select>
         </FormControl>
 
-        <FormControl sx={{ minWidth: 150 }}>
-          <InputLabel>Granularity</InputLabel>
-          <Select
-            value={granularity}
-            label="Granularity"
-            onChange={handleGranularityChange}
-          >
-            <MenuItem value="5m">5 minutes</MenuItem>
-            <MenuItem value="10m">10 minutes</MenuItem>
-            <MenuItem value="15m">15 minutes</MenuItem>
-            <MenuItem value="30m">30 minutes</MenuItem>
-            <MenuItem value="1h">1 hour</MenuItem>
-            <MenuItem value="2h">2 hours</MenuItem>
-            <MenuItem value="4h">4 hours</MenuItem>
-            <MenuItem value="6h">6 hours</MenuItem>
-            <MenuItem value="12h">12 hours</MenuItem>
-            <MenuItem value="1d">1 day</MenuItem>
-            <MenuItem value="1w">1 week</MenuItem>
-            <MenuItem value="1M">1 month</MenuItem>
-          </Select>
-        </FormControl>
+<FormControl sx={{ minWidth: 150 }}>
+           <InputLabel>Granularity</InputLabel>
+           <Select
+             value={granularity}
+             label="Granularity"
+             onChange={handleGranularityChange}
+           >
+             {granularityOptions.map((option) => (
+               <MenuItem key={option.value} value={option.value}>
+                 {option.label}
+               </MenuItem>
+             ))}
+           </Select>
+         </FormControl>
       </Box>
 
       <Box sx={{ mb: 2 }}>
@@ -298,19 +293,9 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                         return "";
                       }
 
-                      if (
-                        [
-                          "5m",
-                          "10m",
-                          "15m",
-                          "30m",
-                          "1h",
-                          "2h",
-                          "4h",
-                          "6h",
-                          "12h",
-                        ].includes(granularity)
-                      ) {
+                      const granularitySeconds = granularityOptions.find(o => o.value === granularity)?.seconds;
+                      if (granularitySeconds && granularitySeconds <= 12 * 60 * 60) {
+                        // 12 hours or less - show time
                         return date.toLocaleTimeString("en-US", {
                           hour: "2-digit",
                           minute: "2-digit",
@@ -322,13 +307,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                           day: "numeric",
                         });
                       }
-                      if (granularity === "1w") {
-                        return date.toLocaleDateString("en-US", {
-                          month: "short",
-                          year: "numeric",
-                        });
-                      }
-                      if (granularity === "1M") {
+                      if (granularity === "1w" || granularity === "1M") {
                         return date.toLocaleDateString("en-US", {
                           month: "short",
                           year: "numeric",
