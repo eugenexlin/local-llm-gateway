@@ -6,6 +6,8 @@ export const metricLabels: Record<MetricType, string> = {
   output_tokens: 'Output Tokens',
   requests: 'Requests',
   tokens_per_sec: 'Tokens/Sec',
+  input_tokens_per_sec: 'Input Tokens/Sec',
+  output_tokens_per_sec: 'Output Tokens/Sec',
 };
 
 export default metricLabels;

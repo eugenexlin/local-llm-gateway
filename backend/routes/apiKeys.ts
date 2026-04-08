@@ -48,22 +48,27 @@ router.post("/", (req: Request<{}, {}, CreateApiKeyBody>, res: Response) => {
 // List API keys
 router.get("/", (req: Request, res: Response) => {
   try {
-    const { user_id } = req.query;
+    const { user_id, show_revoked } = req.query;
     let apiKeys: any[];
     
     if (user_id) {
-      apiKeys = database.getApiKeysByUserId(user_id as string);
+      apiKeys = database.getApiKeysByUserId(user_id as string, show_revoked === 'true');
+      // Filter to only return API keys that belong to the requested user
+      apiKeys = apiKeys.filter((key: any) => key.user_id === user_id);
     } else {
-      apiKeys = database.getApiKeys();
+      // If no user_id provided, return empty array (require authentication)
+      apiKeys = [];
     }
     
     res.json(
-      apiKeys.map(({ id, name, description, created_at, user_id }) => ({
+      apiKeys.map(({ id, name, description, created_at, user_id, is_active, revoked_at }) => ({
         id,
         name,
         description,
         created_at,
         user_id,
+        is_active,
+        revoked_at,
       })),
     );
   } catch (error) {

@@ -8,6 +8,8 @@ interface MetricsSectionProps {
   total_input_tokens?: number;
   total_output_tokens?: number;
   tokens_per_sec?: number;
+  input_tokens_per_sec?: number;
+  output_tokens_per_sec?: number;
   request_count?: number;
 }
 
@@ -29,6 +31,8 @@ const MetricsSection: React.FC<MetricsSectionProps> = ({
   total_input_tokens,
   total_output_tokens,
   tokens_per_sec,
+  input_tokens_per_sec,
+  output_tokens_per_sec,
   request_count,
 }) => {
   const cards = [
@@ -36,7 +40,9 @@ const MetricsSection: React.FC<MetricsSectionProps> = ({
     { key: "input_tokens" as MetricType, value: total_input_tokens, color: colors[1] },
     { key: "output_tokens" as MetricType, value: total_output_tokens, color: colors[2] },
     { key: "tokens_per_sec" as MetricType, value: tokens_per_sec, color: colors[3] },
-    { key: "requests" as MetricType, value: request_count, color: colors[4] },
+    { key: "input_tokens_per_sec" as MetricType, value: input_tokens_per_sec, color: colors[4] },
+    { key: "output_tokens_per_sec" as MetricType, value: output_tokens_per_sec, color: colors[0] },
+    { key: "requests" as MetricType, value: request_count, color: colors[1] },
   ];
 
   return (

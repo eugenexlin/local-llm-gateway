@@ -80,6 +80,8 @@ export interface LifetimeMetrics {
   total_input_tokens: number;
   total_output_tokens: number;
   tokens_per_sec: number;
+  input_tokens_per_sec: number;
+  output_tokens_per_sec: number;
   request_count: number;
   cache_creation_tokens?: number;
   cache_read_tokens?: number;
@@ -90,6 +92,8 @@ export interface RangeMetrics {
   total_input_tokens: number;
   total_output_tokens: number;
   tokens_per_sec: number;
+  input_tokens_per_sec: number;
+  output_tokens_per_sec: number;
   request_count: number;
   duration_seconds: number;
   cache_creation_tokens?: number;
@@ -128,22 +132,39 @@ export async function init(): Promise<void> {
 
 async function migrateSchema(): Promise<void> {
   try {
-    const columns = db.exec("PRAGMA table_info(usage_logs)");
+    const columns = db.exec("PRAGMA table_info(api_keys)");
     const columnNames = columns[0]?.values.map((row: any[]) => row[1]) || [];
     
-    if (!columnNames.includes('idempotency_key')) {
+    if (!columnNames.includes('revoked_at')) {
+      console.log('Migrating: Adding revoked_at column');
+      db.run('ALTER TABLE api_keys ADD COLUMN revoked_at TEXT');
+    }
+    
+    const usageColumns = db.exec("PRAGMA table_info(usage_logs)");
+    const usageColumnNames = usageColumns[0]?.values.map((row: any[]) => row[1]) || [];
+    
+    if (!usageColumnNames.includes('idempotency_key')) {
       console.log('Migrating: Adding idempotency_key column');
       db.run('ALTER TABLE usage_logs ADD COLUMN idempotency_key TEXT');
     }
     
-    if (!columnNames.includes('cache_creation_input_tokens')) {
+    if (!usageColumnNames.includes('cache_creation_input_tokens')) {
       console.log('Migrating: Adding cache_creation_input_tokens column');
       db.run('ALTER TABLE usage_logs ADD COLUMN cache_creation_input_tokens INTEGER DEFAULT 0');
     }
     
-    if (!columnNames.includes('cache_read_input_tokens')) {
+    if (!usageColumnNames.includes('cache_read_input_tokens')) {
       console.log('Migrating: Adding cache_read_input_tokens column');
       db.run('ALTER TABLE usage_logs ADD COLUMN cache_read_input_tokens INTEGER DEFAULT 0');
+    }
+    
+    // Check if idx_api_keys_user_id index exists
+    const indexes = db.exec("SELECT name FROM sqlite_master WHERE type='index'");
+    const indexNames = indexes[0]?.values.map((row: any[]) => row[0]) || [];
+    
+    if (!indexNames.includes('idx_api_keys_user_id')) {
+      console.log('Migrating: Creating idx_api_keys_user_id index');
+      db.run('CREATE INDEX idx_api_keys_user_id ON api_keys(user_id)');
     }
     
     saveDatabase();
@@ -159,6 +180,13 @@ export function isReady(): boolean {
 
 export function getDb(): any {
   return db;
+}
+
+export function close(): void {
+  if (db) {
+    db.close();
+  }
+  initialized = false;
 }
 
 function createSchema(): void {
@@ -182,6 +210,7 @@ function createSchema(): void {
       user_id TEXT,
       created_at TEXT NOT NULL,
       is_active INTEGER DEFAULT 1,
+      revoked_at TEXT,
       last_used_at TEXT
     )
   `);
@@ -201,6 +230,8 @@ function createSchema(): void {
   `);
 
   db!.run(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
+  db!.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower ON users(LOWER(email))`);
+  db!.run(`CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id)`);
   db!.run(`CREATE INDEX IF NOT EXISTS idx_api_key_hash ON api_keys(key_hash)`);
   db!.run(`CREATE INDEX IF NOT EXISTS idx_api_key_id ON usage_logs(api_key_id)`);
   db!.run(`CREATE INDEX IF NOT EXISTS idx_usage_timestamp ON usage_logs(timestamp)`);
@@ -249,14 +280,21 @@ export function getApiKeys(): Array<{
   });
 }
 
-export function getApiKeysByUserId(userId: string): Array<{
+export function getApiKeysByUserId(userId: string, showRevoked = false): Array<{
   id: string;
   name: string;
   description: string | null;
   created_at: string;
   user_id: string | null;
+  is_active: number;
+  revoked_at: string | null;
 }> {
-  const result = db!.exec('SELECT id, name, description, created_at, user_id FROM api_keys WHERE is_active = 1 AND user_id = ? ORDER BY created_at DESC', [userId]);
+  const whereClause = showRevoked 
+    ? 'user_id = ?' 
+    : 'is_active = 1 AND user_id = ?';
+  const params = showRevoked ? [userId] : [1, userId];
+  
+  const result = db!.exec(`SELECT id, name, description, created_at, user_id, is_active, revoked_at FROM api_keys WHERE ${whereClause} ORDER BY created_at DESC`, params);
   if (result.length === 0) return [];
   
   const columns = result[0].columns as string[];
@@ -272,13 +310,13 @@ export function getApiKeysByUserId(userId: string): Array<{
 }
 
 export function deleteApiKey(id: string): boolean {
-  db!.run('UPDATE api_keys SET is_active = 0 WHERE id = ?', [id]);
+  db!.run('UPDATE api_keys SET is_active = 0, revoked_at = ? WHERE id = ?', [new Date().toISOString(), id]);
   saveDatabase();
   return true;
 }
 
 export function findUserByEmail(email: string): User | null {
-  const result = db!.exec('SELECT id, email, name, oauth_id, oauth_provider, created_at FROM users WHERE email = ?', [email]);
+  const result = db!.exec('SELECT id, email, name, oauth_id, oauth_provider, created_at FROM users WHERE LOWER(email) = LOWER(?)', [email]);
   if (result.length === 0 || result[0].values.length === 0) return null;
   
   const columns = result[0].columns as string[];
@@ -307,13 +345,14 @@ export function createUser({ id, email, name, oauth_id, oauth_provider }: {
   oauth_id: string | null;
   oauth_provider: string | null;
 }): User {
+  const normalizedEmail = email.toLowerCase().trim();
   db!.run(
     'INSERT INTO users (id, email, name, oauth_id, oauth_provider, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-    [id, email, name, oauth_id || null, oauth_provider || null, new Date().toISOString()]
+    [id, normalizedEmail, name, oauth_id || null, oauth_provider || null, new Date().toISOString()]
   );
   saveDatabase();
   
-  return { id, email, name, oauth_id, oauth_provider, created_at: new Date().toISOString() };
+  return { id, email: normalizedEmail, name, oauth_id, oauth_provider, created_at: new Date().toISOString() };
 }
 
 export function updateUserOauth(id: string, oauth_id: string, oauth_provider: string): void {
@@ -365,6 +404,68 @@ export function findUserById(id: string): User | null {
     oauth_provider: obj.oauth_provider,
     created_at: obj.created_at,
   };
+}
+
+export function getAllUsers(): Array<{
+  id: string;
+  email: string;
+  name: string;
+}> {
+  const result = db!.exec('SELECT id, email, name FROM users ORDER BY name ASC');
+  if (result.length === 0) return [];
+  
+  const columns = result[0].columns as string[];
+  const values = result[0].values as (string | number | null)[][];
+  
+  return values.map(row => {
+    const obj: any = {};
+    columns.forEach((col, i) => {
+      obj[col] = row[i];
+    });
+    return {
+      id: obj.id,
+      email: obj.email,
+      name: obj.name || obj.email,
+    };
+  });
+}
+
+export function getApiKeysByUserIdFilter(userId: string, showRevoked = false): Array<{
+  id: string;
+  name: string;
+  is_active: number;
+  revoked_at: string | null;
+}> {
+  let query: string;
+  let params: (string | number)[] = [userId];
+  
+  if (showRevoked) {
+    // Return all keys for the user
+    query = 'SELECT id, name, is_active, revoked_at FROM api_keys WHERE user_id = ? ORDER BY name ASC';
+  } else {
+    // Return only active keys
+    query = 'SELECT id, name, is_active, revoked_at FROM api_keys WHERE user_id = ? AND is_active = 1 ORDER BY name ASC';
+    params = [userId];
+  }
+  
+  const result = db!.exec(query, params);
+  if (result.length === 0) return [];
+  
+  const columns = result[0].columns as string[];
+  const values = result[0].values as (string | number | null)[][];
+  
+  return values.map(row => {
+    const obj: any = {};
+    columns.forEach((col, i) => {
+      obj[col] = row[i];
+    });
+    return {
+      id: obj.id,
+      name: obj.name,
+      is_active: obj.is_active,
+      revoked_at: obj.revoked_at,
+    };
+  });
 }
 
 export function validateApiKey(keyHash: string): {
@@ -594,8 +695,8 @@ export function getUsageTrends(startDate: string, endDate: string): TrendsDataPo
   });
 }
 
-export function getLifetimeMetrics(): LifetimeMetrics {
-  const result = db!.exec(`
+export function getLifetimeMetrics(userId?: string, apiKeyId?: string): LifetimeMetrics {
+  let query = `
     SELECT 
       COUNT(*) as request_count,
       SUM(prompt_tokens) as total_input_tokens,
@@ -605,7 +706,23 @@ export function getLifetimeMetrics(): LifetimeMetrics {
       MIN(timestamp) as first_request,
       MAX(timestamp) as last_request
     FROM usage_logs
-  `);
+  `;
+  
+  const params: (string | number)[] = [];
+  
+  if (userId) {
+    query += ` JOIN api_keys ON usage_logs.api_key_id = api_keys.id`;
+  }
+  
+  if (userId && apiKeyId) {
+    query += ` WHERE api_keys.user_id = ? AND api_keys.id = ?`;
+    params.push(userId, apiKeyId);
+  } else if (userId) {
+    query += ` WHERE api_keys.user_id = ?`;
+    params.push(userId);
+  }
+  
+  const result = db!.exec(query, params);
   
   if (result.length === 0 || result[0].values.length === 0) {
     return {
@@ -613,6 +730,8 @@ export function getLifetimeMetrics(): LifetimeMetrics {
       total_input_tokens: 0,
       total_output_tokens: 0,
       tokens_per_sec: 0,
+      input_tokens_per_sec: 0,
+      output_tokens_per_sec: 0,
       request_count: 0,
       cache_creation_tokens: 0,
       cache_read_tokens: 0
@@ -626,14 +745,26 @@ export function getLifetimeMetrics(): LifetimeMetrics {
   const firstRequest: string | null = row[5]?.toString() || null;
   const lastRequest: string | null = row[6]?.toString() || null;
   
+  // Calculate tokens_per_sec using actual duration from usage logs (hardware throughput)
+  const durationResult = db!.exec(`
+    SELECT SUM(duration_ms) as total_duration_ms
+    FROM usage_logs
+    ${userId ? 'JOIN api_keys ON usage_logs.api_key_id = api_keys.id' : ''}
+    ${userId && apiKeyId ? 'WHERE api_keys.user_id = ? AND api_keys.id = ?' : ''}
+    ${userId && !apiKeyId ? 'WHERE api_keys.user_id = ?' : ''}
+  `, params);
+  
+  const totalDurationMs = durationResult.length > 0 && durationResult[0].values.length > 0 
+    ? Number(durationResult[0].values[0][0] || 0) 
+    : 0;
+  
   let tokensPerSec = 0;
-  if (firstRequest && lastRequest) {
-    const firstDate = new Date(firstRequest);
-    const lastDate = new Date(lastRequest);
-    const durationSecs = (lastDate.getTime() - firstDate.getTime()) / 1000;
-    if (durationSecs > 0) {
-      tokensPerSec = (totalInputTokens + totalOutputTokens) / durationSecs;
-    }
+  let inputTokensPerSec = 0;
+  let outputTokensPerSec = 0;
+  if (totalDurationMs > 0) {
+    tokensPerSec = (totalInputTokens + totalOutputTokens) * 1000 / totalDurationMs;
+    inputTokensPerSec = totalInputTokens * 1000 / totalDurationMs;
+    outputTokensPerSec = totalOutputTokens * 1000 / totalDurationMs;
   }
   
   return {
@@ -641,27 +772,47 @@ export function getLifetimeMetrics(): LifetimeMetrics {
     total_input_tokens: totalInputTokens,
     total_output_tokens: totalOutputTokens,
     tokens_per_sec: Math.round(tokensPerSec * 100) / 100,
+    input_tokens_per_sec: Math.round(inputTokensPerSec * 100) / 100,
+    output_tokens_per_sec: Math.round(outputTokensPerSec * 100) / 100,
     request_count: requestCount,
     cache_creation_tokens: Number(row[3] || 0),
     cache_read_tokens: Number(row[4] || 0)
   };
 }
 
-export function getRangeMetrics(startDate: string, endDate: string): RangeMetrics {
+export function getRangeMetrics(startDate: string, endDate: string, userId?: string, apiKeyId?: string): RangeMetrics {
   const start = new Date(startDate);
   const end = new Date(endDate);
   const durationSeconds = (end.getTime() - start.getTime()) / 1000 + 1;
   
-  const result = db!.exec(`
+  let query = `
     SELECT 
       COUNT(*) as request_count,
       SUM(prompt_tokens) as total_input_tokens,
       SUM(completion_tokens) as total_output_tokens,
       SUM(cache_creation_input_tokens) as cache_creation_tokens,
       SUM(cache_read_input_tokens) as cache_read_tokens
-    FROM usage_logs 
-    WHERE timestamp >= ? AND timestamp <= ?
-  `, [startDate, endDate]);
+    FROM usage_logs
+  `;
+  
+  const params: (string | number)[] = [];
+  
+  if (userId) {
+    query += ` JOIN api_keys ON usage_logs.api_key_id = api_keys.id`;
+  }
+  
+  query += ` WHERE timestamp >= ? AND timestamp <= ?`;
+  params.push(startDate, endDate);
+  
+  if (userId && apiKeyId) {
+    query += ` AND api_keys.user_id = ? AND api_keys.id = ?`;
+    params.push(userId, apiKeyId);
+  } else if (userId) {
+    query += ` AND api_keys.user_id = ?`;
+    params.push(userId);
+  }
+  
+  const result = db!.exec(query, params);
   
   if (result.length === 0 || result[0].values.length === 0) {
     return {
@@ -669,6 +820,8 @@ export function getRangeMetrics(startDate: string, endDate: string): RangeMetric
       total_input_tokens: 0,
       total_output_tokens: 0,
       tokens_per_sec: 0,
+      input_tokens_per_sec: 0,
+      output_tokens_per_sec: 0,
       request_count: 0,
       duration_seconds: durationSeconds,
       cache_creation_tokens: 0,
@@ -682,13 +835,40 @@ export function getRangeMetrics(startDate: string, endDate: string): RangeMetric
   const totalOutputTokens: number = Number(row[2] || 0);
   const totalTokens = totalInputTokens + totalOutputTokens;
   
-  const tokensPerSec = durationSeconds > 0 ? totalTokens / durationSeconds : 0;
+  // Calculate tokens_per_sec using actual duration from usage logs (hardware throughput)
+  const durationQuery = `
+    SELECT SUM(duration_ms) as total_duration_ms
+    FROM usage_logs
+    ${userId ? 'JOIN api_keys ON usage_logs.api_key_id = api_keys.id' : ''}
+    WHERE timestamp >= ? AND timestamp <= ?
+    ${userId && apiKeyId ? 'AND api_keys.user_id = ? AND api_keys.id = ?' : ''}
+    ${userId && !apiKeyId ? 'AND api_keys.user_id = ?' : ''}
+  `;
+  
+  const durationParams: (string | number)[] = [startDate, endDate];
+  if (userId && apiKeyId) {
+    durationParams.push(userId, apiKeyId);
+  } else if (userId) {
+    durationParams.push(userId);
+  }
+  
+  const durationResult = db!.exec(durationQuery, durationParams);
+  
+  const totalDurationMs = durationResult.length > 0 && durationResult[0].values.length > 0 
+    ? Number(durationResult[0].values[0][0] || 0) 
+    : 0;
+  
+  const tokensPerSec = totalDurationMs > 0 ? (totalTokens * 1000) / totalDurationMs : 0;
+  const inputTokensPerSec = totalDurationMs > 0 ? (totalInputTokens * 1000) / totalDurationMs : 0;
+  const outputTokensPerSec = totalDurationMs > 0 ? (totalOutputTokens * 1000) / totalDurationMs : 0;
   
   return {
     total_tokens: totalTokens,
     total_input_tokens: totalInputTokens,
     total_output_tokens: totalOutputTokens,
     tokens_per_sec: Math.round(tokensPerSec * 100) / 100,
+    input_tokens_per_sec: Math.round(inputTokensPerSec * 100) / 100,
+    output_tokens_per_sec: Math.round(outputTokensPerSec * 100) / 100,
     request_count: requestCount,
     duration_seconds: durationSeconds,
     cache_creation_tokens: Number(row[3] || 0),
@@ -700,18 +880,22 @@ export function getProgressiveData(
   startDate: string, 
   endDate: string, 
   granularity: GranularitySeconds,
-  metric: 'total_tokens' | 'input_tokens' | 'output_tokens' | 'requests' | 'tokens_per_sec'
+  metric: MetricType,
+  userId?: string,
+  apiKeyId?: string
 ): Promise<ProgressiveDataPoint[]> {
-  return getProgressiveDataWithInterpolation(startDate, endDate, granularity, metric, 0, 16);
+  return getProgressiveDataWithInterpolation(startDate, endDate, granularity, metric, 0, 16, userId, apiKeyId);
 }
 
 export function getProgressiveDataWithInterpolation(
   startDate: string, 
   endDate: string, 
   granularitySeconds: GranularitySeconds,
-  metric: 'total_tokens' | 'input_tokens' | 'output_tokens' | 'requests' | 'tokens_per_sec',
+  metric: MetricType,
   batchIndex: number = 0,
-  batchSize: number = 16
+  batchSize: number = 16,
+  userId?: string,
+  apiKeyId?: string
 ): Promise<ProgressiveDataPoint[]> {
   return new Promise((resolve) => {
     const start = new Date(startDate);
@@ -743,7 +927,11 @@ export function getProgressiveDataWithInterpolation(
         case 'requests':
           return 'COUNT(*)';
         case 'tokens_per_sec':
-          return `ROUND(COALESCE(SUM(prompt_tokens + completion_tokens), 0) * 1.0 / ${granularitySeconds}, 2)`;
+          return `CASE WHEN COUNT(*) = 0 THEN 0 ELSE COALESCE(CASE WHEN SUM(duration_ms) > 0 THEN ROUND(SUM(prompt_tokens + completion_tokens) * 1000.0 / SUM(duration_ms), 2) ELSE NULL END, 0) END`;
+        case 'input_tokens_per_sec':
+          return `CASE WHEN COUNT(*) = 0 THEN 0 ELSE COALESCE(CASE WHEN SUM(duration_ms) > 0 THEN ROUND(SUM(prompt_tokens) * 1000.0 / SUM(duration_ms), 2) ELSE NULL END, 0) END`;
+        case 'output_tokens_per_sec':
+          return `CASE WHEN COUNT(*) = 0 THEN 0 ELSE COALESCE(CASE WHEN SUM(duration_ms) > 0 THEN ROUND(SUM(completion_tokens) * 1000.0 / SUM(duration_ms), 2) ELSE NULL END, 0) END`;
         default:
           return 'COALESCE(SUM(prompt_tokens + completion_tokens), 0)';
       }
@@ -763,22 +951,48 @@ export function getProgressiveDataWithInterpolation(
     // Query each bucket individually (one query per bucket for simplicity)
     const dataPoints: ProgressiveDataPoint[] = [];
     
+    // Build JOIN and WHERE clause for user/apiKey filtering
+    let joinClause = '';
+    
     for (let i = bucketStartIndex; i < bucketEndIndex; i++) {
       const bucket = buckets[i];
       
-      // Simple query for single bucket range
-      const query = `
+        // Query for single bucket range with optional user filtering
+      let query = `
         SELECT ${selectExpr} as value
-        FROM usage_logs 
-        WHERE timestamp >= ? AND timestamp < ?
+        FROM usage_logs
       `;
       
-      const queryParams = [bucket.start.toISOString(), bucket.end.toISOString()];
+      let queryParams: (string | number)[] = [];
+      let whereClause = ' WHERE timestamp >= ? AND timestamp < ?';
+      let joinClause = '';
+      
+      queryParams.push(bucket.start.toISOString(), bucket.end.toISOString());
+      
+      if (apiKeyId) {
+        // Filter by specific API key (ignore userId)
+        joinClause = ' JOIN api_keys ON usage_logs.api_key_id = api_keys.id';
+        whereClause += ' AND api_keys.id = ?';
+        queryParams.push(apiKeyId);
+      } else if (userId) {
+        // Filter by user's all API keys
+        joinClause = ' JOIN api_keys ON usage_logs.api_key_id = api_keys.id';
+        whereClause += ' AND api_keys.user_id = ?';
+        queryParams.push(userId);
+      }
+      
+      query += joinClause;
+      query += whereClause;
       const result = db!.exec(query, queryParams);
       
-      let value: number = 0;
+      let value: number | null = 0;
       if (result.length > 0 && result[0].values.length > 0) {
-        value = Number(result[0].values[0][0]) || 0;
+        const rawValue = result[0].values[0][0];
+        if (rawValue === null || rawValue === undefined || rawValue === '') {
+          value = null;
+        } else {
+          value = Number(rawValue);
+        }
       }
       
       dataPoints.push({
@@ -789,6 +1003,17 @@ export function getProgressiveDataWithInterpolation(
     
     resolve(dataPoints);
   });
+}
+
+export async function clearDatabase(): Promise<void> {
+  try {
+    db!.run('DELETE FROM usage_logs');
+    db!.run('DELETE FROM users');
+    db!.run('DELETE FROM api_keys');
+    saveDatabase();
+  } catch (error) {
+    console.error('Error clearing database:', error);
+  }
 }
 
 export default {
@@ -814,5 +1039,9 @@ export default {
   updateUserOauth,
   findUserByOauthId,
   findUserById,
-  getDb
+  getAllUsers,
+  getApiKeysByUserIdFilter,
+  getDb,
+  clearDatabase,
+  close
 };

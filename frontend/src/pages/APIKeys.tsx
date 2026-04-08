@@ -1,7 +1,7 @@
-import { useState, useEffect, FormEvent } from 'react';
-import { Key, Copy, Trash2, Plus } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import MainLayout from '../components/MainLayout';
+import { useState, useEffect, FormEvent } from "react";
+import { Key, ContentCopy, Delete, Add } from "@mui/icons-material";
+import { useAuth } from "../context/AuthContext";
+import MainLayout from "../components/MainLayout";
 import {
   Dialog,
   DialogTitle,
@@ -9,7 +9,15 @@ import {
   DialogActions,
   Button,
   TextField,
-} from '@mui/material';
+  Typography,
+  Box,
+  Paper,
+  CircularProgress,
+  Stack,
+  Chip,
+  Checkbox,
+  FormControlLabel,
+} from "@mui/material";
 
 interface ApiKey {
   id: string;
@@ -18,82 +26,97 @@ interface ApiKey {
   api_key: string;
   created_at: string;
   user_id: string | null;
+  is_active: number;
+  revoked_at: string | null;
 }
 
 function APIKeys() {
   const { user } = useAuth();
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
-  const [newKeyName, setNewKeyName] = useState('');
+  const [newKeyName, setNewKeyName] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showCreatedKeyDialog, setShowCreatedKeyDialog] = useState(false);
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showRevoked, setShowRevoked] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
       fetchApiKeys();
     }
-  }, [user]);
+  }, [user, showRevoked]);
 
   const fetchApiKeys = async () => {
     if (!user?.id) return;
-    
+
     try {
-      const response = await fetch(`http://localhost:3000/api/api-keys?user_id=${user.id}`);
+      const response = await fetch(
+        `http://localhost:3000/api/api-keys?user_id=${user.id}&show_revoked=${showRevoked}`,
+      );
       if (response.ok) {
         const data = await response.json();
-        setApiKeys(data.map((key: ApiKey) => ({
-          ...key,
-          api_key: null
-        })));
+        // Only show API keys that belong to this user
+        const ownedKeys = data.filter((key: ApiKey) => key.user_id === user.id);
+        setApiKeys(
+          ownedKeys.map((key: ApiKey) => ({
+            ...key,
+            api_key: null,
+          })),
+        );
+      } else if (response.status === 403) {
+        setApiKeys([]);
       }
     } catch (error) {
-      console.error('Failed to fetch API keys:', error);
+      console.error("Failed to fetch API keys:", error);
+      setApiKeys([]);
     } finally {
       setLoading(false);
     }
   };
 
   const handleCreateKey = async (e: FormEvent) => {
-     e.preventDefault();
-     if (!newKeyName.trim() || !user?.id) return;
-
-     try {
-       const response = await fetch('http://localhost:3000/api/api-keys', {
-         method: 'POST',
-         headers: {
-           'Content-Type': 'application/json',
-         },
-         body: JSON.stringify({ name: newKeyName, user_id: user.id }),
-       });
-
-       if (response.ok) {
-         const data = await response.json();
-         setApiKeys([{ ...data, api_key: null }, ...apiKeys]);
-         setNewKeyName('');
-         setShowForm(false);
-         setCreatedKey(data.api_key);
-         setShowCreatedKeyDialog(true);
-       }
-     } catch (error) {
-       console.error('Failed to create API key:', error);
-     }
-   };
-
-  const handleRevokeKey = async (keyId: string) => {
-    if (!confirm('Are you sure you want to revoke this API key?')) return;
+    e.preventDefault();
+    if (!newKeyName.trim() || !user?.id) return;
 
     try {
-      const response = await fetch(`http://localhost:3000/api/api-keys/${keyId}?user_id=${user?.id}`, {
-        method: 'DELETE',
+      const response = await fetch("http://localhost:3000/api/api-keys", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: newKeyName, user_id: user.id }),
       });
 
       if (response.ok) {
-        setApiKeys(apiKeys.filter(key => key.id !== keyId));
+        const data = await response.json();
+        setApiKeys([{ ...data, api_key: null }, ...apiKeys]);
+        setNewKeyName("");
+        setShowForm(false);
+        setCreatedKey(data.api_key);
+        setShowCreatedKeyDialog(true);
       }
     } catch (error) {
-      console.error('Failed to revoke API key:', error);
+      console.error("Failed to create API key:", error);
+    }
+  };
+
+  const handleRevokeKey = async (keyId: string) => {
+    if (!confirm("Are you sure you want to revoke this API key?")) return;
+
+    try {
+      const response = await fetch(
+        `http://localhost:3000/api/api-keys/${keyId}?user_id=${user?.id}`,
+        {
+          method: "DELETE",
+        },
+      );
+
+      if (response.ok) {
+        setApiKeys(apiKeys.filter((key) => key.id !== keyId));
+      }
+    } catch (error) {
+      console.error("Failed to revoke API key:", error);
     }
   };
 
@@ -109,26 +132,59 @@ function APIKeys() {
 
   return (
     <MainLayout>
-    <div className="bg-gray-50">
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">API Keys</h2>
-              <p className="mt-1 text-sm text-gray-600">
-                Manage your API keys for programmatic access
-              </p>
-            </div>
-            <button
-              onClick={() => setShowForm(true)}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+      <Box sx={{ bgcolor: "#f5f5f5", flexGrow: 1 }}>
+        <Box sx={{ maxWidth: 1200, mx: "auto", px: { xs: 2, sm: 3 } }}>
+          <Box sx={{ mt: 4, mb: 3 }}>
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              alignItems="center"
+              spacing={2}
             >
-              <Plus className="h-4 w-4 mr-2" />
-              Create Key
-            </button>
-          </div>
+              <Box>
+                <Typography variant="h5" component="h2">
+                  API Keys
+                </Typography>
+              </Box>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={showRevoked}
+                      onChange={(e) => setShowRevoked(e.target.checked)}
+                      size="small"
+                      sx={{ ml: 1 }}
+                    />
+                  }
+                  label="Show Revoked"
+                />
+                <Typography
+                  variant="body2"
+                  sx={{ color: "text.secondary" }}
+                ></Typography>
+                <Button
+                  onClick={() => setShowForm(true)}
+                  variant="contained"
+                  startIcon={<Add />}
+                  sx={{
+                    bgcolor: "#1976d2",
+                    "&:hover": { bgcolor: "#1565c0" },
+                    textTransform: "none",
+                    fontWeight: 500,
+                  }}
+                >
+                  Create Key
+                </Button>
+              </Stack>
+            </Stack>
+          </Box>
 
-          <Dialog open={showForm} onClose={() => setShowForm(false)} maxWidth="sm" fullWidth>
+          <Dialog
+            open={showForm}
+            onClose={() => setShowForm(false)}
+            maxWidth="sm"
+            fullWidth
+          >
             <form onSubmit={handleCreateKey}>
               <DialogTitle>Create New API Key</DialogTitle>
               <DialogContent>
@@ -158,78 +214,197 @@ function APIKeys() {
           </Dialog>
 
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            </div>
+            <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+              <CircularProgress />
+            </Box>
           ) : apiKeys.length === 0 ? (
-            <div className="bg-white shadow rounded-lg p-12 text-center">
-              <Key className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No API keys</h3>
-              <p className="mt-1 text-sm text-gray-500">
+            <Paper sx={{ p: 6, textAlign: "center", bgcolor: "white" }}>
+              <Key sx={{ fontSize: 48, color: "text.disabled", mb: 2 }} />
+              <Typography
+                variant="h6"
+                component="h3"
+                sx={{ fontWeight: 500, mb: 1 }}
+              >
+                No API keys
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
                 Get started by creating a new API key.
-              </p>
-            </div>
+              </Typography>
+            </Paper>
           ) : (
-            <div className="bg-white shadow rounded-lg overflow-hidden">
-              <ul className="divide-y divide-gray-200">
-                {apiKeys.map((key) => (
-                  <li key={key.id} className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-blue-600 truncate">
+            <Paper
+              sx={{ borderRadius: 2, overflow: "hidden", bgcolor: "white" }}
+            >
+              {apiKeys.map((key, index) => (
+                <Box
+                  key={key.id}
+                  sx={{
+                    p: 3,
+                    borderBottom:
+                      index < apiKeys.length - 1 ? "1px solid #e0e0e0" : "none",
+                    "&:hover": { bgcolor: "#f5f5f5" },
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      flexWrap: "wrap",
+                      gap: 2,
+                    }}
+                  >
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        alignItems="center"
+                        sx={{ mb: 1 }}
+                      >
+                        <Typography
+                          variant="body1"
+                          sx={{
+                            fontWeight: 500,
+                            color: "#1976d2",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
                           {key.name}
-                        </p>
-                        <div className="mt-2 flex items-center space-x-4">
-                          <code className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-700">
-                            {key.api_key ? `${key.api_key.substring(0, 16)}...${key.api_key.slice(-8)}` : '••••••••••••••••'}
-                          </code>
-                          <span className="text-xs text-gray-500">
-                            Created: {new Date(key.created_at).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="ml-4 flex-shrink-0 space-x-2">
-                        <button
-                          onClick={() => key.api_key && copyToClipboard(key.api_key)}
-                          disabled={!key.api_key}
-                          className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        </Typography>
+                        {!key.is_active && (
+                          <Chip
+                            label="Revoked"
+                            size="small"
+                            sx={{
+                              fontSize: "11px",
+                              bgcolor: "#ffebee",
+                              color: "#c62828",
+                              height: 20,
+                            }}
+                          />
+                        )}
+                      </Stack>
+                      <Stack
+                        direction="row"
+                        spacing={1.5}
+                        alignItems="center"
+                        sx={{ mb: 1 }}
+                      >
+                        <Paper
+                          variant="outlined"
+                          sx={{
+                            p: 0.75,
+                            bgcolor: "#f5f5f5",
+                            borderRadius: 1,
+                            fontFamily: "monospace",
+                            fontSize: "12px",
+                            color: "#424242",
+                          }}
                         >
-                          {copied ? (
-                            <span className="text-green-600">Copied!</span>
-                          ) : (
-                            <>
-                              <Copy className="h-3 w-3 mr-1" />
-                              Copy
-                            </>
-                          )}
-                        </button>
-                        <button
+                          {key.api_key
+                            ? `${key.api_key.substring(0, 16)}...${key.api_key.slice(-8)}`
+                            : "••••••••••••••••"}
+                        </Paper>
+                        <Chip
+                          label={`Created: ${new Date(key.created_at).toLocaleDateString()}`}
+                          size="small"
+                          sx={{ fontSize: "12px" }}
+                        />
+                      </Stack>
+                      <Chip
+                        label={`ID: ${key.id}`}
+                        size="small"
+                        variant="outlined"
+                        sx={{ fontSize: "11px", height: 20 }}
+                      />
+                    </Box>
+                    <Stack direction="row" spacing={1}>
+                      <Button
+                        onClick={() =>
+                          key.api_key && copyToClipboard(key.api_key)
+                        }
+                        disabled={!key.api_key}
+                        variant="outlined"
+                        size="small"
+                        startIcon={copied ? <Key /> : <ContentCopy />}
+                        sx={{
+                          textTransform: "none",
+                          minWidth: 70,
+                          opacity: key.api_key ? 1 : 0.5,
+                        }}
+                      >
+                        {copied ? "Copied!" : "Copy"}
+                      </Button>
+                      {key.is_active ? (
+                        <Button
                           onClick={() => handleRevokeKey(key.id)}
-                          className="inline-flex items-center px-3 py-1.5 border border-red-300 text-xs font-medium rounded text-red-700 bg-white hover:bg-red-50"
+                          variant="outlined"
+                          size="small"
+                          startIcon={<Delete />}
+                          sx={{
+                            color: "#d32f2f",
+                            borderColor: "#d32f2f",
+                            textTransform: "none",
+                            "&:hover": {
+                              borderColor: "#c62828",
+                              bgcolor: "rgba(211, 47, 47, 0.04)",
+                            },
+                          }}
                         >
-                          <Trash2 className="h-3 w-3 mr-1" />
                           Revoke
-                        </button>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
+                        </Button>
+                      ) : (
+                        <Chip
+                          label="Revoked"
+                          size="small"
+                          sx={{
+                            fontSize: "11px",
+                            bgcolor: "#ffebee",
+                            color: "#c62828",
+                            height: 28,
+                          }}
+                        />
+                      )}
+                    </Stack>
+                  </Box>
+                </Box>
+              ))}
+            </Paper>
           )}
 
-                   <Dialog open={showCreatedKeyDialog} onClose={handleCloseCreatedKey} maxWidth="sm" fullWidth>
-            <DialogTitle>Your API Key</DialogTitle>
+          <Dialog
+            open={showCreatedKeyDialog}
+            onClose={handleCloseCreatedKey}
+            maxWidth="sm"
+            fullWidth
+          >
+            <DialogTitle sx={{ fontWeight: 600 }}>Your API Key</DialogTitle>
             <DialogContent>
-              <p className="text-sm text-gray-600 mb-2">
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 Copy this key now. You won't be able to see it again.
-              </p>
-              <code className="block bg-gray-100 p-3 rounded-md text-sm break-all mb-4">
+              </Typography>
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  bgcolor: "#f5f5f5",
+                  borderRadius: 1,
+                  fontFamily: "monospace",
+                  fontSize: "12px",
+                  wordBreak: "break-all",
+                  mb: 2,
+                }}
+              >
                 {createdKey}
-              </code>
+              </Paper>
             </DialogContent>
             <DialogActions>
-              <Button onClick={handleCloseCreatedKey} color="primary">
+              <Button
+                onClick={handleCloseCreatedKey}
+                sx={{ textTransform: "none" }}
+              >
                 Dismiss
               </Button>
               <Button
@@ -237,16 +412,20 @@ function APIKeys() {
                   copyToClipboard(createdKey!);
                   handleCloseCreatedKey();
                 }}
-                color="primary"
                 variant="contained"
+                startIcon={copied ? <Key /> : null}
+                sx={{
+                  bgcolor: "#1976d2",
+                  "&:hover": { bgcolor: "#1565c0" },
+                  textTransform: "none",
+                }}
               >
-                {copied ? 'Copied!' : 'Copy Key'}
+                {copied ? "Copied!" : "Copy Key"}
               </Button>
             </DialogActions>
           </Dialog>
-        </div>
-       </main>
-    </div>
+        </Box>
+      </Box>
     </MainLayout>
   );
 }

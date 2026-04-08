@@ -1,11 +1,16 @@
 import React, { useState, useEffect, useRef } from "react";
 import { getRangeSeconds } from "../utils/granularity";
-import { secondsToDisplayValue, displayValueToSeconds } from "../utils/granularityDisplay";
+import {
+  secondsToDisplayValue,
+  displayValueToSeconds,
+} from "../utils/granularityDisplay";
 import { Box, Typography, Button, Chip } from "@mui/material";
 import { Refresh } from "@mui/icons-material";
 import DateRangePicker from "./DateRangePicker";
 import ProgressiveGraph from "./ProgressiveGraph";
 import MetricsSection from "./MetricsSection";
+import UserFilter from "./UserFilter";
+import { useAuth } from "../context/AuthContext";
 import type { MetricType, GranularitySeconds } from "../types/metrics";
 
 interface ProgressiveDataPoint {
@@ -19,19 +24,26 @@ interface Metrics {
   total_input_tokens: number;
   total_output_tokens: number;
   tokens_per_sec: number;
+  input_tokens_per_sec: number;
+  output_tokens_per_sec: number;
   request_count: number;
 }
 
 const DashboardStats: React.FC = () => {
+  const { user } = useAuth();
   const [lifetimeMetrics, setLifetimeMetrics] = useState<Metrics | null>(null);
   const [rangeMetrics, setRangeMetrics] = useState<Metrics | null>(null);
   const [startDate, setStartDate] = useState<Date | null>(
     new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
   );
   const [endDate, setEndDate] = useState<Date | null>(new Date());
-  const [granularity, setGranularity] = useState<GranularitySeconds>(60 * 60); // Default to 1 hour
+  const [granularity, setGranularity] = useState<GranularitySeconds>(60 * 60);
   const [metric, setMetric] = useState<MetricType>("total_tokens");
   const [displayGranularity, setDisplayGranularity] = useState<string>("1h");
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(
+    user?.id || null,
+  );
+  const [selectedApiKeyId, setSelectedApiKeyId] = useState<string | null>(null);
 
   const [graphData, setGraphData] = useState<any[]>([]);
   const [graphLoading, setGraphLoading] = useState(false);
@@ -41,7 +53,16 @@ const DashboardStats: React.FC = () => {
 
   const fetchLifetimeMetrics = async () => {
     try {
-      const response = await fetch("/api/metrics/lifetime");
+      const params = new URLSearchParams();
+      if (selectedUserId && selectedUserId !== "all") {
+        params.append("userId", selectedUserId);
+        if (selectedApiKeyId) {
+          params.append("apiKeyId", selectedApiKeyId);
+        }
+      }
+      const response = await fetch(
+        `/api/metrics/lifetime${params.toString() ? `?${params.toString()}` : ""}`,
+      );
       if (response.ok) {
         const data = await response.json();
         setLifetimeMetrics(data);
@@ -55,9 +76,17 @@ const DashboardStats: React.FC = () => {
     if (!startDate || !endDate) return;
 
     try {
-      const response = await fetch(
-        `/api/metrics/range?start=${startDate.toISOString()}&end=${endDate.toISOString()}`,
-      );
+      const params = new URLSearchParams({
+        start: startDate.toISOString(),
+        end: endDate.toISOString(),
+      });
+      if (selectedUserId && selectedUserId !== "all") {
+        params.append("userId", selectedUserId);
+        if (selectedApiKeyId) {
+          params.append("apiKeyId", selectedApiKeyId);
+        }
+      }
+      const response = await fetch(`/api/metrics/range?${params.toString()}`);
       if (response.ok) {
         const data = await response.json();
         setRangeMetrics(data);
@@ -77,15 +106,16 @@ const DashboardStats: React.FC = () => {
   ) => {
     const batchSize = 16;
     const rangeSeconds = getRangeSeconds(start, end);
-    const dataPointCount = Math.ceil(rangeSeconds / currentGranularitySeconds) + 1;
+    const dataPointCount =
+      Math.ceil(rangeSeconds / currentGranularitySeconds) + 1;
     const batchCount = Math.ceil(dataPointCount / batchSize);
-    const displayValue = secondsToDisplayValue(currentGranularitySeconds) || "1h";
+    const displayValue =
+      secondsToDisplayValue(currentGranularitySeconds) || "1h";
     const allData: ProgressiveDataPoint[] = new Array(dataPointCount).fill({
       hasValue: false,
       timestamp: "",
       value: 0,
     });
-    // set blank
     onProgress([...allData], false);
 
     for (
@@ -94,8 +124,22 @@ const DashboardStats: React.FC = () => {
       batchIndex--
     ) {
       try {
+        const params = new URLSearchParams({
+          start: start.toISOString(),
+          end: end.toISOString(),
+          granularity: displayValue,
+          metric: metric,
+          batchIndex: String(batchIndex),
+          batchSize: String(batchSize),
+        });
+        if (selectedUserId && selectedUserId !== "all") {
+          params.append("userId", selectedUserId);
+          if (selectedApiKeyId) {
+            params.append("apiKeyId", selectedApiKeyId);
+          }
+        }
         const response = await fetch(
-          `/api/metrics/progressive?start=${start.toISOString()}&end=${end.toISOString()}&granularity=${displayValue}&metric=${metric}&batchIndex=${batchIndex}&batchSize=${batchSize}`,
+          `/api/metrics/progressive?${params.toString()}`,
           { signal },
         );
 
@@ -208,6 +252,13 @@ const DashboardStats: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (selectedUserId) {
+      fetchLifetimeMetrics();
+      fetchRangeMetrics();
+    }
+  }, [selectedUserId, selectedApiKeyId]);
+
+  useEffect(() => {
     // Sync display granularity with seconds value
     const displayValue = secondsToDisplayValue(granularity);
     if (displayValue) {
@@ -232,6 +283,17 @@ const DashboardStats: React.FC = () => {
 
   return (
     <>
+      <UserFilter
+        currentUser={user}
+        selectedUserId={selectedUserId}
+        onUserChange={(userId) => {
+          setSelectedUserId(userId);
+          setSelectedApiKeyId(null);
+        }}
+        selectedApiKeyId={selectedApiKeyId}
+        onApiKeyChange={setSelectedApiKeyId}
+      />
+
       <Box
         sx={{
           display: "flex",
@@ -254,6 +316,8 @@ const DashboardStats: React.FC = () => {
         total_input_tokens={lifetimeMetrics?.total_input_tokens}
         total_output_tokens={lifetimeMetrics?.total_output_tokens}
         tokens_per_sec={lifetimeMetrics?.tokens_per_sec}
+        input_tokens_per_sec={lifetimeMetrics?.input_tokens_per_sec}
+        output_tokens_per_sec={lifetimeMetrics?.output_tokens_per_sec}
         request_count={lifetimeMetrics?.request_count}
       />
 
@@ -266,26 +330,16 @@ const DashboardStats: React.FC = () => {
         }}
       >
         <Typography variant="h6">Time Range Metrics</Typography>
-        <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-          {graphLoading && (
-            <Chip
-              label="Loading graph..."
-              size="small"
-              color="primary"
-              variant="outlined"
-            />
-          )}
-          <Button
-            onClick={handleRefreshRange}
-            size="small"
-            startIcon={<Refresh />}
-          >
-            Refresh
-          </Button>
-        </Box>
+        <Button
+          onClick={handleRefreshRange}
+          size="small"
+          startIcon={<Refresh />}
+        >
+          Refresh
+        </Button>
       </Box>
 
-<DateRangePicker
+      <DateRangePicker
         startDate={startDate}
         endDate={endDate}
         onStartDateChange={(date) => {
@@ -296,7 +350,6 @@ const DashboardStats: React.FC = () => {
           setEndDate(date);
           handleGraphRefresh();
         }}
-        onRefresh={handleGraphRefresh}
         onGranularityChange={(seconds) => {
           setGranularity(seconds);
         }}
@@ -307,6 +360,8 @@ const DashboardStats: React.FC = () => {
         total_input_tokens={rangeMetrics?.total_input_tokens}
         total_output_tokens={rangeMetrics?.total_output_tokens}
         tokens_per_sec={rangeMetrics?.tokens_per_sec}
+        input_tokens_per_sec={rangeMetrics?.input_tokens_per_sec}
+        output_tokens_per_sec={rangeMetrics?.output_tokens_per_sec}
         request_count={rangeMetrics?.request_count}
       />
 
@@ -319,7 +374,6 @@ const DashboardStats: React.FC = () => {
         onGranularityChange={handleGranularityChange}
         onMetricChange={(value) => handleMetricChange(value)}
       />
-
     </>
   );
 };

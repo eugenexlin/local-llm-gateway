@@ -3,7 +3,9 @@ export type MetricType =
   | 'input_tokens' 
   | 'output_tokens' 
   | 'requests' 
-  | 'tokens_per_sec';
+  | 'tokens_per_sec'
+  | 'input_tokens_per_sec'
+  | 'output_tokens_per_sec';
 
 export interface Metrics {
   total_tokens: number;
@@ -11,6 +13,8 @@ export interface Metrics {
   output_tokens: number;
   requests: number;
   tokens_per_sec: number;
+  input_tokens_per_sec: number;
+  output_tokens_per_sec: number;
 }
 
 // Granularity is now represented as seconds (integer) throughout the app

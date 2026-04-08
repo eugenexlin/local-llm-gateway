@@ -15,9 +15,10 @@ function AuthCallback() {
     const email = searchParams.get('email');
     const name = searchParams.get('name');
     const oauthId = searchParams.get('oauthId');
+    const userId = searchParams.get('userId');
 
     if (provider && email && name) {
-      handleOAuthLogin(provider, email, name, oauthId || null);
+      handleOAuthLogin(provider, email, name, oauthId || null, userId);
       hasNavigated.current = true;
       window.location.href = '/';
     } else {

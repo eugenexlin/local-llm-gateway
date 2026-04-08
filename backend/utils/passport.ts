@@ -17,7 +17,7 @@ passport.use(
           return done(new Error('No email found in Google profile'));
         }
 
-        let user = db.findUserByEmail(email);
+        let user = db.findUserByEmail(email.toLowerCase().trim());
 
         if (user) {
           db.updateUserOauth(user.id, profile.id, 'google');

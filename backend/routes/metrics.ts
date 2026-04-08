@@ -75,9 +75,12 @@ router.get('/trends', (req: Request, res: Response) => {
 });
 
 // Get lifetime metrics
-router.get('/lifetime', (_req: Request, res: Response) => {
+router.get('/lifetime', (req: Request, res: Response) => {
   try {
-    const metrics = database.getLifetimeMetrics();
+    const userId = req.query.userId as string | undefined;
+    const apiKeyId = req.query.apiKeyId as string | undefined;
+    
+    const metrics = database.getLifetimeMetrics(userId, apiKeyId);
     res.json(metrics);
   } catch (error) {
     console.error('Error getting lifetime metrics:', error);
@@ -90,16 +93,50 @@ router.get('/range', (req: Request, res: Response) => {
   try {
     const start = req.query.start as string | undefined;
     const end = req.query.end as string | undefined;
+    const userId = req.query.userId as string | undefined;
+    const apiKeyId = req.query.apiKeyId as string | undefined;
     
     if (!start || !end) {
       return res.status(400).json({ error: 'start and end dates required' });
     }
     
-    const metrics = database.getRangeMetrics(start, end);
+    const metrics = database.getRangeMetrics(start, end, userId, apiKeyId);
     res.json(metrics);
   } catch (error) {
     console.error('Error getting range metrics:', error);
     res.status(500).json({ error: 'Failed to get range metrics' });
+  }
+});
+
+// Get all users
+router.get('/users', (_req: Request, res: Response) => {
+  try {
+    const users = database.getAllUsers();
+    res.json(users);
+  } catch (error) {
+    console.error('Error getting users:', error);
+    res.status(500).json({ error: 'Failed to get users' });
+  }
+});
+
+// Get API keys for a specific user (authenticated users can only see their own)
+router.get('/users/:userId/api-keys', (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const userIdStr = Array.isArray(userId) ? userId[0] : userId;
+    const { show_revoked } = req.query;
+    
+    // Only allow users to see their own API keys
+    const sessionUser = (req as any).user;
+    if (sessionUser && sessionUser.id && sessionUser.id !== userIdStr) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const apiKeys = database.getApiKeysByUserIdFilter(userIdStr, show_revoked === 'true');
+    res.json(apiKeys);
+  } catch (error) {
+    console.error('Error getting API keys for user:', error);
+    res.status(500).json({ error: 'Failed to get API keys' });
   }
 });
 
@@ -143,6 +180,8 @@ router.get('/progressive', async (req: Request, res: Response) => {
     const metric = req.query.metric as MetricType | undefined;
     const batchIndex = parseInt(req.query.batchIndex as string || '0');
     const batchSize = parseInt(req.query.batchSize as string || '16');
+    const userId = req.query.userId as string | undefined;
+    const apiKeyId = req.query.apiKeyId as string | undefined;
     
     if (!start || !end) {
       return res.status(400).json({ error: 'start and end dates required' });
@@ -162,9 +201,9 @@ router.get('/progressive', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'valid granularity required (5m, 10m, 15m, 30m, 1h, 2h, 4h, 6h, 12h, 1d, 1w, 1M)' });
     }
     
-    const validMetrics: MetricType[] = ['total_tokens', 'input_tokens', 'output_tokens', 'requests', 'tokens_per_sec'];
+    const validMetrics: MetricType[] = ['total_tokens', 'input_tokens', 'output_tokens', 'requests', 'tokens_per_sec', 'input_tokens_per_sec', 'output_tokens_per_sec'];
     if (!metric || !validMetrics.includes(metric)) {
-      return res.status(400).json({ error: 'valid metric required (total_tokens, input_tokens, output_tokens, requests, tokens_per_sec)' });
+      return res.status(400).json({ error: 'valid metric required (total_tokens, input_tokens, output_tokens, requests, tokens_per_sec, input_tokens_per_sec, output_tokens_per_sec)' });
     }
     
     if (isNaN(batchIndex) || batchIndex < 0) {
@@ -181,7 +220,9 @@ router.get('/progressive', async (req: Request, res: Response) => {
       granularitySeconds, 
       metric, 
       batchIndex, 
-      batchSize
+      batchSize,
+      userId,
+      apiKeyId
     );
     
     res.setHeader('Content-Type', 'application/json');

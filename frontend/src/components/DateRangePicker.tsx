@@ -17,7 +17,6 @@ interface DateRangePickerProps {
   endDate: Date | null;
   onStartDateChange: (date: Date | null) => void;
   onEndDateChange: (date: Date | null) => void;
-  onRefresh: () => void;
   onGranularityChange?: (granularity: GranularitySeconds) => void;
 }
 
@@ -34,7 +33,6 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
   endDate,
   onStartDateChange,
   onEndDateChange,
-  onRefresh,
   onGranularityChange,
 }) => {
 const [startDateStr, setStartDateStr] = React.useState("");
@@ -171,7 +169,7 @@ const [startDateStr, setStartDateStr] = React.useState("");
     setLastActionWasPreset(true);
   };
 
-  const handleDateSubmit = (field: "start" | "end") => {
+    const handleDateSubmit = (field: "start" | "end") => {
     const dateStr = field === "start" ? startDateStr : endDateStr;
     const timeStr = field === "start" ? startTimeStr : endTimeStr;
 
@@ -193,51 +191,6 @@ const [startDateStr, setStartDateStr] = React.useState("");
     }
   };
 
-  const refreshPresets = () => {
-    const currentPreset = presetRanges[presetIndex];
-    
-    // Only recalculate dates if a relative preset is active
-    // This allows refresh to update dates for presets like "Last 3 days"
-    // but won't modify custom date ranges
-    if (currentPreset.isRelative) {
-      const now = new Date();
-      const currentHours = now.getHours();
-      const currentMinutes = now.getMinutes();
-      let start: Date | null;
-      let end: Date | null;
-
-      if (currentPreset.days !== undefined) {
-        start = new Date(now.getTime() - currentPreset.days * 24 * 60 * 60 * 1000);
-        start.setHours(currentHours, currentMinutes, 0, 0);
-        end = new Date(now.getTime());
-        end.setHours(currentHours, currentMinutes, 0, 0);
-      } else if (currentPreset.months !== undefined) {
-        start = new Date(now.getFullYear(), now.getMonth() - currentPreset.months, now.getDate());
-        start.setHours(currentHours, currentMinutes, 0, 0);
-        end = new Date(now);
-        end.setHours(currentHours, currentMinutes, 0, 0);
-      } else if (currentPreset.years !== undefined) {
-        start = new Date(now.getFullYear(), 0, 1);
-        start.setHours(currentHours, currentMinutes, 0, 0);
-        end = new Date(now);
-        end.setHours(currentHours, currentMinutes, 0, 0);
-      } else {
-        start = new Date(now.getTime());
-        start.setHours(currentHours, currentMinutes, 0, 0);
-        end = new Date(now.getTime());
-        end.setHours(currentHours, currentMinutes, 0, 0);
-      }
-
-      if (start) {
-        onStartDateChange(start);
-      }
-      if (end) {
-        onEndDateChange(end);
-      }
-      onRefresh();
-    }
-  };
-
   return (
     <Paper sx={{ p: 2, mb: 2 }}>
       <Box
@@ -255,7 +208,6 @@ const [startDateStr, setStartDateStr] = React.useState("");
             label="Preset Range"
             onChange={(e) => {
               applyPreset(e.target.value as number);
-              onRefresh();
             }}
           >
             {presetRanges.map((preset, index) => (
@@ -303,23 +255,6 @@ const [startDateStr, setStartDateStr] = React.useState("");
           InputLabelProps={{ shrink: true }}
           sx={{ width: 160 }}
           inputProps={{ step: 60 }}
-        />
-
-        <TextField
-          label="Refresh"
-          type="button"
-          value="↻ Refresh"
-          onClick={refreshPresets}
-          sx={{ minWidth: 120, cursor: "pointer" }}
-          InputProps={{
-            readOnly: true,
-            sx: {
-              cursor: "pointer",
-              "&:hover": {
-                backgroundColor: "rgba(0, 0, 0, 0.04)",
-              },
-            },
-          }}
         />
       </Box>
     </Paper>

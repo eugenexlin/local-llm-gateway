@@ -43,7 +43,9 @@ interface ProgressiveGraphProps {
 }
 
 const isRateMetric = (metric: MetricType): boolean => {
-  return metric === "tokens_per_sec";
+  return metric === "tokens_per_sec" || 
+         metric === "input_tokens_per_sec" || 
+         metric === "output_tokens_per_sec";
 };
 
 function calculateTickSpacing(dataLength: number): number {

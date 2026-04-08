@@ -13,7 +13,7 @@ interface AuthContextType {
   logout: () => void;
   loading: boolean;
   testLogin: () => void;
-  handleOAuthLogin: (provider: string, email: string, name: string, oauthId: string | null) => void;
+  handleOAuthLogin: (provider: string, email: string, name: string, oauthId: string | null, userId?: string | null) => void;
   getSessionToken: () => string | null;
 }
 
@@ -99,9 +99,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     login(testUser);
   };
 
-  const handleOAuthLogin = (provider: string, email: string, name: string, oauthId: string | null) => {
+  const handleOAuthLogin = (provider: string, email: string, name: string, oauthId: string | null, userId?: string | null) => {
     const oauthUser: User = {
-      id: oauthId || `oauth-${Date.now()}`,
+      id: userId || oauthId || `oauth-${Date.now()}`,
       name,
       email,
       oauthProvider: provider,

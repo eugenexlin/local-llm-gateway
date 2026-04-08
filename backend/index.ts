@@ -62,7 +62,7 @@ app.get('/auth/google/callback',
   (req: Request, res: Response) => {
     const user = req.user as database.User;
     const frontendUrl = 'http://localhost:5173';
-    res.redirect(`${frontendUrl}/auth/callback?provider=google&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name || '')}&oauthId=${user.oauth_id || ''}`);
+    res.redirect(`${frontendUrl}/auth/callback?provider=google&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name || '')}&oauthId=${user.oauth_id || ''}&userId=${user.id}`);
   }
 );
 

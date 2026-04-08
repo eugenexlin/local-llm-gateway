@@ -1,7 +1,7 @@
 {
-  "name": "llm-firewall",
+  "name": "local-llm-gateway",
   "version": "1.0.0",
-  "description": "LLM Firewall Proxy - Backend and Frontend",
+  "description": "Local LLM Gateway - for sharing and tracking a local llm setup",
   "scripts": {
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
