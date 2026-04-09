@@ -22,55 +22,51 @@ const MetricCard: React.FC<MetricCardProps> = ({
         flexDirection: "column",
         bgcolor: "background.paper",
         borderRadius: 1,
-        boxShadow: "0 4px 6px rgba(0,0,0,0.08)",
-        height: 100,
-        width: 220,
+        boxShadow: "0 2px 4px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.05)",
+        height: 110,
+        width: "100%",
+        position: "relative",
         overflow: "hidden",
+        borderLeft: `4px solid ${titleColor}`,
       }}
     >
       <Box
         sx={{
-          bgcolor: titleColor,
           p: 2,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          height: "100%",
         }}
       >
         <Typography
-          variant="body2"
+          variant="caption"
           sx={{
-            fontWeight: 600,
-            color: "#333333",
+            fontWeight: 700,
+            color: "text.secondary",
             textTransform: "uppercase",
-            fontSize: "10px",
-            letterSpacing: 0.5,
+            fontSize: "0.7rem",
+            letterSpacing: 1,
           }}
         >
           {metricLabels[metricKey]}
         </Typography>
-      </Box>
-      <Box
-        sx={{
-          p: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flex: 1,
-          width: "100%",
-        }}
-      >
-        {isLoading ? (
-          <CircularProgress size={24} />
-        ) : (
-          <Typography
-            variant="h4"
-            sx={{
-              fontWeight: 700,
-              color: "text.primary",
-              fontSize: "clamp(12px, 4vw, 32px)",
-            }}
-          >
-            {value}
-          </Typography>
-        )}
+        <Box sx={{ display: "flex", alignItems: "baseline", gap: 1 }}>
+          {isLoading ? (
+            <CircularProgress size={24} />
+          ) : (
+            <Typography
+              variant="h5"
+              sx={{
+                fontWeight: 700,
+                color: "text.primary",
+                fontSize: "clamp(1.2rem, 2.5vw, 1.75rem)",
+              }}
+            >
+              {value}
+            </Typography>
+          )}
+        </Box>
       </Box>
     </Box>
   );

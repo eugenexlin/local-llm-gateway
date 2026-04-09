@@ -14,15 +14,18 @@ interface MetricsSectionProps {
 }
 
 const colors = [
-  "rgba(139, 92, 246, 0.15)",
-  "rgba(59, 130, 246, 0.15)",
-  "rgba(16, 185, 129, 0.15)",
-  "rgba(245, 158, 11, 0.15)",
-  "rgba(239, 68, 68, 0.15)",
+  "#8b5cf6", // violet-500
+  "#3b82f6", // blue-500
+  "#10b981", // emerald-500
+  "#f59e0b", // amber-500
+  "#ef4444", // red-500
 ];
 
 const formatValue = (num?: number): string => {
   if (num === undefined || num === null) return "-";
+  if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(2).replace(/\.00$/, "") + "B";
+  if (num >= 1_000_000) return (num / 1_000_000).toFixed(2).replace(/\.00$/, "") + "M";
+  if (num >= 1_000) return (num / 1_000).toFixed(1).replace(/\.0$/, "") + "k";
   return num.toLocaleString();
 };
 
@@ -51,14 +54,13 @@ const MetricsSection: React.FC<MetricsSectionProps> = ({
         {cards.map((card) => (
           <Grid
             key={card.key}
+            item
+            xs={12}
+            sm={6}
+            md={4}
+            lg={2.4}
             sx={{
               mb: 1,
-              gridColumn: {
-                xs: "span 12",
-                sm: "span 6",
-                md: "span 4",
-                lg: "span 2.4",
-              },
               minWidth: 0,
             }}
           >

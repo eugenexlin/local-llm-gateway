@@ -134,7 +134,12 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
   };
 
   return (
-    <Paper sx={{ p: 2 }}>
+    <Paper
+      sx={{
+        p: 2,
+        position: "relative",
+      }}
+    >
       <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
         <FormControl sx={{ minWidth: 150 }}>
           <InputLabel>Metric</InputLabel>
@@ -163,26 +168,51 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
          </FormControl>
       </Box>
 
-      <Box sx={{ mb: 2 }}>
-        {loading && (
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-            <CircularProgress size={16} />
-            <Typography variant="caption" color="text.secondary">
-              Loading data... {Math.round(loadingProgress)}%
-            </Typography>
-          </Box>
-        )}
-        {loading && (
-          <LinearProgress
-            variant="determinate"
-            value={loadingProgress}
-            sx={{ height: 8, borderRadius: 1 }}
-          />
-        )}
-      </Box>
-
       {data.length > 0 && (
-        <Box sx={{ height: 300 }}>
+        <Box sx={{ position: "relative", height: 300 }}>
+          {loading && (
+            <Box
+              sx={{
+                position: "absolute",
+                top: 0,
+                left: 80,
+                right: 0,
+                height: 40,
+                display: "flex",
+                alignItems: "center",
+                pl: 2,
+                zIndex: 10,
+                background: "rgba(255, 255, 255, 0.9)",
+              }}
+            >
+              <CircularProgress size={16} sx={{ mr: 1 }} />
+              <Typography variant="caption" color="text.secondary">
+                Loading data... {Math.round(loadingProgress)}%
+              </Typography>
+            </Box>
+          )}
+          {loading && (
+            <Box
+              sx={{
+                position: "absolute",
+                bottom: 30,
+                left: 64,
+                right: 8,
+                height: 4,
+                zIndex: 11,
+              }}
+            >
+              <Box
+                sx={{
+                  height: "100%",
+                  width: `${100 - loadingProgress}%`,
+                  background: "linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)",
+                  transformOrigin: "right",
+                  transition: "width 0.1s ease-out",
+                }}
+              />
+            </Box>
+          )}
           <ResponsiveContainer width="100%" height="100%">
             {isRateMetric(metric) ? (
               <LineChart data={data}>

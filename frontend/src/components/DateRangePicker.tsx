@@ -35,15 +35,15 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
   onEndDateChange,
   onGranularityChange,
 }) => {
-const [startDateStr, setStartDateStr] = React.useState("");
-    const [startTimeStr, setStartTimeStr] = React.useState("00:00");
-    const [endDateStr, setEndDateStr] = React.useState("");
-    const [endTimeStr, setEndTimeStr] = React.useState("23:59");
-    const [presetIndex, setPresetIndex] = React.useState(1);
-    const [granularitySet, setGranularitySet] = React.useState(false);
-    const [lastActionWasPreset, setLastActionWasPreset] = React.useState(false);
+  const [startDateStr, setStartDateStr] = React.useState("");
+  const [startTimeStr, setStartTimeStr] = React.useState("00:00");
+  const [endDateStr, setEndDateStr] = React.useState("");
+  const [endTimeStr, setEndTimeStr] = React.useState("23:59");
+  const [presetIndex, setPresetIndex] = React.useState(1);
+  const [granularitySet, setGranularitySet] = React.useState(false);
+  const isInternalUpdate = React.useRef(false);
 
-    const presetRanges: PresetRange[] = [
+  const presetRanges: PresetRange[] = [
     { label: "Last 1 day", days: 1, isRelative: true },
     { label: "Last 3 days", days: 3, isRelative: true },
     { label: "Last 7 days", days: 7, isRelative: true },
@@ -56,7 +56,7 @@ const [startDateStr, setStartDateStr] = React.useState("");
   ];
 
   const syncFromParentDate = (date: Date | null, isStart: boolean) => {
-    if (date) {
+    if (date && !isInternalUpdate.current) {
       const dateStr = date.toISOString().split("T")[0];
       const hours = String(date.getHours()).padStart(2, "0");
       const minutes = String(date.getMinutes()).padStart(2, "0");
@@ -70,50 +70,17 @@ const [startDateStr, setStartDateStr] = React.useState("");
     }
   };
 
-  const initializePresetFromDates = React.useCallback(() => {
-    if (!startDate || !endDate) return;
-
-    const now = new Date();
-    const startOnlyDate = new Date(startDate);
-    startOnlyDate.setHours(0, 0, 0, 0);
-    const nowOnlyDate = new Date(now);
-    nowOnlyDate.setHours(0, 0, 0, 0);
-    const diffTime = Math.abs(nowOnlyDate.getTime() - startOnlyDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    const matchIndex = presetRanges.findIndex((preset) => {
-      if (!preset.isRelative) return false;
-      if (preset.days !== undefined && Math.abs(preset.days - diffDays) <= 1) return true;
-      if (preset.months !== undefined) {
-        const monthsDiff = Math.floor(diffDays / 30);
-        return monthsDiff >= preset.months - 1 && monthsDiff <= preset.months + 1;
-      }
-      return false;
-    });
-
-    if (matchIndex !== -1) {
-      setPresetIndex(matchIndex);
-      setLastActionWasPreset(true);
-    } else {
-      setPresetIndex(presetRanges.length - 1);
-      setLastActionWasPreset(false);
-    }
-    setGranularitySet(false);
-  }, [startDate, endDate, presetRanges]);
-
   React.useEffect(() => {
-    if (startDate) {
+    if (startDate && !isInternalUpdate.current) {
       syncFromParentDate(startDate, true);
-      initializePresetFromDates();
     }
-  }, [startDate, initializePresetFromDates]);
+  }, [startDate]);
 
   React.useEffect(() => {
-    if (endDate) {
+    if (endDate && !isInternalUpdate.current) {
       syncFromParentDate(endDate, false);
-      initializePresetFromDates();
     }
-  }, [endDate, initializePresetFromDates]);
+  }, [endDate]);
 
   const applyPreset = (index: number) => {
     const preset = presetRanges[index];
@@ -150,7 +117,6 @@ const [startDateStr, setStartDateStr] = React.useState("");
       end = null;
     }
 
-    // Only calculate and set granularity if it hasn't been set yet
     if (!granularitySet && start && end) {
       const optimalGranularitySeconds = calculateOptimalGranularitySeconds(start, end);
       if (onGranularityChange) {
@@ -160,16 +126,19 @@ const [startDateStr, setStartDateStr] = React.useState("");
     }
 
     if (start) {
+      isInternalUpdate.current = true;
       onStartDateChange(start);
+      setTimeout(() => { isInternalUpdate.current = false; }, 0);
     }
     if (end) {
+      isInternalUpdate.current = true;
       onEndDateChange(end);
+      setTimeout(() => { isInternalUpdate.current = false; }, 0);
     }
     setPresetIndex(index);
-    setLastActionWasPreset(true);
   };
 
-    const handleDateSubmit = (field: "start" | "end") => {
+  const handleDateSubmit = (field: "start" | "end") => {
     const dateStr = field === "start" ? startDateStr : endDateStr;
     const timeStr = field === "start" ? startTimeStr : endTimeStr;
 
@@ -180,15 +149,15 @@ const [startDateStr, setStartDateStr] = React.useState("");
 
     const newDate = new Date(year, month - 1, day, hours, minutes || 0);
 
+    isInternalUpdate.current = true;
     if (field === "start") {
       onStartDateChange(newDate);
       setPresetIndex(presetRanges.length - 1);
-      setLastActionWasPreset(false);
     } else {
       onEndDateChange(newDate);
       setPresetIndex(presetRanges.length - 1);
-      setLastActionWasPreset(false);
     }
+    setTimeout(() => { isInternalUpdate.current = false; }, 0);
   };
 
   return (
@@ -222,40 +191,52 @@ const [startDateStr, setStartDateStr] = React.useState("");
           label="From"
           type="date"
           value={startDateStr}
-          onChange={(e) => setStartDateStr(e.target.value)}
+          onChange={(e) => {
+            setStartDateStr(e.target.value);
+            setPresetIndex(presetRanges.length - 1);
+          }}
           onBlur={() => handleDateSubmit("start")}
           InputLabelProps={{ shrink: true }}
           sx={{ minWidth: 180 }}
         />
         <TextField
-          label="Time"
-          type="time"
-          value={startTimeStr}
-          onChange={(e) => setStartTimeStr(e.target.value)}
-          onBlur={() => handleDateSubmit("start")}
-          InputLabelProps={{ shrink: true }}
-          sx={{ width: 160 }}
-          inputProps={{ step: 60 }}
-        />
+           label="Time"
+           type="time"
+           value={startTimeStr}
+           onChange={(e) => {
+             setStartTimeStr(e.target.value);
+             setPresetIndex(presetRanges.length - 1);
+           }}
+           onBlur={() => handleDateSubmit("start")}
+           InputLabelProps={{ shrink: true }}
+           sx={{ width: 160 }}
+           inputProps={{ step: 60 }}
+         />
         <TextField
           label="To"
           type="date"
           value={endDateStr}
-          onChange={(e) => setEndDateStr(e.target.value)}
+          onChange={(e) => {
+            setEndDateStr(e.target.value);
+            setPresetIndex(presetRanges.length - 1);
+          }}
           onBlur={() => handleDateSubmit("end")}
           InputLabelProps={{ shrink: true }}
           sx={{ minWidth: 180 }}
         />
-        <TextField
-          label="Time"
-          type="time"
-          value={endTimeStr}
-          onChange={(e) => setEndTimeStr(e.target.value)}
-          onBlur={() => handleDateSubmit("end")}
-          InputLabelProps={{ shrink: true }}
-          sx={{ width: 160 }}
-          inputProps={{ step: 60 }}
-        />
+       <TextField
+           label="Time"
+           type="time"
+           value={endTimeStr}
+           onChange={(e) => {
+             setEndTimeStr(e.target.value);
+             setPresetIndex(presetRanges.length - 1);
+           }}
+           onBlur={() => handleDateSubmit("end")}
+           InputLabelProps={{ shrink: true }}
+           sx={{ width: 160 }}
+           inputProps={{ step: 60 }}
+         />
       </Box>
     </Paper>
   );
