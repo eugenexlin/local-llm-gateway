@@ -23,7 +23,7 @@ interface ApiKey {
   id: string;
   name: string;
   description: string | null;
-  api_key: string;
+  api_key: string | null;
   created_at: string;
   user_id: string | null;
   is_active: number;
@@ -45,25 +45,20 @@ function APIKeys() {
     if (user?.id) {
       fetchApiKeys();
     }
-  }, [user, showRevoked]);
+  }, [user]); // Removed showRevoked from dependency array to prevent re-fetching
 
   const fetchApiKeys = async () => {
     if (!user?.id) return;
 
     try {
       const response = await fetch(
-        `http://localhost:3000/api/api-keys?user_id=${user.id}&show_revoked=${showRevoked}`,
+        `http://localhost:3000/api/api-keys?user_id=${user.id}&show_revoked=true`,
       );
       if (response.ok) {
         const data = await response.json();
         // Only show API keys that belong to this user
         const ownedKeys = data.filter((key: ApiKey) => key.user_id === user.id);
-        setApiKeys(
-          ownedKeys.map((key: ApiKey) => ({
-            ...key,
-            api_key: null,
-          })),
-        );
+        setApiKeys(ownedKeys);
       } else if (response.status === 403) {
         setApiKeys([]);
       }
@@ -90,7 +85,7 @@ function APIKeys() {
 
       if (response.ok) {
         const data = await response.json();
-        setApiKeys([{ ...data, api_key: null }, ...apiKeys]);
+        setApiKeys([{ ...data, api_key: data.api_key }, ...apiKeys]);
         setNewKeyName("");
         setShowForm(false);
         setCreatedKey(data.api_key);
@@ -113,7 +108,7 @@ function APIKeys() {
       );
 
       if (response.ok) {
-        setApiKeys(apiKeys.filter((key) => key.id !== keyId));
+        setApiKeys(apiKeys.map(key => key.id === keyId ? { ...key, is_active: 0 } : key));
       }
     } catch (error) {
       console.error("Failed to revoke API key:", error);
@@ -129,6 +124,11 @@ function APIKeys() {
   const handleCloseCreatedKey = () => {
     setShowCreatedKeyDialog(false);
   };
+
+  // Filter keys locally based on showRevoked state
+  const displayedKeys = showRevoked 
+    ? apiKeys 
+    : apiKeys.filter(key => key.is_active === 1);
 
   return (
     <MainLayout>
@@ -217,7 +217,7 @@ function APIKeys() {
             <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
               <CircularProgress />
             </Box>
-          ) : apiKeys.length === 0 ? (
+          ) : displayedKeys.length === 0 ? (
             <Paper sx={{ p: 6, textAlign: "center", bgcolor: "white" }}>
               <Key sx={{ fontSize: 48, color: "text.disabled", mb: 2 }} />
               <Typography
@@ -235,13 +235,13 @@ function APIKeys() {
             <Paper
               sx={{ borderRadius: 2, overflow: "hidden", bgcolor: "white" }}
             >
-              {apiKeys.map((key, index) => (
+              {displayedKeys.map((key, index) => (
                 <Box
                   key={key.id}
                   sx={{
                     p: 3,
                     borderBottom:
-                      index < apiKeys.length - 1 ? "1px solid #e0e0e0" : "none",
+                      index < displayedKeys.length - 1 ? "1px solid #e0e0e0" : "none",
                     "&:hover": { bgcolor: "#f5f5f5" },
                   }}
                 >
@@ -278,10 +278,10 @@ function APIKeys() {
                             label="Revoked"
                             size="small"
                             sx={{
-                              fontSize: "11px",
-                              bgcolor: "#ffebee",
-                              color: "#c62828",
-                              height: 20,
+                               fontSize: "11px",
+                               bgcolor: "#ffebee",
+                               color: "#c62828",
+                               height: 20,
                             }}
                           />
                         )}
@@ -348,8 +348,8 @@ function APIKeys() {
                             borderColor: "#d32f2f",
                             textTransform: "none",
                             "&:hover": {
-                              borderColor: "#c62828",
-                              bgcolor: "rgba(211, 47, 47, 0.04)",
+                               borderColor: "#c62828",
+                               bgcolor: "rgba(211, 47, 47, 0.04)",
                             },
                           }}
                         >
@@ -431,3 +431,4 @@ function APIKeys() {
 }
 
 export default APIKeys;
+

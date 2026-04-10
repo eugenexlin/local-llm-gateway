@@ -1,6 +1,9 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+// eslint-disable-next-line no-undef
+const processEnv = typeof process !== 'undefined' ? process.env : {};
+
 export default defineConfig({
   plugins: [react()],
   base: '/',
@@ -30,6 +33,6 @@ export default defineConfig({
     }
   },
   define: {
-    'import.meta.env.VITE_DEV_TEST_LOGIN': JSON.stringify(process.env.VITE_DEV_TEST_LOGIN || 'false')
+    'import.meta.env.VITE_DEV_TEST_LOGIN': JSON.stringify(processEnv.VITE_DEV_TEST_LOGIN || 'false')
   }
 })

@@ -19,8 +19,8 @@ function PrivateRoute({ children }: PrivateRouteProps) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div >
+      </div >
     );
   }
 
@@ -33,8 +33,8 @@ function PublicRoute({ children }: PublicRouteProps) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div >
+      </div >
     );
   }
 
@@ -47,12 +47,26 @@ function RootRoute({ children }: { children: React.ReactNode }) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div >
+      </div >
     );
   }
 
   return children;
+}
+
+function NotFoundRoute() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div >
+      </div >
+    );
+  }
+
+  return user ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />;
 }
 
 function App() {
@@ -93,6 +107,7 @@ function App() {
             }
           />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<NotFoundRoute />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
@@ -100,3 +115,4 @@ function App() {
 }
 
 export default App;
+
