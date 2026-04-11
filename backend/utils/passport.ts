@@ -1,34 +1,41 @@
-import passport from 'passport';
-import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
-import * as db from '../database';
+import passport from "passport";
+import { Strategy as GoogleStrategy, Profile } from "passport-google-oauth20";
+import * as db from "../database";
 
 passport.use(
   new GoogleStrategy(
-     {
-       clientID: process.env.GOOGLE_CLIENT_ID || '',
-       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-       callbackURL: process.env.GOOGLE_CALLBACK_URL || `${process.env.BACKEND_BASE_URL || 'http://localhost:3000'}/auth/google/callback`,
-       scope: ['email'],
-     },
-    async (accessToken, refreshToken, profile, done) => {
+    {
+      clientID: process.env.GOOGLE_CLIENT_ID || "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+      callbackURL:
+        process.env.GOOGLE_CALLBACK_URL ||
+        `${process.env.BACKEND_BASE_URL || "http://localhost:3000"}/auth/google/callback`,
+      scope: ["email"],
+    },
+    async (
+      accessToken: string,
+      refreshToken: string | undefined,
+      profile: Profile,
+      done: (err: any, user?: any) => void,
+    ) => {
       try {
         const email = profile.emails?.[0]?.value;
         if (!email) {
-          return done(new Error('No email found in Google profile'));
+          return done(new Error("No email found in Google profile"));
         }
 
         let user = db.findUserByEmail(email.toLowerCase().trim());
 
         if (user) {
-          db.updateUserOauth(user.id, profile.id, 'google');
+          db.updateUserOauth(user.id, profile.id, "google");
         } else {
           const userId = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
           user = db.createUser({
             id: userId,
             email,
-            name: email.split('@')[0],
+            name: email.split("@")[0],
             oauth_id: null,
-            oauth_provider: 'google',
+            oauth_provider: "google",
           });
         }
 
@@ -36,8 +43,8 @@ passport.use(
       } catch (error) {
         return done(error as Error);
       }
-    }
-  )
+    },
+  ),
 );
 
 passport.serializeUser((user: any, done) => {
