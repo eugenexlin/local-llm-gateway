@@ -279,7 +279,7 @@ const DashboardStats: React.FC = () => {
         abortControllerRef.current.abort();
       }
     };
-  }, [startDate, endDate, granularity, metric]);
+  }, [startDate, endDate, granularity, metric, selectedUserId, selectedApiKeyId]);
 
   return (
     <>

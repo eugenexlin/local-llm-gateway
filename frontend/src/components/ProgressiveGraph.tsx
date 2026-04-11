@@ -300,7 +300,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                     stroke: "#fff",
                     strokeWidth: 2,
                   }}
-                  connectNulls={false}
+                  connectNulls={true}
                   isAnimationActive={false}
                 />
               </LineChart>

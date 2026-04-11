@@ -84,8 +84,8 @@ const TopNav: React.FC<{ onMenuClick: () => void }> = ({ onMenuClick }) => {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <IconButton
-            color={isActive('/') ? 'primary' : 'inherit'}
-            onClick={() => navigateTo('/')}
+            color={isActive('/dashboard') ? 'primary' : 'inherit'}
+            onClick={() => navigateTo('/dashboard')}
             sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
           >
             <DashboardIcon />

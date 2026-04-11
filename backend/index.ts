@@ -18,7 +18,7 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: config.frontendBaseUrl,
   credentials: true
 }));
 app.use(cookieParser());
@@ -56,13 +56,12 @@ app.get('/auth/google', passport.authenticate('google', {
 
 app.get('/auth/google/callback', 
   passport.authenticate('google', {
-    failureRedirect: 'http://localhost:5173/login?error=authentication_failed',
+    failureRedirect: `${config.frontendBaseUrl}/login?error=authentication_failed`,
     session: false
   }),
   (req: Request, res: Response) => {
     const user = req.user as database.User;
-    const frontendUrl = 'http://localhost:5173';
-    res.redirect(`${frontendUrl}/auth/callback?provider=google&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name || '')}&oauthId=${user.oauth_id || ''}&userId=${user.id}`);
+    res.redirect(`${config.frontendBaseUrl}/auth/callback?provider=google&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name || '')}&oauthId=${user.oauth_id || ''}&userId=${user.id}`);
   }
 );
 

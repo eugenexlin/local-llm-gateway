@@ -51,18 +51,16 @@ function APIKeys() {
     if (!user?.id) return;
 
     try {
-      const response = await fetch(
-        `http://localhost:3000/api/api-keys?user_id=${user.id}&show_revoked=true`,
-      );
-      if (response.ok) {
-        const data = await response.json();
-        // Only show API keys that belong to this user
-        const ownedKeys = data.filter((key: ApiKey) => key.user_id === user.id);
-        setApiKeys(ownedKeys);
-      } else if (response.status === 403) {
-        setApiKeys([]);
-      }
-    } catch (error) {
+       const response = await fetch(
+         `/api/api-keys?user_id=${user.id}&show_revoked=true`,
+       );
+       if (response.ok) {
+         const data = await response.json();
+         setApiKeys(data.filter((key: ApiKey) => key.user_id === user.id));
+       } else if (response.status === 403) {
+         setApiKeys([]);
+       }
+     } catch (error) {
       console.error("Failed to fetch API keys:", error);
       setApiKeys([]);
     } finally {
@@ -74,9 +72,9 @@ function APIKeys() {
     e.preventDefault();
     if (!newKeyName.trim() || !user?.id) return;
 
-    try {
-      const response = await fetch("http://localhost:3000/api/api-keys", {
-        method: "POST",
+     try {
+       const response = await fetch("/api/api-keys", {
+         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
@@ -99,10 +97,10 @@ function APIKeys() {
   const handleRevokeKey = async (keyId: string) => {
     if (!confirm("Are you sure you want to revoke this API key?")) return;
 
-    try {
-      const response = await fetch(
-        `http://localhost:3000/api/api-keys/${keyId}?user_id=${user?.id}`,
-        {
+     try {
+       const response = await fetch(
+         `/api/api-keys/${keyId}?user_id=${user?.id}`,
+         {
           method: "DELETE",
         },
       );

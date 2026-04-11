@@ -2,6 +2,8 @@ import 'dotenv/config';
 
 interface Config {
   port: number;
+  backendBaseUrl: string;
+  frontendBaseUrl: string;
   llamaCppUrl: string;
   databasePath: string;
   secretKey: string;
@@ -15,6 +17,8 @@ interface Config {
 
 const config: Config = {
   port: parseInt(process.env.PORT || '3000', 10),
+  backendBaseUrl: process.env.BACKEND_BASE_URL || 'http://localhost:3000',
+  frontendBaseUrl: process.env.FRONTEND_BASE_URL || 'http://localhost:5173',
   llamaCppUrl: process.env.LLAMA_CPP_URL || 'http://localhost:8080/v1',
   databasePath: process.env.DATABASE_PATH || './local_llm_gateway.db',
   secretKey: process.env.SECRET_KEY || 'dev-secret-key-change-in-production',
@@ -22,7 +26,7 @@ const config: Config = {
   apiKeyName: process.env.API_KEY_HEADER || 'x-api-key',
   googleClientId: process.env.GOOGLE_CLIENT_ID || '',
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-  googleCallbackUrl: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/auth/google/callback',
+  googleCallbackUrl: process.env.GOOGLE_CALLBACK_URL || `${process.env.BACKEND_BASE_URL || 'http://localhost:3000'}/auth/google/callback`,
 };
 
 export default config;

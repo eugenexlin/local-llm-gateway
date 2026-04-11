@@ -927,11 +927,11 @@ export function getProgressiveDataWithInterpolation(
         case 'requests':
           return 'COUNT(*)';
         case 'tokens_per_sec':
-          return `CASE WHEN COUNT(*) = 0 THEN 0 ELSE COALESCE(CASE WHEN SUM(duration_ms) > 0 THEN ROUND(SUM(prompt_tokens + completion_tokens) * 1000.0 / SUM(duration_ms), 2) ELSE NULL END, 0) END`;
+          return `CASE WHEN COUNT(*) = 0 THEN NULL ELSE COALESCE(CASE WHEN SUM(duration_ms) > 0 THEN ROUND(SUM(prompt_tokens + completion_tokens) * 1000.0 / SUM(duration_ms), 2) ELSE NULL END, 0) END`;
         case 'input_tokens_per_sec':
-          return `CASE WHEN COUNT(*) = 0 THEN 0 ELSE COALESCE(CASE WHEN SUM(duration_ms) > 0 THEN ROUND(SUM(prompt_tokens) * 1000.0 / SUM(duration_ms), 2) ELSE NULL END, 0) END`;
+          return `CASE WHEN COUNT(*) = 0 THEN NULL ELSE COALESCE(CASE WHEN SUM(duration_ms) > 0 THEN ROUND(SUM(prompt_tokens) * 1000.0 / SUM(duration_ms), 2) ELSE NULL END, 0) END`;
         case 'output_tokens_per_sec':
-          return `CASE WHEN COUNT(*) = 0 THEN 0 ELSE COALESCE(CASE WHEN SUM(duration_ms) > 0 THEN ROUND(SUM(completion_tokens) * 1000.0 / SUM(duration_ms), 2) ELSE NULL END, 0) END`;
+          return `CASE WHEN COUNT(*) = 0 THEN NULL ELSE COALESCE(CASE WHEN SUM(duration_ms) > 0 THEN ROUND(SUM(completion_tokens) * 1000.0 / SUM(duration_ms), 2) ELSE NULL END, 0) END`;
         default:
           return 'COALESCE(SUM(prompt_tokens + completion_tokens), 0)';
       }
@@ -985,12 +985,10 @@ export function getProgressiveDataWithInterpolation(
       query += whereClause;
       const result = db!.exec(query, queryParams);
       
-      let value: number | null = 0;
+       let value: number | null = null;
       if (result.length > 0 && result[0].values.length > 0) {
         const rawValue = result[0].values[0][0];
-        if (rawValue === null || rawValue === undefined || rawValue === '') {
-          value = null;
-        } else {
+        if (rawValue !== null && rawValue !== undefined && rawValue !== '') {
           value = Number(rawValue);
         }
       }

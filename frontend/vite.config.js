@@ -10,20 +10,20 @@ export default defineConfig({
   server: {
     host: true,
     strictPort: true,
-    proxy: {
-      '/api/api-keys': {
-        target: 'http://localhost:3000',
-        changeOrigin: true
-      },
-      '/api/metrics': {
-        target: 'http://localhost:3000',
-        changeOrigin: true
-      },
-      '/v1': {
-        target: 'http://localhost:3000',
-        changeOrigin: true
-      }
-    }
+     proxy: {
+        '/api/api-keys': {
+          target: process.env.BACKEND_BASE_URL || 'http://localhost:3000',
+          changeOrigin: true
+        },
+        '/api/metrics': {
+          target: process.env.BACKEND_BASE_URL || 'http://localhost:3000',
+          changeOrigin: true
+        },
+        '/v1': {
+          target: process.env.BACKEND_BASE_URL || 'http://localhost:3000',
+          changeOrigin: true
+        }
+     }
   },
   build: {
     rollupOptions: {
