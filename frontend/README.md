@@ -1,16 +1,46 @@
-# React + Vite
+# Frontend Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React + Vite dashboard for managing API keys and monitoring LLM usage.
 
-Currently, two official plugins are available:
+## Tech Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Framework**: React
+- **Build Tool**: Vite
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS (if applicable, I'll double check)
 
-## React Compiler
+## Setup & Development
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+# Install dependencies
+npm install
 
-## Expanding the ESLint configuration
+# Start development server
+npm run dev
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+The application will be available at http://localhost:5173 by default.
+
+## Features
+
+- **Google OAuth Authentication**: Secure access via Google.
+- **Dashboard**: Real-time metrics and usage charts.
+- **API Key Management**: Create, list, and revoke API keys.
+- **Usage Logs**: Detailed history of all requests with filtering.
+- **Data Export**: Export usage logs as CSV.
+
+## Project Structure
+
+```
+frontend/
+├── src/
+│   ├── components/     # Reusable UI components
+│   ├── context/        # Auth and state management
+│   ├── pages/          # Dashboard, Login, API Keys, and Usage pages
+│   ├── types/          # TypeScript type definitions
+│   ├── utils/          # Helper functions
+│   ├── App.tsx         # Main application component
+│   └── main.tsx        # Entry point
+├── vite.config.js      # Vite configuration
+└── package.json        # Dependencies and scripts
+```

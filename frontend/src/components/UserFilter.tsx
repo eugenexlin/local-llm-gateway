@@ -304,9 +304,9 @@ const UserFilter: React.FC<UserFilterProps> = ({
                       }}
                     />
                   )}
-                  <span sx={{ color: "text.secondary", fontSize: "12px" }}>
+                  <Typography component="span" sx={{ color: "text.secondary", fontSize: "12px" }}>
                     ({key.id.substring(0, 8)}...)
-                  </span>
+                  </Typography>
                 </Stack>
               </MenuItem>
             ))}

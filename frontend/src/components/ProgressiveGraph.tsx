@@ -8,7 +8,6 @@ import {
   Select,
   SelectChangeEvent,
   MenuItem,
-  LinearProgress,
   CircularProgress,
 } from "@mui/material";
 import {
@@ -23,8 +22,8 @@ import {
   Bar,
 } from "recharts";
 import { metricLabels } from "../utils/metricsLabels";
-import { getAllGranularityOptions, secondsToDisplayValue } from "../utils/granularityDisplay";
-import type { MetricType, GranularitySeconds } from "../types/metrics";
+import { getAllGranularityOptions } from "../utils/granularityDisplay";
+import type { MetricType } from "../types/metrics";
 
 export interface ProgressiveDataPoint {
   hasValue: boolean;

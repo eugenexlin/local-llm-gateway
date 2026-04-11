@@ -40,11 +40,13 @@ app.use(passport.session());
 app.use('/api/api-keys', apiKeys);
 app.use('/api/metrics', metrics);
 app.use('/v1', (req, res, next) => {
-  console.log('\n=== INCOMING REQUEST ===');
-  console.log('Method:', req.method);
-  console.log('Path:', req.path);
-  console.log('Headers:', JSON.stringify(req.headers, null, 2));
-  console.log('Query:', req.query);
+  if (process.env.SUPPRESS_CONSOLE !== 'true') {
+    console.log('\n=== INCOMING REQUEST ===');
+    console.log('Method:', req.method);
+    console.log('Path:', req.path);
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('Query:', req.query);
+  }
   next();
 }, validateApiKey, proxy);
 
@@ -81,6 +83,7 @@ database.init()
   .then(() => {
     app.listen(PORT, () => {
       console.log(`LLM Firewall Proxy running on port ${PORT}`);
+      console.log(`Llama CPP URL: ${config.llamaCppUrl}`);
     });
   })
   .catch(err => {

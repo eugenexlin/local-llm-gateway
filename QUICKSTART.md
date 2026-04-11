@@ -1,23 +1,28 @@
 # Quick Start Guide
 
+This guide provides a fast track to getting the Local LLM Gateway up and running.
+
 ## Prerequisites
-- Node.js 18+ installed (already have v24.14.1)
+
+- Node.js 18+ installed
 
 ## Setup & Start (Automated)
 
 ### Option 1: Use Unified Dev Command (Recommended)
+
 ```bash
 npm run dev
 ```
 
 This will:
 1. Start backend server on http://localhost:3000
-2. Start frontend server on http://localhost:5174
+2. Start frontend server on http://localhost:5173
 3. Run both with colored, filtered output
 
 ### Option 2: Manual Setup
 
 **Step 1: Install Dependencies**
+
 ```bash
 # Install backend dependencies
 cd backend
@@ -33,6 +38,8 @@ npm install
 Backend (`backend/.env`):
 ```env
 PORT=3000
+BACKEND_BASE_URL=http://localhost:3000
+FRONTEND_BASE_URL=http://localhost:5173
 LLM_API_URL=http://localhost:8080/v1
 DATABASE_PATH=./local_llm_gateway.db
 JWT_SECRET=your-secret-key-here
@@ -47,12 +54,14 @@ VITE_DEV_TEST_LOGIN=false
 ```
 
 **Step 3: Start Backend Server**
+
 ```bash
 cd backend
-node index.js
+npm run dev
 ```
 
 **Step 4: Start Frontend (in new terminal)**
+
 ```bash
 cd frontend
 npm run dev
@@ -60,7 +69,7 @@ npm run dev
 
 ## Accessing the Application
 
-- **Frontend**: http://localhost:5174
+- **Frontend**: http://localhost:5173
 - **Backend API**: http://localhost:3000
 - **API Docs**: http://localhost:3000/docs (Swagger - if enabled)
 
@@ -72,11 +81,13 @@ This adds a "Test Login" button on the login page that bypasses OAuth.
 ## Testing API Key Validation
 
 ### Create an API Key
+
 1. Login to frontend
-2. Go to Dashboard → "Create API Key"
+2. Go to Dashboard $\rightarrow$ "Create API Key"
 3. Copy the generated key (shown once!)
 
 ### Test Proxy Endpoint
+
 ```bash
 # Using curl
 curl -X POST http://localhost:3000/v1/chat/completions \
@@ -99,55 +110,42 @@ curl -X POST http://localhost:3000/v1/chat/completions \
 ## Project Structure
 
 ```
-llm-firewall/
-├── backend/                    # Node.js/Express backend
-│   ├── index.js              # Express app entry point
-│   ├── config.js             # Configuration
-│   ├── database.js           # SQLite with sql.js
+local-llm-gateway/
+├── backend/                    # Node.js/Express backend (TypeScript)
+│   ├── index.ts              # Express app entry point
+│   ├── config.ts             # Configuration
+│   ├── database.ts           # SQLite with sql.js
 │   ├── middleware/
-│   │   └── auth.js           # API key validation middleware
-│   ├── routes/
-│   │   ├── apiKeys.js        # API key management
-│   │   ├── metrics.js        # Metrics endpoints
-│   │   └── proxy.js          # Proxy routes to LLM
-│   ├── utils/
-│   │   └── hash.js           # Hash functions
-│   ├── SCHEMA.md             # Database schema
-│   ├── .env                  # Environment variables
-│   └── package.json          # Node.js dependencies
-├── frontend/                   # React/Vite frontend
+│   ├── routes/               # API routes
+│   ├── types/                # TypeScript types
+│   └── utils/
+├── frontend/                   # React/Vite frontend (TypeScript)
 │   ├── src/
-│   │   ├── App.jsx           # Main app with routing
-│   │   ├── App.css           # Desktop-style styling
+│   │   ├── components/
 │   │   ├── context/
-│   │   │   └── AuthContext.jsx # Auth state management
-│   │   └── pages/
-│   │       ├── Login.jsx     # Login page (Google OAuth)
-│   │       ├── Dashboard.jsx # Metrics dashboard
-│   │       ├── APIKeys.jsx   # API key management
-│   │       └── Usage.jsx     # Usage logs view
-│   ├── vite.config.js        # Vite configuration
-│   └── package.json          # Node dependencies
-├── package.json              # Root package with concurrently
-├── PROGRESS.md               # Detailed progress log
-└── QUICKSTART.md             # This file
+│   │   ├── pages/
+│   │   ├── types/
+│   │   └── utils/
+│   ├── vite.config.js
+│   └── package.json
+├── package.json                # Root package
+└── README.md                   # Project documentation
 ```
 
 ## Features Implemented
 
 ### Backend
 - ✅ Express.js server with CORS
-- ✅ SQLite database with sql.js (pure JavaScript)
+- ✅ SQLite database with sql.js
 - ✅ API key management (create, list, revoke, stats)
 - ✅ API key validation middleware (Bearer token)
 - ✅ User-specific API keys
 - ✅ Usage tracking with user_id
 - ✅ Metrics endpoints with user filtering
-- ✅ Proxy forwarding to inner LLM
-- ✅ Async database initialization
+- ✅ Proxy forwarding to LLM
 
 ### Frontend
-- ✅ Google OAuth authentication (ready for config)
+- ✅ Google OAuth authentication
 - ✅ Test login button for development
 - ✅ Polished desktop-style UI
 - ✅ Dashboard with metrics and charts
@@ -160,3 +158,4 @@ llm-firewall/
 ## Next Steps
 
 See [PROGRESS.md](PROGRESS.md) and [PLAN.md](PLAN.md) for detailed next steps and architecture notes.
+
