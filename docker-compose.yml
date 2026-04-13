@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: llm-backend
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL}
+      - BACKEND_BASE_URL=${BACKEND_BASE_URL}
+      - FRONTEND_BASE_URL=${FRONTEND_BASE_URL}
+      - LLAMA_CPP_URL=${LLAMA_CPP_URL}
+      - DATABASE_PATH=data/database.sqlite
+    volumes:
+      - ./backend/data:/app/data
+    networks:
+      - llm-network
+
+  proxy:
+    build:
+      context: ./frontend
+    container_name: llm-proxy
+    restart: always
+    ports:
+      - "80:80"
+    environment:
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL}
+    depends_on:
+      - backend
+    networks:
+      - llm-network
+
+networks:
+  llm-network:
+    driver: bridge
