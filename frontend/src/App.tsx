@@ -83,7 +83,7 @@ function App() {
             }
           />
           <Route
-            path="/auth/callback"
+            path="/authcallback"
             element={
               <RootRoute>
                 <AuthCallback />

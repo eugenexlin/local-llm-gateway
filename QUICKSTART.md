@@ -40,16 +40,20 @@ Backend (`backend/.env`):
 PORT=3000
 BACKEND_BASE_URL=http://localhost:3000
 FRONTEND_BASE_URL=http://localhost:5173
-LLM_API_URL=http://localhost:8080/v1
+PUBLIC_URL=http://localhost:5173
+LLAMA_CPP_URL=http://localhost:8080/v1
 DATABASE_PATH=./local_llm_gateway.db
-JWT_SECRET=your-secret-key-here
+SESSION_SECRET=your-secret-key-here
+SESSION_EXPIRY_HOURS=24
 GOOGLE_CLIENT_ID=your-client-id
 GOOGLE_CLIENT_SECRET=your-client-secret
 ```
 
+**Note:** `PUBLIC_URL` is used for OAuth redirects. In production, set this to your public domain (e.g., `https://yourdomain.com`).
+
 Frontend (`frontend/.env`):
 ```env
-VITE_API_URL=http://localhost:3000
+VITE_OAUTH_URL=http://localhost:3000
 VITE_DEV_TEST_LOGIN=false
 ```
 

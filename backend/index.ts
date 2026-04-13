@@ -16,6 +16,9 @@ import './utils/passport';
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust proxy
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(cors({
   origin: config.frontendBaseUrl,
@@ -58,12 +61,12 @@ app.get('/auth/google', passport.authenticate('google', {
 
 app.get('/auth/google/callback', 
   passport.authenticate('google', {
-    failureRedirect: `${config.frontendBaseUrl}/login?error=authentication_failed`,
+    failureRedirect: `${config.publicUrl}/login?error=authentication_failed`,
     session: false
   }),
   (req: Request, res: Response) => {
     const user = req.user as database.User;
-    res.redirect(`${config.frontendBaseUrl}/auth/callback?provider=google&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name || '')}&oauthId=${user.oauth_id || ''}&userId=${user.id}`);
+    res.redirect(`${config.publicUrl}/authcallback?provider=google&email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name || '')}&oauthId=${user.oauth_id || ''}&userId=${user.id}`);
   }
 );
 

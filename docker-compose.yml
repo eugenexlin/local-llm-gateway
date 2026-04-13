@@ -11,11 +11,14 @@ services:
       - PORT=3000
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL}
+      - PUBLIC_URL=${PUBLIC_URL}
       - BACKEND_BASE_URL=${BACKEND_BASE_URL}
       - FRONTEND_BASE_URL=${FRONTEND_BASE_URL}
       - LLAMA_CPP_URL=${LLAMA_CPP_URL}
       - DATABASE_PATH=data/database.sqlite
+      - SESSION_SECRET=${SESSION_SECRET}
+      - SESSION_EXPIRY_HOURS=${SESSION_EXPIRY_HOURS}
+      - SUPPRESS_CONSOLE=${SUPPRESS_CONSOLE}
     volumes:
       - ./backend/data:/app/data
     networks:
@@ -29,7 +32,8 @@ services:
     ports:
       - "80:80"
     environment:
-      - VITE_API_BASE_URL=${VITE_API_BASE_URL}
+      - VITE_OAUTH_URL=${VITE_OAUTH_URL}
+      - VITE_DEV_TEST_LOGIN=${VITE_DEV_TEST_LOGIN}
     depends_on:
       - backend
     networks:
