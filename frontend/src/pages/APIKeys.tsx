@@ -106,7 +106,7 @@ function APIKeys() {
       );
 
       if (response.ok) {
-        setApiKeys(apiKeys.map(key => key.id === keyId ? { ...key, is_active: 0 } : key));
+        setApiKeys(apiKeys.map(key => key.id === keyId ? { ...key, is_active: 1 } : key));
       }
     } catch (error) {
       console.error("Failed to revoke API key:", error);

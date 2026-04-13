@@ -252,8 +252,8 @@ export function createApiKey({ id, name, key_hash, description, user_id }: {
   user_id?: string | null;
 }): void {
   db!.run(
-    'INSERT INTO api_keys (id, name, key_hash, description, user_id, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-    [id, name, key_hash, description || null, user_id || null, new Date().toISOString()]
+    'INSERT INTO api_keys (id, name, key_hash, description, user_id, created_at, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [id, name, key_hash, description || null, user_id || null, new Date().toISOString(), 1]
   );
   saveDatabase();
 }
