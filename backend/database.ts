@@ -119,7 +119,6 @@ export async function init(): Promise<void> {
   if (fs.existsSync(DB_PATH)) {
     const buffer = fs.readFileSync(DB_PATH);
     db = new SQL.Database(buffer);
-    await migrateSchema();
   } else {
     db = new SQL.Database();
     createSchema();
@@ -130,49 +129,7 @@ export async function init(): Promise<void> {
   initialized = true;
 }
 
-async function migrateSchema(): Promise<void> {
-  try {
-    const columns = db.exec("PRAGMA table_info(api_keys)");
-    const columnNames = columns[0]?.values.map((row: any[]) => row[1]) || [];
-    
-    if (!columnNames.includes('revoked_at')) {
-      console.log('Migrating: Adding revoked_at column');
-      db.run('ALTER TABLE api_keys ADD COLUMN revoked_at TEXT');
-    }
-    
-    const usageColumns = db.exec("PRAGMA table_info(usage_logs)");
-    const usageColumnNames = usageColumns[0]?.values.map((row: any[]) => row[1]) || [];
-    
-    if (!usageColumnNames.includes('idempotency_key')) {
-      console.log('Migrating: Adding idempotency_key column');
-      db.run('ALTER TABLE usage_logs ADD COLUMN idempotency_key TEXT');
-    }
-    
-    if (!usageColumnNames.includes('cache_creation_input_tokens')) {
-      console.log('Migrating: Adding cache_creation_input_tokens column');
-      db.run('ALTER TABLE usage_logs ADD COLUMN cache_creation_input_tokens INTEGER DEFAULT 0');
-    }
-    
-    if (!usageColumnNames.includes('cache_read_input_tokens')) {
-      console.log('Migrating: Adding cache_read_input_tokens column');
-      db.run('ALTER TABLE usage_logs ADD COLUMN cache_read_input_tokens INTEGER DEFAULT 0');
-    }
-    
-    // Check if idx_api_keys_user_id index exists
-    const indexes = db.exec("SELECT name FROM sqlite_master WHERE type='index'");
-    const indexNames = indexes[0]?.values.map((row: any[]) => row[0]) || [];
-    
-    if (!indexNames.includes('idx_api_keys_user_id')) {
-      console.log('Migrating: Creating idx_api_keys_user_id index');
-      db.run('CREATE INDEX idx_api_keys_user_id ON api_keys(user_id)');
-    }
-    
-    saveDatabase();
-    console.log('Database migration completed');
-  } catch (error) {
-    console.error('Migration error:', error);
-  }
-}
+
 
 export function isReady(): boolean {
   return initialized;
@@ -225,6 +182,9 @@ function createSchema(): void {
       total_tokens INTEGER DEFAULT 0,
       duration_ms INTEGER DEFAULT 0,
       timestamp TEXT NOT NULL,
+      idempotency_key TEXT,
+      cache_creation_input_tokens INTEGER DEFAULT 0,
+      cache_read_input_tokens INTEGER DEFAULT 0,
       FOREIGN KEY (api_key_id) REFERENCES api_keys(id) ON DELETE CASCADE
     )
   `);

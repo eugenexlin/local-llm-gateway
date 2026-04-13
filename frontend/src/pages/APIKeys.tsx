@@ -51,16 +51,16 @@ function APIKeys() {
     if (!user?.id) return;
 
     try {
-       const response = await fetch(
-         `/api/api-keys?user_id=${user.id}&show_revoked=true`,
-       );
-       if (response.ok) {
-         const data = await response.json();
-         setApiKeys(data.filter((key: ApiKey) => key.user_id === user.id));
-       } else if (response.status === 403) {
-         setApiKeys([]);
-       }
-     } catch (error) {
+      const response = await fetch(
+        `/api/api-keys?user_id=${user.id}&show_revoked=true`,
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setApiKeys(data.filter((key: ApiKey) => key.user_id === user.id));
+      } else if (response.status === 403) {
+        setApiKeys([]);
+      }
+    } catch (error) {
       console.error("Failed to fetch API keys:", error);
       setApiKeys([]);
     } finally {
@@ -72,9 +72,9 @@ function APIKeys() {
     e.preventDefault();
     if (!newKeyName.trim() || !user?.id) return;
 
-     try {
-       const response = await fetch("/api/api-keys", {
-         method: "POST",
+    try {
+      const response = await fetch("/api/api-keys", {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
@@ -97,16 +97,20 @@ function APIKeys() {
   const handleRevokeKey = async (keyId: string) => {
     if (!confirm("Are you sure you want to revoke this API key?")) return;
 
-     try {
-       const response = await fetch(
-         `/api/api-keys/${keyId}?user_id=${user?.id}`,
-         {
+    try {
+      const response = await fetch(
+        `/api/api-keys/${keyId}?user_id=${user?.id}`,
+        {
           method: "DELETE",
         },
       );
 
       if (response.ok) {
-        setApiKeys(apiKeys.map(key => key.id === keyId ? { ...key, is_active: 1 } : key));
+        setApiKeys(
+          apiKeys.map((key) =>
+            key.id === keyId ? { ...key, is_active: 1 } : key,
+          ),
+        );
       }
     } catch (error) {
       console.error("Failed to revoke API key:", error);
@@ -124,9 +128,9 @@ function APIKeys() {
   };
 
   // Filter keys locally based on showRevoked state
-  const displayedKeys = showRevoked 
-    ? apiKeys 
-    : apiKeys.filter(key => key.is_active === 1);
+  const displayedKeys = showRevoked
+    ? apiKeys
+    : apiKeys.filter((key) => key.is_active === 1);
 
   return (
     <MainLayout>
@@ -239,7 +243,9 @@ function APIKeys() {
                   sx={{
                     p: 3,
                     borderBottom:
-                      index < displayedKeys.length - 1 ? "1px solid #e0e0e0" : "none",
+                      index < displayedKeys.length - 1
+                        ? "1px solid #e0e0e0"
+                        : "none",
                     "&:hover": { bgcolor: "#f5f5f5" },
                   }}
                 >
@@ -276,10 +282,10 @@ function APIKeys() {
                             label="Revoked"
                             size="small"
                             sx={{
-                               fontSize: "11px",
-                               bgcolor: "#ffebee",
-                               color: "#c62828",
-                               height: 20,
+                              fontSize: "11px",
+                              bgcolor: "#ffebee",
+                              color: "#c62828",
+                              height: 20,
                             }}
                           />
                         )}
@@ -346,8 +352,8 @@ function APIKeys() {
                             borderColor: "#d32f2f",
                             textTransform: "none",
                             "&:hover": {
-                               borderColor: "#c62828",
-                               bgcolor: "rgba(211, 47, 47, 0.04)",
+                              borderColor: "#c62828",
+                              bgcolor: "rgba(211, 47, 47, 0.04)",
                             },
                           }}
                         >
@@ -407,8 +413,10 @@ function APIKeys() {
               </Button>
               <Button
                 onClick={() => {
-                  copyToClipboard(createdKey!);
-                  handleCloseCreatedKey();
+                  if (createdKey) {
+                    copyToClipboard(createdKey);
+                    handleCloseCreatedKey();
+                  }
                 }}
                 variant="contained"
                 startIcon={copied ? <Key /> : null}
@@ -429,4 +437,3 @@ function APIKeys() {
 }
 
 export default APIKeys;
-
