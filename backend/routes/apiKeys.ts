@@ -38,6 +38,7 @@ router.post("/", (req: Request<{}, {}, CreateApiKeyBody>, res: Response) => {
       api_key: rawApiKey,
       created_at: new Date().toISOString(),
       user_id: user_id || null,
+      is_active: 1,
     });
   } catch (error) {
     console.error("Error creating API key:", error);
