@@ -23,7 +23,7 @@ function Login() {
 
   const handleGoogleLogin = () => {
     setLoading(true);
-    window.location.href = `${import.meta.env.VITE_OAUTH_URL || 'http://localhost:3000'}/auth/google`;
+    window.location.href = '/auth/google';
   };
 
   const handleTestLogin = () => {

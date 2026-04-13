@@ -53,7 +53,6 @@ GOOGLE_CLIENT_SECRET=your-client-secret
 
 Frontend (`frontend/.env`):
 ```env
-VITE_OAUTH_URL=http://localhost:3000
 VITE_DEV_TEST_LOGIN=false
 ```
 
