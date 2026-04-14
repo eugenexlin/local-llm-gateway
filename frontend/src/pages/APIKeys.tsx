@@ -1,5 +1,11 @@
 import { useState, useEffect, FormEvent } from "react";
-import { Key, ContentCopy, Delete, Add } from "@mui/icons-material";
+import {
+  Key,
+  ContentCopy,
+  Delete,
+  Add,
+  SettingsRemote,
+} from "@mui/icons-material";
 import { useAuth } from "../context/AuthContext";
 import MainLayout from "../components/MainLayout";
 import {
@@ -35,11 +41,13 @@ function APIKeys() {
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [newKeyName, setNewKeyName] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copiedKeys, setCopiedKeys] = useState<Set<string>>(new Set());
   const [showCreatedKeyDialog, setShowCreatedKeyDialog] = useState(false);
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showRevoked, setShowRevoked] = useState(false);
+
+  const CREATED_KEY_TAG = "CREATED_KEY_TAG"
 
   useEffect(() => {
     if (user?.id) {
@@ -117,24 +125,37 @@ function APIKeys() {
     }
   };
 
-  const copyToClipboard = async (key: string) => {
+  const copyToClipboard = async (key: string, keyId?: string) => {
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(key);
       } else {
-        const textarea = document.createElement('textarea');
+        const textarea = document.createElement("textarea");
         textarea.value = key;
-        textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
         document.body.appendChild(textarea);
         textarea.select();
-        document.execCommand('copy');
+        document.execCommand("copy");
         document.body.removeChild(textarea);
       }
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+
+      if (keyId) {
+        setCopiedKeys((prev) => {
+          const next = new Set(prev);
+          next.add(keyId);
+          return next;
+        });
+        setTimeout(() => {
+          setCopiedKeys((prev) => {
+            const next = new Set(prev);
+            next.delete(keyId);
+            return next;
+          });
+        }, 2000);
+      }
     } catch (error) {
-      console.error('Failed to copy:', error);
+      console.error("Failed to copy:", error);
     }
   };
 
@@ -342,19 +363,21 @@ function APIKeys() {
                     <Stack direction="row" spacing={1}>
                       <Button
                         onClick={() =>
-                          key.api_key && copyToClipboard(key.api_key)
+                          key.api_key && copyToClipboard(key.api_key, key.id)
                         }
                         disabled={!key.api_key}
                         variant="outlined"
                         size="small"
-                        startIcon={copied ? <Key /> : <ContentCopy />}
+                        startIcon={
+                          copiedKeys.has(key.id) ? <Key /> : <ContentCopy />
+                        }
                         sx={{
                           textTransform: "none",
                           minWidth: 70,
                           opacity: key.api_key ? 1 : 0.5,
                         }}
                       >
-                        {copied ? "Copied!" : "Copy"}
+                        {copiedKeys.has(key.id) ? "Copied!" : "Copy"}
                       </Button>
                       {key.is_active ? (
                         <Button
@@ -427,21 +450,25 @@ function APIKeys() {
                 Dismiss
               </Button>
               <Button
-                onClick={() => {
+                onClick={async () => {
+                  if (copiedKeys.has(CREATED_KEY_TAG)) {
+                    return;
+                  }
                   if (createdKey) {
-                    copyToClipboard(createdKey);
-                    handleCloseCreatedKey();
+                    copyToClipboard(createdKey, CREATED_KEY_TAG).then(() => {
+                      setTimeout(() => handleCloseCreatedKey(), 300);
+                    });
                   }
                 }}
                 variant="contained"
-                startIcon={copied ? <Key /> : null}
+                startIcon={copiedKeys.has(CREATED_KEY_TAG) ? <Key /> : null}
                 sx={{
                   bgcolor: "#1976d2",
                   "&:hover": { bgcolor: "#1565c0" },
                   textTransform: "none",
                 }}
               >
-                {copied ? "Copied!" : "Copy Key"}
+                {copiedKeys.has(CREATED_KEY_TAG) ? "Copied!" : "Copy Key"}
               </Button>
             </DialogActions>
           </Dialog>
