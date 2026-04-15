@@ -240,6 +240,30 @@ export function getApiKeys(): Array<{
   });
 }
 
+export function getApiKeyById(id: string): {
+  id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  user_id: string | null;
+  is_active: number;
+  revoked_at: string | null;
+} | null {
+  const result = db!.exec('SELECT id, name, description, created_at, user_id, is_active, revoked_at FROM api_keys WHERE id = ?', [id]);
+  if (result.length === 0 || result[0].values.length === 0) return null;
+  
+  const columns = result[0].columns as string[];
+  const values = result[0].values as (string | number | null)[][];
+  const row = values[0];
+  
+  const obj: any = {};
+  columns.forEach((col, i) => {
+    obj[col] = row[i];
+  });
+  
+  return obj;
+}
+
 export function getApiKeysByUserId(userId: string, showRevoked = false): Array<{
   id: string;
   name: string;
@@ -269,10 +293,23 @@ export function getApiKeysByUserId(userId: string, showRevoked = false): Array<{
   });
 }
 
+export function checkApiKeyHasMetrics(apiKeyId: string): boolean {
+  const result = db!.exec(
+    'SELECT 1 FROM usage_logs WHERE api_key_id = ? LIMIT 1',
+    [apiKeyId]
+  );
+  return result.length > 0 && result[0].values.length > 0;
+}
+
 export function deleteApiKey(id: string): boolean {
   db!.run('UPDATE api_keys SET is_active = 0, revoked_at = ? WHERE id = ?', [new Date().toISOString(), id]);
   saveDatabase();
   return true;
+}
+
+export function permanentlyDeleteApiKey(id: string): void {
+  db!.run('DELETE FROM api_keys WHERE id = ?', [id]);
+  saveDatabase();
 }
 
 export function findUserByEmail(email: string): User | null {
@@ -981,6 +1018,8 @@ export default {
   getApiKeys,
   getApiKeysByUserId,
   deleteApiKey,
+  permanentlyDeleteApiKey,
+  checkApiKeyHasMetrics,
   validateApiKey,
   logUsage,
   incrementApiKeyStats,

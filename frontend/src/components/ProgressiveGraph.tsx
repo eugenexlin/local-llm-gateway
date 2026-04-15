@@ -73,16 +73,14 @@ const CustomVerticalGrid: React.FC<CustomGridProps> = ({
   const gridLines: React.CSSProperties[] = [];
 
   for (let i = 0; i < dataLength; i++) {
-    if (i % tickSpacing === 0 || i === dataLength - 1) {
-      const percentage = (i / (dataLength - 1)) * 100;
-      gridLines.push({
-        left: `${percentage}%`,
-        position: "absolute" as const,
-        width: "1px",
-        height: "100%",
-        background: "rgba(0, 0, 0, 0.1)",
-      });
-    }
+    const percentage = (i / (dataLength - 1)) * 100;
+    gridLines.push({
+      left: `${percentage}%`,
+      position: "absolute" as const,
+      width: "1px",
+      height: "100%",
+      background: "rgba(0, 0, 0, 0.1)",
+    });
   }
 
   return (

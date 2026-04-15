@@ -54,15 +54,21 @@ router.get("/", (req: Request, res: Response) => {
     
     if (user_id) {
       apiKeys = database.getApiKeysByUserId(user_id as string, show_revoked === 'true');
-      // Filter to only return API keys that belong to the requested user
       apiKeys = apiKeys.filter((key: any) => key.user_id === user_id);
     } else {
-      // If no user_id provided, return empty array (require authentication)
       apiKeys = [];
     }
     
+    const keysWithMetrics = apiKeys.map((key: any) => {
+      const hasMetrics = database.checkApiKeyHasMetrics(key.id);
+      return {
+        ...key,
+        has_metrics: hasMetrics,
+      };
+    });
+    
     res.json(
-      apiKeys.map(({ id, name, description, created_at, user_id, is_active, revoked_at }) => ({
+      keysWithMetrics.map(({ id, name, description, created_at, user_id, is_active, revoked_at, has_metrics }) => ({
         id,
         name,
         description,
@@ -70,6 +76,7 @@ router.get("/", (req: Request, res: Response) => {
         user_id,
         is_active,
         revoked_at,
+        has_metrics,
       })),
     );
   } catch (error) {
@@ -82,16 +89,25 @@ router.get("/", (req: Request, res: Response) => {
 router.delete("/:id", (req: Request<{ id: string }>, res: Response) => {
   try {
     const { id } = req.params;
-    const deleted = database.deleteApiKey(id);
-
-    if (!deleted) {
+    
+    const key = database.getApiKeyById(id);
+    if (!key) {
       return res.status(404).json({ error: "API key not found" });
     }
 
-    res.json({ message: "API key revoked" });
+    database.deleteApiKey(id);
+
+    const hasMetrics = database.checkApiKeyHasMetrics(id);
+
+    if (hasMetrics) {
+      return res.json({ message: "API key revoked", action: "revoked" });
+    } else {
+      database.permanentlyDeleteApiKey(id);
+      return res.json({ message: "API key deleted", action: "deleted" });
+    }
   } catch (error) {
-    console.error("Error revoking API key:", error);
-    res.status(500).json({ error: "Failed to revoke API key" });
+    console.error("Error deleting API key:", error);
+    res.status(500).json({ error: "Failed to delete API key" });
   }
 });
 

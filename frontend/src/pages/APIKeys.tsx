@@ -34,6 +34,7 @@ interface ApiKey {
   user_id: string | null;
   is_active: number;
   revoked_at: string | null;
+  has_metrics: boolean;
 }
 
 function APIKeys() {
@@ -102,23 +103,31 @@ function APIKeys() {
     }
   };
 
-  const handleRevokeKey = async (keyId: string) => {
-    if (!confirm("Are you sure you want to revoke this API key?")) return;
+  const handleRevokeKey = async (keyId: string, hasMetrics: boolean) => {
+    const message = hasMetrics
+      ? "Are you sure you want to revoke this API key? It will be disabled but retained for record-keeping."
+      : "Are you sure you want to permanently delete this API key? This action cannot be undone. Key will be fully deleted if there is no usage tied to it.";
+
+    if (!confirm(message)) return;
 
     try {
-      const response = await fetch(
-        `/api/api-keys/${keyId}?user_id=${user?.id}`,
-        {
-          method: "DELETE",
-        },
-      );
+      const response = await fetch(`/api/api-keys/${keyId}`, {
+        method: "DELETE",
+      });
 
       if (response.ok) {
-        setApiKeys(
-          apiKeys.map((key) =>
-            key.id === keyId ? { ...key, is_active: 1 } : key,
-          ),
-        );
+        const data = await response.json();
+        if (data.action === "deleted") {
+          setApiKeys(apiKeys.filter((key) => key.id !== keyId));
+        } else {
+          setApiKeys(
+            apiKeys.map((key) =>
+              key.id === keyId
+                ? { ...key, is_active: 0, revoked_at: new Date().toISOString() }
+                : key,
+            ),
+          );
+        }
       }
     } catch (error) {
       console.error("Failed to revoke API key:", error);
@@ -128,8 +137,10 @@ function APIKeys() {
   const copyToClipboard = async (key: string, keyId?: string) => {
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
+        console.info("saving to clipboard with navigator")
         await navigator.clipboard.writeText(key);
       } else {
+        console.info("saving to clipboard with textarea")
         const textarea = document.createElement("textarea");
         textarea.value = key;
         textarea.style.position = "fixed";
@@ -381,10 +392,29 @@ function APIKeys() {
                       </Button>
                       {key.is_active ? (
                         <Button
-                          onClick={() => handleRevokeKey(key.id)}
+                          onClick={() => handleRevokeKey(key.id, key.has_metrics)}
                           variant="outlined"
                           size="small"
                           startIcon={<Delete />}
+                          sx={{
+                            color: key.has_metrics ? "#d32f2f" : "#d32f2f",
+                            borderColor: key.has_metrics ? "#d32f2f" : "#d32f2f",
+                            textTransform: "none",
+                            "&:hover": {
+                              borderColor: "#c62828",
+                              bgcolor: "rgba(211, 47, 47, 0.04)",
+                            },
+                          }}
+                        >
+                          {key.has_metrics ? "Revoke Key" : "Delete Key"}
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() => handleRevokeKey(key.id, key.has_metrics)}
+                          variant="outlined"
+                          size="small"
+                          startIcon={<Delete />}
+                          disabled={key.has_metrics}
                           sx={{
                             color: "#d32f2f",
                             borderColor: "#d32f2f",
@@ -393,21 +423,20 @@ function APIKeys() {
                               borderColor: "#c62828",
                               bgcolor: "rgba(211, 47, 47, 0.04)",
                             },
+                            "&.Mui-disabled": {
+                              opacity: 0.5,
+                              color: "#9e9e9e",
+                              borderColor: "#9e9e9e",
+                            },
                           }}
+                          title={
+                            key.has_metrics
+                              ? "Cannot delete: This API key has usage metrics"
+                              : ""
+                          }
                         >
-                          Revoke
+                          Delete Key
                         </Button>
-                      ) : (
-                        <Chip
-                          label="Revoked"
-                          size="small"
-                          sx={{
-                            fontSize: "11px",
-                            bgcolor: "#ffebee",
-                            color: "#c62828",
-                            height: 28,
-                          }}
-                        />
                       )}
                     </Stack>
                   </Box>
@@ -450,7 +479,7 @@ function APIKeys() {
                 Dismiss
               </Button>
               <Button
-                onClick={async () => {
+                onClick={() => {
                   if (copiedKeys.has(CREATED_KEY_TAG)) {
                     return;
                   }
