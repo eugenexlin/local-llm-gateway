@@ -394,6 +394,7 @@ const DashboardStats: React.FC = () => {
       <ProgressiveGraph
         data={graphData}
         granularity={displayGranularity}
+        granularitySeconds={granularity}
         metric={metric}
         loading={graphLoading}
         loadingProgress={loadingProgress}
