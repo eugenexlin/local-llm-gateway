@@ -233,6 +233,49 @@ router.get('/progressive', async (req: Request, res: Response) => {
   }
 });
 
+// Get timestamp template for graph (pre-populate with exact timestamps)
+router.get('/timestamps', async (req: Request, res: Response) => {
+  try {
+    const start = req.query.start as string | undefined;
+    const end = req.query.end as string | undefined;
+    const granularityValue = req.query.granularity as string | undefined;
+    const userId = req.query.userId as string | undefined;
+    const apiKeyId = req.query.apiKeyId as string | undefined;
+    
+    if (!start || !end) {
+      return res.status(400).json({ error: 'start and end dates required' });
+    }
+    
+    // Convert string granularity value to seconds (e.g., "1h" -> 3600)
+    let granularitySeconds: GranularitySeconds | undefined;
+    if (granularityValue) {
+      const validGranularities = getAllGranularityDisplayOptions();
+      const found = validGranularities.find(opt => opt.value === granularityValue);
+      if (found) {
+        granularitySeconds = found.seconds;
+      }
+    }
+    
+    if (!granularitySeconds) {
+      return res.status(400).json({ error: 'valid granularity required (5m, 10m, 15m, 30m, 1h, 2h, 4h, 6h, 12h, 1d, 1w, 1M)' });
+    }
+    
+    const dataPoints = await database.getTimestampTemplate(
+      start, 
+      end, 
+      granularitySeconds,
+      userId,
+      apiKeyId
+    );
+    
+    res.setHeader('Content-Type', 'application/json');
+    res.json(dataPoints);
+  } catch (error) {
+    console.error('Error getting timestamp template:', error);
+    res.status(500).json({ error: 'Failed to get timestamp template' });
+  }
+});
+
 // Catch-all to prevent returning HTML
 router.use((req: Request, res: Response) => {
   res.status(404).json({ error: 'Endpoint not found' });

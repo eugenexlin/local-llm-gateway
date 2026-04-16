@@ -111,73 +111,99 @@ const DashboardStats: React.FC = () => {
     const batchCount = Math.ceil(dataPointCount / batchSize);
     const displayValue =
       secondsToDisplayValue(currentGranularitySeconds) || "1h";
-    const allData: ProgressiveDataPoint[] = new Array(dataPointCount).fill({
-      hasValue: false,
-      timestamp: "",
-      value: 0,
+
+    const templateParams = new URLSearchParams({
+      start: start.toISOString(),
+      end: end.toISOString(),
+      granularity: displayValue,
     });
-    onProgress([...allData], false);
-
-    for (
-      let batchIndex = batchCount - 1;
-      batchIndex >= 0 && !signal.aborted;
-      batchIndex--
-    ) {
-      try {
-        const params = new URLSearchParams({
-          start: start.toISOString(),
-          end: end.toISOString(),
-          granularity: displayValue,
-          metric: metric,
-          batchIndex: String(batchIndex),
-          batchSize: String(batchSize),
-        });
-        if (selectedUserId && selectedUserId !== "all") {
-          params.append("userId", selectedUserId);
-          if (selectedApiKeyId) {
-            params.append("apiKeyId", selectedApiKeyId);
-          }
-        }
-        const response = await fetch(
-          `/api/metrics/progressive?${params.toString()}`,
-          { signal },
-        );
-
-        if (response.ok) {
-          const data: ProgressiveDataPoint[] = await response.json();
-          const startIndex = batchIndex * batchSize;
-          for (
-            let i = 0;
-            i < data.length && startIndex + i < allData.length;
-            i++
-          ) {
-            allData[startIndex + i] = data[i];
-          }
-          const progress = Math.round(
-            ((batchCount - batchIndex) / batchCount) * 100,
-          );
-          onProgress([...allData], false);
-          setLoadingProgress(progress);
-        } else {
-          console.error(
-            `Batch ${batchIndex} failed with status:`,
-            response.status,
-          );
-        }
-      } catch (error) {
-        if (error.name === "AbortError") {
-          console.log("Request cancelled, stopping fetch");
-          return;
-        }
-        console.error(`Error fetching batch ${batchIndex}:`, error);
+    if (selectedUserId && selectedUserId !== "all") {
+      templateParams.append("userId", selectedUserId);
+      if (selectedApiKeyId) {
+        templateParams.append("apiKeyId", selectedApiKeyId);
       }
     }
 
-    if (!signal.aborted) {
-      onProgress(
-        allData.filter((d) => d.timestamp !== ""),
-        true,
+    try {
+      const templateResponse = await fetch(
+        `/api/metrics/timestamps?${templateParams.toString()}`,
+        { signal },
       );
+
+      if (!templateResponse.ok) {
+        throw new Error("Failed to fetch timestamp template");
+      }
+
+      const templateData: ProgressiveDataPoint[] = await templateResponse.json();
+      const allData: ProgressiveDataPoint[] = templateData.map((point) => ({
+        ...point,
+        value: null,
+      }));
+
+      onProgress([...allData], false);
+
+      for (
+        let batchIndex = batchCount - 1;
+        batchIndex >= 0 && !signal.aborted;
+        batchIndex--
+      ) {
+        try {
+          const params = new URLSearchParams({
+            start: start.toISOString(),
+            end: end.toISOString(),
+            granularity: displayValue,
+            metric: metric,
+            batchIndex: String(batchIndex),
+            batchSize: String(batchSize),
+          });
+          if (selectedUserId && selectedUserId !== "all") {
+            params.append("userId", selectedUserId);
+            if (selectedApiKeyId) {
+              params.append("apiKeyId", selectedApiKeyId);
+            }
+          }
+          const response = await fetch(
+            `/api/metrics/progressive?${params.toString()}`,
+            { signal },
+          );
+
+          if (response.ok) {
+            const data: ProgressiveDataPoint[] = await response.json();
+            const startIndex = batchIndex * batchSize;
+            for (
+              let i = 0;
+              i < data.length && startIndex + i < allData.length;
+              i++
+            ) {
+              allData[startIndex + i] = data[i];
+            }
+            const progress = Math.round(
+              ((batchCount - batchIndex) / batchCount) * 100,
+            );
+            onProgress([...allData], false);
+            setLoadingProgress(progress);
+          } else {
+            console.error(
+              `Batch ${batchIndex} failed with status:`,
+              response.status,
+            );
+          }
+        } catch (error) {
+          if (error.name === "AbortError") {
+            console.log("Request cancelled, stopping fetch");
+            return;
+          }
+          console.error(`Error fetching batch ${batchIndex}:`, error);
+        }
+      }
+
+      if (!signal.aborted) {
+        onProgress(allData, true);
+      }
+    } catch (error) {
+      if (error.name !== "AbortError") {
+        console.error("Error fetching timestamp template:", error);
+      }
     }
   };
 

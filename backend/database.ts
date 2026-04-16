@@ -1000,6 +1000,39 @@ export function getProgressiveDataWithInterpolation(
   });
 }
 
+export function getTimestampTemplate(
+  startDate: string, 
+  endDate: string, 
+  granularitySeconds: GranularitySeconds,
+  userId?: string,
+  apiKeyId?: string
+): Promise<ProgressiveDataPoint[]> {
+  return new Promise((resolve) => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    const roundedStart = roundToGranularity(start, granularitySeconds);
+    const roundedEnd = roundToGranularity(end, granularitySeconds);
+    const inclusiveEnd = new Date(roundedEnd.getTime() + granularitySeconds * 1000);
+    
+    const roundedStartNum = roundedStart.getTime();
+    const inclusiveEndNum = inclusiveEnd.getTime();
+    const totalRangeSeconds = Math.max(1, (inclusiveEndNum - roundedStartNum) / 1000);
+    const totalBuckets = Math.ceil(totalRangeSeconds / granularitySeconds);
+    
+    const dataPoints: ProgressiveDataPoint[] = [];
+    
+    for (let t = roundedStartNum; t < inclusiveEndNum; t += granularitySeconds * 1000) {
+      dataPoints.push({
+        timestamp: new Date(t).toISOString(),
+        value: null
+      });
+    }
+    
+    resolve(dataPoints);
+  });
+}
+
 export async function clearDatabase(): Promise<void> {
   try {
     db!.run('DELETE FROM usage_logs');

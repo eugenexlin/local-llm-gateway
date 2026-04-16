@@ -42,9 +42,11 @@ interface ProgressiveGraphProps {
 }
 
 const isRateMetric = (metric: MetricType): boolean => {
-  return metric === "tokens_per_sec" || 
-         metric === "input_tokens_per_sec" || 
-         metric === "output_tokens_per_sec";
+  return (
+    metric === "tokens_per_sec" ||
+    metric === "input_tokens_per_sec" ||
+    metric === "output_tokens_per_sec"
+  );
 };
 
 function calculateTickSpacing(dataLength: number): number {
@@ -149,20 +151,20 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
           </Select>
         </FormControl>
 
-<FormControl sx={{ minWidth: 150 }}>
-           <InputLabel>Granularity</InputLabel>
-           <Select
-             value={granularity}
-             label="Granularity"
-             onChange={handleGranularityChange}
-           >
-             {granularityOptions.map((option) => (
-               <MenuItem key={option.value} value={option.value}>
-                 {option.label}
-               </MenuItem>
-             ))}
-           </Select>
-         </FormControl>
+        <FormControl sx={{ minWidth: 150 }}>
+          <InputLabel>Granularity</InputLabel>
+          <Select
+            value={granularity}
+            label="Granularity"
+            onChange={handleGranularityChange}
+          >
+            {granularityOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </Box>
 
       {data.length > 0 && (
@@ -203,7 +205,8 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                 sx={{
                   height: "100%",
                   width: `${100 - loadingProgress}%`,
-                  background: "linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)",
+                  background:
+                    "linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)",
                   transformOrigin: "right",
                   transition: "width 0.1s ease-out",
                 }}
@@ -217,17 +220,9 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                 <XAxis
                   dataKey="timestamp"
                   tick={{ fontSize: 12 }}
-                  tickCount={fullDataLength > 8 ? 6 : fullDataLength}
+                  niceTicks="auto"
                   tickFormatter={(value, index) => {
                     const date = new Date(value);
-
-                    if (
-                      fullDataLength > 8 &&
-                      index % tickSpacingRef.current !== 0
-                    ) {
-                      return "";
-                    }
-
                     if (
                       [
                         "5m",
@@ -272,8 +267,8 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                 />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip
-                  formatter={(value: number | null) => [
-                    value !== null ? Math.round(value).toLocaleString() : "N/A",
+                  formatter={(value: number | undefined) => [
+                    value !== undefined ? Math.round(value).toLocaleString() : "N/A",
                     metricLabels[metric],
                   ]}
                   labelFormatter={(label) => {
@@ -311,19 +306,17 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                   <XAxis
                     dataKey="timestamp"
                     tick={{ fontSize: 12 }}
-                    tickCount={fullDataLength > 8 ? 6 : fullDataLength}
+                    niceTicks="auto"
                     tickFormatter={(value, index) => {
                       const date = new Date(value);
 
+                      const granularitySeconds = granularityOptions.find(
+                        (o) => o.value === granularity,
+                      )?.seconds;
                       if (
-                        fullDataLength > 8 &&
-                        index % tickSpacingRef.current !== 0
+                        granularitySeconds &&
+                        granularitySeconds <= 12 * 60 * 60
                       ) {
-                        return "";
-                      }
-
-                      const granularitySeconds = granularityOptions.find(o => o.value === granularity)?.seconds;
-                      if (granularitySeconds && granularitySeconds <= 12 * 60 * 60) {
                         // 12 hours or less - show time
                         return date.toLocaleTimeString("en-US", {
                           hour: "2-digit",
@@ -350,8 +343,8 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                   />
                   <YAxis tick={{ fontSize: 12 }} />
                   <Tooltip
-                    formatter={(value: number | null) => [
-                      value !== null ? Math.round(value).toLocaleString() : "0",
+                    formatter={(value: number | undefined) => [
+                      value !== undefined ? Math.round(value).toLocaleString() : "0",
                       metricLabels[metric],
                     ]}
                     labelFormatter={(label) => {
