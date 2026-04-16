@@ -104,6 +104,31 @@ const CustomVerticalGrid: React.FC<CustomGridProps> = ({
   );
 };
 
+const formatXAxisTimestamp = (
+  timestamp: string,
+  secondsPerTick: number,
+): string => {
+  const date = new Date(timestamp);
+
+  if (secondsPerTick <= 3600) {
+    return date.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } else if (secondsPerTick <= 86400) {
+    return date.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+    });
+  } else {
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+  }
+};
+
 const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
   data,
   granularity,
@@ -222,13 +247,9 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                   tick={{ fontSize: 12 }}
                   niceTicks="auto"
                   interval={dataPointsPerTick}
-                  tickFormatter={(value, index) => {
-                    const date = new Date(value);
-                    return date.toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    });
-                  }}
+                  tickFormatter={(value, index) =>
+                    formatXAxisTimestamp(value, totalSecondsPerTick)
+                  }
                 />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip
@@ -275,14 +296,9 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                     tick={{ fontSize: 12 }}
                     niceTicks="auto"
                     interval={dataPointsPerTick}
-                    tickFormatter={(value, index) => {
-                      const date = new Date(value);
-
-                      return date.toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                      });
-                    }}
+                    tickFormatter={(value, index) =>
+                      formatXAxisTimestamp(value, totalSecondsPerTick)
+                    }
                   />
                   <YAxis tick={{ fontSize: 12 }} />
                   <Tooltip
