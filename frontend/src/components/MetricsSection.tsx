@@ -2,6 +2,7 @@ import React from "react";
 import { Grid, Box } from "@mui/material";
 import MetricCard from "./MetricCard";
 import type { MetricType } from "../types/metrics";
+import { formatValue } from "../utils/formatValue";
 
 interface MetricsSectionProps {
   total_tokens?: number;
@@ -21,14 +22,6 @@ const colors = [
   "#ef4444", // red-500
 ];
 
-const formatValue = (num?: number): string => {
-  if (num === undefined || num === null) return "-";
-  if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(2).replace(/\.00$/, "") + "B";
-  if (num >= 1_000_000) return (num / 1_000_000).toFixed(2).replace(/\.00$/, "") + "M";
-  if (num >= 1_000) return (num / 1_000).toFixed(1).replace(/\.0$/, "") + "k";
-  return num.toLocaleString();
-};
-
 const MetricsSection: React.FC<MetricsSectionProps> = ({
   total_tokens,
   total_input_tokens,
@@ -39,12 +32,36 @@ const MetricsSection: React.FC<MetricsSectionProps> = ({
   request_count,
 }) => {
   const cards = [
-    { key: "total_tokens" as MetricType, value: total_tokens, color: colors[0] },
-    { key: "input_tokens" as MetricType, value: total_input_tokens, color: colors[1] },
-    { key: "output_tokens" as MetricType, value: total_output_tokens, color: colors[2] },
-    { key: "tokens_per_sec" as MetricType, value: tokens_per_sec, color: colors[3] },
-    { key: "input_tokens_per_sec" as MetricType, value: input_tokens_per_sec, color: colors[4] },
-    { key: "output_tokens_per_sec" as MetricType, value: output_tokens_per_sec, color: colors[0] },
+    {
+      key: "total_tokens" as MetricType,
+      value: total_tokens,
+      color: colors[0],
+    },
+    {
+      key: "input_tokens" as MetricType,
+      value: total_input_tokens,
+      color: colors[1],
+    },
+    {
+      key: "output_tokens" as MetricType,
+      value: total_output_tokens,
+      color: colors[2],
+    },
+    {
+      key: "tokens_per_sec" as MetricType,
+      value: tokens_per_sec,
+      color: colors[3],
+    },
+    {
+      key: "input_tokens_per_sec" as MetricType,
+      value: input_tokens_per_sec,
+      color: colors[4],
+    },
+    {
+      key: "output_tokens_per_sec" as MetricType,
+      value: output_tokens_per_sec,
+      color: colors[0],
+    },
     { key: "requests" as MetricType, value: request_count, color: colors[1] },
   ];
 
@@ -60,7 +77,7 @@ const MetricsSection: React.FC<MetricsSectionProps> = ({
             md={4}
             lg={2.4}
             sx={{
-              mb: 1,
+              mb: 0.4,
               minWidth: 0,
             }}
           >

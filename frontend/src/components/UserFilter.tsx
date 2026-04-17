@@ -234,7 +234,7 @@ const UserFilter: React.FC<UserFilterProps> = ({
                 <Checkbox
                   checked={showRevoked}
                   onChange={(e) => setShowRevoked(e.target.checked)}
-                  size="small"
+                  size="medium"
                   sx={{ ml: 1 }}
                 />
               }

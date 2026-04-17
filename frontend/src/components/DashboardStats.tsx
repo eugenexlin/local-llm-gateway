@@ -4,19 +4,20 @@ import {
   secondsToDisplayValue,
   displayValueToSeconds,
 } from "../utils/granularityDisplay";
-import { Box, Typography, Button, Chip } from "@mui/material";
-import { Refresh } from "@mui/icons-material";
+import { Box, Typography, Button, IconButton } from "@mui/material";
+import { Refresh, KeyboardArrowLeft, KeyboardArrowRight } from "@mui/icons-material";
 import DateRangePicker from "./DateRangePicker";
 import ProgressiveGraph from "./ProgressiveGraph";
 import MetricsSection from "./MetricsSection";
 import UserFilter from "./UserFilter";
+import InsightsGraph from "./InsightsGraph";
 import { useAuth } from "../context/AuthContext";
-import type { MetricType, GranularitySeconds } from "../types/metrics";
+import type { MetricType, GranularitySeconds, InsightsConfig } from "../types/metrics";
 
 interface ProgressiveDataPoint {
   hasValue: boolean;
   timestamp: string;
-  value: number;
+  value: number | null;
 }
 
 interface Metrics {
@@ -48,8 +49,15 @@ const DashboardStats: React.FC = () => {
   const [graphData, setGraphData] = useState<any[]>([]);
   const [graphLoading, setGraphLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [visibleWindow, setVisibleWindow] = useState<{ start: number; end: number } | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const debounceTimerRef = useRef<number | null>(null);
+
+  const [insightsConfig, setInsightsConfig] = useState<InsightsConfig>({
+    xAxis: null,
+    yAxis: null,
+    viewMode: 'scatter'
+  });
 
   const fetchLifetimeMetrics = async () => {
     try {
@@ -226,6 +234,7 @@ const DashboardStats: React.FC = () => {
   const handleMetricChange = (val: MetricType) => {
     setMetric(val);
     setGraphData([]);
+    resetVisibleWindow();
   };
 
   const handleGranularityChange = (value: string) => {
@@ -233,6 +242,31 @@ const DashboardStats: React.FC = () => {
     if (seconds) {
       setGranularity(seconds);
     }
+  };
+
+  const handleScroll = (direction: 'left' | 'right') => {
+    if (!graphData.length) return;
+    const step = Math.floor(graphData.length / 2);
+    setVisibleWindow((prev) => {
+      if (!prev) {
+        return { start: 0, end: graphData.length };
+      }
+      if (direction === 'left') {
+        return {
+          start: Math.max(0, prev.start - step),
+          end: Math.max(prev.start, prev.end - step),
+        };
+      } else {
+        return {
+          start: Math.min(graphData.length - (prev.end - prev.start), prev.start + step),
+          end: Math.min(graphData.length, prev.end + step),
+        };
+      }
+    });
+  };
+
+  const resetVisibleWindow = () => {
+    setVisibleWindow(null);
   };
 
   const handleGraphRefresh = async () => {
@@ -265,6 +299,9 @@ const DashboardStats: React.FC = () => {
             setLoadingProgress(100);
             setTimeout(() => setLoadingProgress(0), 500);
             abortControllerRef.current = null;
+            if (!visibleWindow && data.length > 0) {
+              setVisibleWindow({ start: 0, end: data.length });
+            }
           }
         },
         newAbortController.signal,
@@ -370,14 +407,17 @@ const DashboardStats: React.FC = () => {
         endDate={endDate}
         onStartDateChange={(date) => {
           setStartDate(date);
+          resetVisibleWindow();
           handleGraphRefresh();
         }}
         onEndDateChange={(date) => {
           setEndDate(date);
+          resetVisibleWindow();
           handleGraphRefresh();
         }}
         onGranularityChange={(seconds) => {
           setGranularity(seconds);
+          resetVisibleWindow();
         }}
       />
 
@@ -391,6 +431,21 @@ const DashboardStats: React.FC = () => {
         request_count={rangeMetrics?.request_count}
       />
 
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+        <Box />
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          {graphData.length > 0 && (
+            <>
+              <IconButton size="small" onClick={() => handleScroll('left')}>
+                <KeyboardArrowLeft />
+              </IconButton>
+              <IconButton size="small" onClick={() => handleScroll('right')}>
+                <KeyboardArrowRight />
+              </IconButton>
+            </>
+          )}
+        </Box>
+      </Box>
       <ProgressiveGraph
         data={graphData}
         granularity={displayGranularity}
@@ -398,8 +453,18 @@ const DashboardStats: React.FC = () => {
         metric={metric}
         loading={graphLoading}
         loadingProgress={loadingProgress}
+        visibleWindow={visibleWindow}
         onGranularityChange={handleGranularityChange}
         onMetricChange={(value) => handleMetricChange(value)}
+      />
+
+      <InsightsGraph
+        startDate={startDate}
+        endDate={endDate}
+        userId={selectedUserId || undefined}
+        apiKeyId={selectedApiKeyId || undefined}
+        config={insightsConfig}
+        onConfigChange={setInsightsConfig}
       />
     </>
   );

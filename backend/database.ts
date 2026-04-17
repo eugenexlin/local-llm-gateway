@@ -1044,6 +1044,196 @@ export async function clearDatabase(): Promise<void> {
   }
 }
 
+// Insights data functions
+export async function getInsightsData(
+  startDate: string,
+  endDate: string,
+  userId?: string,
+  apiKeyId?: string,
+  limit?: number
+): Promise<any[]> {
+  let query = `
+    SELECT 
+      ul.id,
+      ul.request_id,
+      ul.timestamp,
+      ul.prompt_tokens,
+      ul.completion_tokens,
+      ul.total_tokens,
+      ul.duration_ms,
+      ak.name as api_key_name,
+      COALESCE(ul.cache_creation_input_tokens, 0) as cache_creation_input_tokens,
+      COALESCE(ul.cache_read_input_tokens, 0) as cache_read_input_tokens,
+      CASE 
+        WHEN ul.duration_ms > 0 THEN ROUND(ul.total_tokens * 1000.0 / ul.duration_ms, 2)
+        ELSE NULL 
+      END as tokens_per_sec,
+      CASE 
+        WHEN ul.duration_ms > 0 THEN ROUND(ul.prompt_tokens * 1000.0 / ul.duration_ms, 2)
+        ELSE NULL 
+      END as input_tokens_per_sec,
+      CASE 
+        WHEN ul.duration_ms > 0 THEN ROUND(ul.completion_tokens * 1000.0 / ul.duration_ms, 2)
+        ELSE NULL 
+      END as output_tokens_per_sec
+    FROM usage_logs ul
+  `;
+
+  const queryParams: (string | number)[] = [startDate, endDate];
+  let whereClause = 'WHERE ul.timestamp >= ? AND ul.timestamp < ?';
+
+  if (apiKeyId) {
+    query += ' JOIN api_keys ak ON ul.api_key_id = ak.id';
+    whereClause += ' AND ul.api_key_id = ?';
+    queryParams.push(apiKeyId);
+  } else if (userId) {
+    query += ' JOIN api_keys ak ON ul.api_key_id = ak.id';
+    whereClause += ' AND ak.user_id = ?';
+    queryParams.push(userId);
+  }
+
+  query += ` ${whereClause}`;
+  
+  query += ' ORDER BY ul.timestamp DESC';
+  
+  if (limit) {
+    query += ' LIMIT ?';
+    queryParams.push(limit);
+  }
+
+  const result = db!.exec(query, queryParams);
+  
+  if (result.length === 0 || result[0].values.length === 0) {
+    return [];
+  }
+
+  const columns = result[0].columns as string[];
+  const values = result[0].values as (string | number | null)[][];
+  
+  return values.map(row => {
+    const obj: any = {};
+    columns.forEach((col, i) => {
+      obj[col] = row[i];
+    });
+    return obj;
+  });
+}
+
+export async function countInsightsData(
+  startDate: string,
+  endDate: string,
+  userId?: string,
+  apiKeyId?: string
+): Promise<number> {
+  let query = `
+    SELECT COUNT(*) as count
+    FROM usage_logs ul
+  `;
+
+  const queryParams: (string | number)[] = [startDate, endDate];
+  let whereClause = 'WHERE ul.timestamp >= ? AND ul.timestamp < ?';
+
+  if (apiKeyId) {
+    query += ' JOIN api_keys ak ON ul.api_key_id = ak.id';
+    whereClause += ' AND ul.api_key_id = ?';
+    queryParams.push(apiKeyId);
+  } else if (userId) {
+    query += ' JOIN api_keys ak ON ul.api_key_id = ak.id';
+    whereClause += ' AND ak.user_id = ?';
+    queryParams.push(userId);
+  }
+
+  query += ` ${whereClause}`;
+
+  const result = db!.exec(query, queryParams);
+  
+  if (result.length === 0 || result[0].values.length === 0) {
+    return 0;
+  }
+
+  const row = result[0].values[0] as (string | number | null)[];
+  return Number(row[0] || 0);
+}
+
+export async function getHeatMapData(
+  startDate: string,
+  endDate: string,
+  xAxisType: string,
+  yAxisType: string,
+  userId?: string,
+  apiKeyId?: string,
+  gridWidth: number = 50,
+  gridHeight: number = 50
+): Promise<any[]> {
+  // For heat map, we need to bin the data
+  // This is a simplified implementation that works for numeric axes
+  
+  let query = `
+    SELECT 
+      ${xAxisType === 'timestamp' ? 'strftime(\'%s\', ul.timestamp)' : 'ul.' + xAxisType} as x_val,
+      ${yAxisType === 'timestamp' ? 'strftime(\'%s\', ul.timestamp)' : 'ul.' + yAxisType} as y_val
+    FROM usage_logs ul
+  `;
+
+  const queryParams: (string | number)[] = [startDate, endDate];
+  let whereClause = 'WHERE ul.timestamp >= ? AND ul.timestamp < ?';
+
+  if (apiKeyId) {
+    query += ' JOIN api_keys ak ON ul.api_key_id = ak.id';
+    whereClause += ' AND ul.api_key_id = ?';
+    queryParams.push(apiKeyId);
+  } else if (userId) {
+    query += ' JOIN api_keys ak ON ul.api_key_id = ak.id';
+    whereClause += ' AND ak.user_id = ?';
+    queryParams.push(userId);
+  }
+
+  query += ` ${whereClause}`;
+
+  const result = db!.exec(query, queryParams);
+  
+  if (result.length === 0 || result[0].values.length === 0) {
+    return [];
+  }
+
+  // Process data in JavaScript for binning
+  const values = result[0].values as (string | number | null)[][];
+  const xValues = values.map(row => Number(row[0] || 0));
+  const yValues = values.map(row => Number(row[1] || 0));
+
+  const minX = Math.min(...xValues);
+  const maxX = Math.max(...xValues);
+  const minY = Math.min(...yValues);
+  const maxY = Math.max(...yValues);
+
+  const xStep = (maxX - minX) / gridWidth || 1;
+  const yStep = (maxY - minY) / gridHeight || 1;
+
+  // Create bins
+  const bins = new Map<string, number>();
+  
+  for (let i = 0; i < values.length; i++) {
+    const x = Number(values[i][0] || 0);
+    const y = Number(values[i][1] || 0);
+    
+    const xBin = Math.min(Math.floor((x - minX) / xStep), gridWidth - 1);
+    const yBin = Math.min(Math.floor((y - minY) / yStep), gridHeight - 1);
+    
+    const key = `${xBin},${yBin}`;
+    bins.set(key, (bins.get(key) || 0) + 1);
+  }
+
+  // Convert to array
+  return Array.from(bins.entries()).map(([key, count]) => {
+    const [xBin, yBin] = key.split(',').map(Number);
+    return {
+      x: xBin,
+      y: yBin,
+      count
+    };
+  });
+}
+
 export default {
   init,
   isReady,
@@ -1073,5 +1263,8 @@ export default {
   getApiKeysByUserIdFilter,
   getDb,
   clearDatabase,
+  getInsightsData,
+  countInsightsData,
+  getHeatMapData,
   close
 };

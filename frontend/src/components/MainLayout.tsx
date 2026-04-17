@@ -58,7 +58,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       <List>
         {menuItems.map((item) => (
           <ListItem
-            button
             key={item.text}
             onClick={() => {
               navigate(item.path);

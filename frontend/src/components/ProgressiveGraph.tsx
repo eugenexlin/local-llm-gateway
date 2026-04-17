@@ -9,6 +9,8 @@ import {
   SelectChangeEvent,
   MenuItem,
   CircularProgress,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import {
   LineChart,
@@ -24,6 +26,7 @@ import {
 import { metricLabels } from "../utils/metricsLabels";
 import { getAllGranularityOptions } from "../utils/granularityDisplay";
 import type { GranularitySeconds, MetricType } from "../types/metrics";
+import { formatValue } from "../utils/formatValue";
 
 export interface ProgressiveDataPoint {
   hasValue: boolean;
@@ -38,6 +41,7 @@ interface ProgressiveGraphProps {
   metric: MetricType;
   loading: boolean;
   loadingProgress: number;
+  visibleWindow?: { start: number; end: number } | null;
   onGranularityChange?: (value: string) => void;
   onMetricChange?: (metric: MetricType) => void;
 }
@@ -50,11 +54,14 @@ const isRateMetric = (metric: MetricType): boolean => {
   );
 };
 
-function calculateTickSpacing(dataLength: number): number {
-  if (dataLength <= 8) {
+function calculateTickSpacing(
+  dataLength: number,
+  minTicks: number = 6,
+): number {
+  if (dataLength <= minTicks) {
     return 0;
   }
-  const targetTicks = 6;
+  const targetTicks = minTicks;
   let divide = 1;
   while (dataLength / divide > targetTicks) {
     divide *= 2;
@@ -136,11 +143,20 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
   metric,
   loading,
   loadingProgress,
+  visibleWindow,
   onGranularityChange,
   onMetricChange,
 }) => {
   const fullDataLength = data.length;
+  const displayData = visibleWindow
+    ? data.slice(visibleWindow.start, visibleWindow.end)
+    : data;
+  const displayLength = displayData.length;
   const granularityOptions = getAllGranularityOptions();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const isTablet = useMediaQuery(theme.breakpoints.between("sm", "md"));
+  const minimumTicks = isMobile ? 2 : isTablet ? 4 : 6;
 
   const handleGranularityChange = (event: SelectChangeEvent<string>) => {
     if (onGranularityChange) {
@@ -154,7 +170,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
     }
   };
 
-  const dataPointsPerTick = calculateTickSpacing(fullDataLength);
+  const dataPointsPerTick = calculateTickSpacing(displayLength, minimumTicks);
   const totalSecondsPerTick = (dataPointsPerTick + 1) * granularitySeconds;
 
   return (
@@ -240,7 +256,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
           )}
           <ResponsiveContainer width="100%" height="100%">
             {isRateMetric(metric) ? (
-              <LineChart data={data}>
+              <LineChart data={displayData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   dataKey="timestamp"
@@ -250,8 +266,17 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                   tickFormatter={(value, index) =>
                     formatXAxisTimestamp(value, totalSecondsPerTick)
                   }
+                  domain={[
+                    displayLength > 0 ? displayData[0].timestamp : "auto",
+                    displayLength > 0
+                      ? displayData[displayLength - 1].timestamp
+                      : "auto",
+                  ]}
                 />
-                <YAxis tick={{ fontSize: 12 }} />
+                <YAxis
+                  tick={{ fontSize: 12 }}
+                  tickFormatter={(value) => formatValue(value)}
+                />
                 <Tooltip
                   formatter={(value: number | undefined) => [
                     value !== undefined
@@ -287,10 +312,10 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
             ) : (
               <Box sx={{ position: "relative", width: "100%", height: "100%" }}>
                 <CustomVerticalGrid
-                  tickSpacing={calculateTickSpacing(fullDataLength)}
-                  dataLength={fullDataLength}
+                  tickSpacing={calculateTickSpacing(displayLength)}
+                  dataLength={displayLength}
                 />
-                <BarChart data={data}>
+                <BarChart data={displayData}>
                   <XAxis
                     dataKey="timestamp"
                     tick={{ fontSize: 12 }}
@@ -299,8 +324,17 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                     tickFormatter={(value, index) =>
                       formatXAxisTimestamp(value, totalSecondsPerTick)
                     }
+                    domain={[
+                      displayLength > 0 ? displayData[0].timestamp : "auto",
+                      displayLength > 0
+                        ? displayData[displayLength - 1].timestamp
+                        : "auto",
+                    ]}
                   />
-                  <YAxis tick={{ fontSize: 12 }} />
+                  <YAxis
+                    tick={{ fontSize: 12 }}
+                    tickFormatter={(value) => formatValue(value)}
+                  />
                   <Tooltip
                     formatter={(value: number | undefined) => [
                       value !== undefined

@@ -89,3 +89,53 @@ export const secondsToDisplayLabel = (seconds: number): string | undefined => {
   const option = getGranularityDisplayBySeconds(seconds);
   return option?.label;
 };
+
+// Insights graph types
+export type AxisType = 
+  | 'timestamp'
+  | 'prompt_tokens'
+  | 'completion_tokens'
+  | 'total_tokens'
+  | 'duration_ms'
+  | 'tokens_per_sec'
+  | 'input_tokens_per_sec'
+  | 'output_tokens_per_sec'
+  | 'cache_creation_input_tokens'
+  | 'cache_read_input_tokens';
+
+export interface AxisConfig {
+  type: AxisType;
+  label: string;
+  unit?: string;
+  scale?: 'linear' | 'log';
+}
+
+export interface PresetConfig {
+  id: string;
+  label: string;
+  xAxis: AxisType;
+  yAxis: AxisType;
+  description: string;
+}
+
+export interface InsightsDataPoint {
+  id: string;
+  request_id: string;
+  timestamp: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  duration_ms: number;
+  api_key_name?: string;
+  cache_creation_input_tokens?: number;
+  cache_read_input_tokens?: number;
+  tokens_per_sec?: number;
+  input_tokens_per_sec?: number;
+  output_tokens_per_sec?: number;
+}
+
+export interface HeatMapDataPoint {
+  x: number;
+  y: number;
+  count: number;
+}
