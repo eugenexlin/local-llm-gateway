@@ -47,17 +47,14 @@ router.all('/*', (req: ExtendedRequest, res: Response, next: (err?: any) => void
   console.log('Body: [HIDDEN]');
   console.log('====================\n');
 
-  const requestId = `req_${Date.now()}`;
-
   // Proxy request with streaming
-  proxyRequestStreaming(fullUrl, body, req.apiKeyId!, requestId, req.method, res, req.headers);
+  proxyRequestStreaming(fullUrl, body, req.apiKeyId!, req.method, res, req.headers);
 });
 
 function proxyRequestStreaming(
   fullUrl: string,
   body: any,
   apiKeyId: string,
-  requestId: string,
   method: string,
   res: Response,
   reqHeaders: any
@@ -143,7 +140,6 @@ function proxyRequestStreaming(
           }
           
           database.logUsage({
-            request_id: requestId,
             api_key_id: apiKeyId,
             prompt_tokens: metrics.promptTokens,
             completion_tokens: metrics.completionTokens,
@@ -187,7 +183,6 @@ function proxyRequestStreaming(
       setImmediate(() => {
         try {
           database.logUsage({
-            request_id: requestId,
             api_key_id: apiKeyId,
             prompt_tokens: 0,
             completion_tokens: 0,

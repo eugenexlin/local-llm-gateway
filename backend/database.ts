@@ -33,8 +33,7 @@ export interface User {
 }
 
 export interface UsageLog {
-  id: string;
-  request_id: string;
+  id: number;
   api_key_id: string;
   prompt_tokens: number;
   completion_tokens: number;
@@ -103,6 +102,7 @@ export interface RangeMetrics {
 export interface ProgressiveDataPoint {
   timestamp: string;
   value: number | null;
+  hasValue: boolean;
 }
 
 export interface Granularity {
@@ -174,8 +174,7 @@ function createSchema(): void {
 
   db!.run(`
     CREATE TABLE IF NOT EXISTS usage_logs (
-      id TEXT PRIMARY KEY,
-      request_id TEXT NOT NULL,
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
       api_key_id TEXT NOT NULL,
       prompt_tokens INTEGER DEFAULT 0,
       completion_tokens INTEGER DEFAULT 0,
@@ -493,7 +492,6 @@ export function validateApiKey(keyHash: string): {
 }
 
 export function logUsage({ 
-  request_id, 
   api_key_id, 
   prompt_tokens, 
   completion_tokens, 
@@ -504,7 +502,6 @@ export function logUsage({
   cache_creation_input_tokens = 0,
   cache_read_input_tokens = 0
 }: {
-  request_id: string;
   api_key_id: string;
   prompt_tokens: number;
   completion_tokens: number;
@@ -515,22 +512,10 @@ export function logUsage({
   cache_creation_input_tokens?: number;
   cache_read_input_tokens?: number;
 }): void {
-  // Check if record exists
-  const exists = db!.exec('SELECT 1 FROM usage_logs WHERE request_id = ?', [request_id]);
-  
-  if (exists.length > 0 && exists[0].values.length > 0) {
-    // Update existing record
-    db!.run(
-      'UPDATE usage_logs SET prompt_tokens = ?, completion_tokens = ?, total_tokens = ?, duration_ms = ?, timestamp = ?, idempotency_key = ?, cache_creation_input_tokens = ?, cache_read_input_tokens = ? WHERE request_id = ?',
-      [prompt_tokens, completion_tokens, total_tokens, duration_ms, timestamp, idempotency_key || null, cache_creation_input_tokens, cache_read_input_tokens, request_id]
-    );
-  } else {
-    // Insert new record
-    db!.run(
-      'INSERT INTO usage_logs (id, request_id, api_key_id, prompt_tokens, completion_tokens, total_tokens, duration_ms, timestamp, idempotency_key, cache_creation_input_tokens, cache_read_input_tokens) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [request_id, request_id, api_key_id, prompt_tokens, completion_tokens, total_tokens, duration_ms, timestamp, idempotency_key || null, cache_creation_input_tokens, cache_read_input_tokens]
-    );
-  }
+  db!.run(
+    'INSERT INTO usage_logs (api_key_id, prompt_tokens, completion_tokens, total_tokens, duration_ms, timestamp, idempotency_key, cache_creation_input_tokens, cache_read_input_tokens) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [api_key_id, prompt_tokens, completion_tokens, total_tokens, duration_ms, timestamp, idempotency_key || null, cache_creation_input_tokens, cache_read_input_tokens]
+  );
   saveDatabase();
 }
 
@@ -547,7 +532,7 @@ export function getUsageLogs({ limit = 100, offset = 0 }: {
   offset?: number;
 }): UsageLog[] {
   const result = db!.exec(
-    `SELECT ul.id, ul.request_id, ul.api_key_id, ul.prompt_tokens, ul.completion_tokens, ul.total_tokens, ul.duration_ms, ul.timestamp, ak.name as api_key_name, ul.idempotency_key, ul.cache_creation_input_tokens, ul.cache_read_input_tokens
+    `SELECT ul.id, ul.api_key_id, ul.prompt_tokens, ul.completion_tokens, ul.total_tokens, ul.duration_ms, ul.timestamp, ak.name as api_key_name, ul.idempotency_key, ul.cache_creation_input_tokens, ul.cache_read_input_tokens
      FROM usage_logs ul 
      JOIN api_keys ak ON ul.api_key_id = ak.id 
      ORDER BY ul.timestamp DESC 
@@ -992,7 +977,8 @@ export function getProgressiveDataWithInterpolation(
       
       dataPoints.push({
         timestamp: bucket.start.toISOString(),
-        value
+        value,
+        hasValue: value !== null
       });
     }
     
@@ -1025,7 +1011,8 @@ export function getTimestampTemplate(
     for (let t = roundedStartNum; t < inclusiveEndNum; t += granularitySeconds * 1000) {
       dataPoints.push({
         timestamp: new Date(t).toISOString(),
-        value: null
+        value: null,
+        hasValue: false
       });
     }
     
@@ -1053,10 +1040,9 @@ export async function getInsightsData(
   limit?: number
 ): Promise<any[]> {
   let query = `
-    SELECT 
-      ul.id,
-      ul.request_id,
-      ul.timestamp,
+     SELECT 
+       ul.id,
+       ul.timestamp,
       ul.prompt_tokens,
       ul.completion_tokens,
       ul.total_tokens,

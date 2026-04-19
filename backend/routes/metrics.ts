@@ -156,7 +156,7 @@ router.get("/cache-summary", (_req: Request, res: Response) => {
       SELECT 
         SUM(cache_creation_input_tokens) as total_cache_creation,
         SUM(cache_read_input_tokens) as total_cache_read,
-        COUNT(DISTINCT CASE WHEN cache_creation_input_tokens > 0 OR cache_read_input_tokens > 0 THEN request_id END) as cached_requests
+        COUNT(DISTINCT CASE WHEN cache_creation_input_tokens > 0 OR cache_read_input_tokens > 0 THEN id END) as cached_requests
       FROM usage_logs
     `);
 
@@ -405,15 +405,14 @@ router.post("/insights/heatmap", async (req: Request, res: Response) => {
 });
 
 // Get detailed log information for a specific request
-router.get("/insights/log/:requestId", (req: Request, res: Response) => {
+router.get("/insights/log/:id", (req: Request, res: Response) => {
   try {
-    const { requestId } = req.params;
+    const { id } = req.params;
 
     const result = database.getDb()?.exec(
       `
       SELECT 
         ul.id,
-        ul.request_id,
         ul.api_key_id,
         ul.prompt_tokens,
         ul.completion_tokens,
@@ -427,9 +426,9 @@ router.get("/insights/log/:requestId", (req: Request, res: Response) => {
         ak.description as api_key_description
       FROM usage_logs ul
       JOIN api_keys ak ON ul.api_key_id = ak.id
-      WHERE ul.request_id = ?
+      WHERE ul.id = ?
     `,
-      [requestId],
+      [id],
     );
 
     if (result.length === 0 || result[0].values.length === 0) {

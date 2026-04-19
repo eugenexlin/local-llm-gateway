@@ -25,14 +25,8 @@ import {
 } from "recharts";
 import { metricLabels } from "../utils/metricsLabels";
 import { getAllGranularityOptions } from "../utils/granularityDisplay";
-import type { GranularitySeconds, MetricType } from "../types/metrics";
+import type { GranularitySeconds, MetricType, ProgressiveDataPoint } from "../types/metrics";
 import { formatValue } from "../utils/formatValue";
-
-export interface ProgressiveDataPoint {
-  hasValue: boolean;
-  timestamp: string;
-  value: number | null;
-}
 
 interface ProgressiveGraphProps {
   data: ProgressiveDataPoint[];
@@ -41,7 +35,6 @@ interface ProgressiveGraphProps {
   metric: MetricType;
   loading: boolean;
   loadingProgress: number;
-  visibleWindow?: { start: number; end: number } | null;
   onGranularityChange?: (value: string) => void;
   onMetricChange?: (metric: MetricType) => void;
 }
@@ -143,15 +136,11 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
   metric,
   loading,
   loadingProgress,
-  visibleWindow,
   onGranularityChange,
   onMetricChange,
 }) => {
-  const fullDataLength = data.length;
-  const displayData = visibleWindow
-    ? data.slice(visibleWindow.start, visibleWindow.end)
-    : data;
-  const displayLength = displayData.length;
+  const displayData = data;
+  const displayLength = data.length;
   const granularityOptions = getAllGranularityOptions();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -358,6 +347,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                     radius={[4, 4, 0, 0]}
                     isAnimationActive={false}
                   />
+                  
                 </BarChart>
               </Box>
             )}
@@ -365,7 +355,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
         </Box>
       )}
 
-      {data.length === 0 && fullDataLength === 0 && !loading && (
+      {data.length === 0 && !loading && (
         <Box
           sx={{
             height: 300,

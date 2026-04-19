@@ -119,8 +119,7 @@ export interface PresetConfig {
 }
 
 export interface InsightsDataPoint {
-  id: string;
-  request_id: string;
+  id: number;
   timestamp: string;
   prompt_tokens: number;
   completion_tokens: number;

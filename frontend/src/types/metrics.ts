@@ -7,6 +7,12 @@ export type MetricType =
   | 'input_tokens_per_sec'
   | 'output_tokens_per_sec';
 
+export interface  ProgressiveDataPoint {
+  timestamp: string;
+  value: number | null;
+  hasValue: boolean;
+}
+
 export interface Metrics {
   total_tokens: number;
   input_tokens: number;

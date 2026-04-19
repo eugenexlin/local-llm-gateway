@@ -33,14 +33,12 @@ describe('Metrics - Tokens Per Second Calculation', () => {
 
       const testLogs = [
         {
-          request_id: `token-test-${timestampPrefix}-req1`,
           prompt_tokens: 100,
           completion_tokens: 50,
           duration_ms: 1500,
           timestamp: new Date(now.getTime() - 4000).toISOString(),
         },
         {
-          request_id: `token-test-${timestampPrefix}-req2`,
           prompt_tokens: 200,
           completion_tokens: 100,
           duration_ms: 3000,
@@ -50,7 +48,6 @@ describe('Metrics - Tokens Per Second Calculation', () => {
 
       testLogs.forEach(log => {
         database.logUsage({
-          request_id: log.request_id,
           api_key_id: testApiKeyId,
           prompt_tokens: log.prompt_tokens,
           completion_tokens: log.completion_tokens,
@@ -83,14 +80,12 @@ describe('Metrics - Tokens Per Second Calculation', () => {
 
       const testLogs = [
         {
-          request_id: `input-test-${timestampPrefix}-req1`,
           prompt_tokens: 100,
           completion_tokens: 50,
           duration_ms: 1000,
           timestamp: new Date(now.getTime() - 4000).toISOString(),
         },
         {
-          request_id: `input-test-${timestampPrefix}-req2`,
           prompt_tokens: 200,
           completion_tokens: 100,
           duration_ms: 2000,
@@ -100,7 +95,6 @@ describe('Metrics - Tokens Per Second Calculation', () => {
 
       testLogs.forEach(log => {
         database.logUsage({
-          request_id: log.request_id,
           api_key_id: testApiKeyId,
           prompt_tokens: log.prompt_tokens,
           completion_tokens: log.completion_tokens,
@@ -133,14 +127,12 @@ describe('Metrics - Tokens Per Second Calculation', () => {
 
       const testLogs = [
         {
-          request_id: `output-test-${timestampPrefix}-req1`,
           prompt_tokens: 100,
           completion_tokens: 50,
           duration_ms: 1000,
           timestamp: new Date(now.getTime() - 4000).toISOString(),
         },
         {
-          request_id: `output-test-${timestampPrefix}-req2`,
           prompt_tokens: 200,
           completion_tokens: 100,
           duration_ms: 2000,
@@ -150,7 +142,6 @@ describe('Metrics - Tokens Per Second Calculation', () => {
 
       testLogs.forEach(log => {
         database.logUsage({
-          request_id: log.request_id,
           api_key_id: testApiKeyId,
           prompt_tokens: log.prompt_tokens,
           completion_tokens: log.completion_tokens,
@@ -182,7 +173,6 @@ describe('Metrics - Tokens Per Second Calculation', () => {
       const endDate = now.toISOString();
 
       const testLog = {
-        request_id: `zero-test-${timestampPrefix}-req1`,
         prompt_tokens: 100,
         completion_tokens: 50,
         duration_ms: 0,
@@ -190,7 +180,6 @@ describe('Metrics - Tokens Per Second Calculation', () => {
       };
 
       database.logUsage({
-        request_id: testLog.request_id,
         api_key_id: testApiKeyId,
         prompt_tokens: testLog.prompt_tokens,
         completion_tokens: testLog.completion_tokens,
@@ -238,14 +227,12 @@ describe('Metrics - Tokens Per Second Calculation', () => {
 
       const testLogs = [
         {
-          request_id: `gran-test-${timestampPrefix}-req1`,
           prompt_tokens: 100,
           completion_tokens: 50,
           duration_ms: 1500,
           timestamp: new Date(now.getTime() - 4000).toISOString(),
         },
         {
-          request_id: `gran-test-${timestampPrefix}-req2`,
           prompt_tokens: 200,
           completion_tokens: 100,
           duration_ms: 3000,
@@ -255,7 +242,6 @@ describe('Metrics - Tokens Per Second Calculation', () => {
 
       testLogs.forEach(log => {
         database.logUsage({
-          request_id: log.request_id,
           api_key_id: testApiKeyId,
           prompt_tokens: log.prompt_tokens,
           completion_tokens: log.completion_tokens,

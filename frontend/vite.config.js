@@ -12,17 +12,21 @@ export default defineConfig({
     strictPort: true,
      proxy: {
         '/api/api-keys': {
-          target: process.env.BACKEND_BASE_URL || 'http://localhost:3000',
+          target: processEnv.BACKEND_BASE_URL || 'http://localhost:3000',
           changeOrigin: true
         },
         '/api/metrics': {
-          target: process.env.BACKEND_BASE_URL || 'http://localhost:3000',
+          target: processEnv.BACKEND_BASE_URL || 'http://localhost:3000',
           changeOrigin: true
         },
         '/v1': {
-          target: process.env.BACKEND_BASE_URL || 'http://localhost:3000',
-          changeOrigin: true
-        }
+           target: processEnv.BACKEND_BASE_URL || 'http://localhost:3000',
+           changeOrigin: true
+         },
+         '/auth/': {
+           target: processEnv.BACKEND_BASE_URL || 'http://localhost:3000',
+           changeOrigin: true
+         }
      }
   },
   build: {

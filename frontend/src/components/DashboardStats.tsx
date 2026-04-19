@@ -4,21 +4,36 @@ import {
   secondsToDisplayValue,
   displayValueToSeconds,
 } from "../utils/granularityDisplay";
-import { Box, Typography, Button, IconButton } from "@mui/material";
-import { Refresh, KeyboardArrowLeft, KeyboardArrowRight } from "@mui/icons-material";
+import { Box, Typography, Button, IconButton, Tooltip } from "@mui/material";
+import {
+  Refresh,
+  KeyboardArrowLeft,
+  KeyboardArrowRight,
+  FirstPage,
+  LastPage,
+  Settings,
+} from "@mui/icons-material";
 import DateRangePicker from "./DateRangePicker";
 import ProgressiveGraph from "./ProgressiveGraph";
 import MetricsSection from "./MetricsSection";
 import UserFilter from "./UserFilter";
 import InsightsGraph from "./InsightsGraph";
+import SettingsModal from "./SettingsModal";
+import {
+  getCacheSize,
+  clearCache,
+  getCacheEnabled,
+  setCacheEnabled,
+  writeCache,
+  mergeCachedData,
+} from "../utils/dataCache";
 import { useAuth } from "../context/AuthContext";
-import type { MetricType, GranularitySeconds, InsightsConfig } from "../types/metrics";
-
-interface ProgressiveDataPoint {
-  hasValue: boolean;
-  timestamp: string;
-  value: number | null;
-}
+import type {
+  MetricType,
+  GranularitySeconds,
+  InsightsConfig,
+  ProgressiveDataPoint,
+} from "../types/metrics";
 
 interface Metrics {
   total_tokens: number;
@@ -49,14 +64,15 @@ const DashboardStats: React.FC = () => {
   const [graphData, setGraphData] = useState<any[]>([]);
   const [graphLoading, setGraphLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
-  const [visibleWindow, setVisibleWindow] = useState<{ start: number; end: number } | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const debounceTimerRef = useRef<number | null>(null);
+  const [cacheEnabled, setCacheEnabledState] = useState(getCacheEnabled());
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const [insightsConfig, setInsightsConfig] = useState<InsightsConfig>({
     xAxis: null,
     yAxis: null,
-    viewMode: 'scatter'
+    viewMode: "scatter",
   });
 
   const fetchLifetimeMetrics = async () => {
@@ -142,19 +158,51 @@ const DashboardStats: React.FC = () => {
         throw new Error("Failed to fetch timestamp template");
       }
 
-      const templateData: ProgressiveDataPoint[] = await templateResponse.json();
+      const templateData: ProgressiveDataPoint[] =
+        await templateResponse.json();
       const allData: ProgressiveDataPoint[] = templateData.map((point) => ({
         ...point,
         value: null,
+        hasValue: false,
       }));
 
+      if (cacheEnabled) {
+        mergeCachedData(allData, currentGranularitySeconds, metric);
+      }
+
+      const allFilled = !allData.some((point) => !point.hasValue);
+
+      if (allFilled) {
+        onProgress([...allData], true);
+        return;
+      }
+
+      // cache did not fill, start loading
+      setGraphLoading(true);
+      setLoadingProgress(0);
+
       onProgress([...allData], false);
+
+      let batchesCompleted = 0;
 
       for (
         let batchIndex = batchCount - 1;
         batchIndex >= 0 && !signal.aborted;
         batchIndex--
       ) {
+        const startIndex = batchIndex * batchSize;
+        const endIndex = Math.min(startIndex + batchSize, allData.length);
+
+        if (cacheEnabled) {
+        const allCached = allData
+             .slice(startIndex, endIndex)
+             .every((point) => point.hasValue);
+          if (allCached) {
+            batchesCompleted++;
+            continue;
+          }
+        }
+
         try {
           const params = new URLSearchParams({
             start: start.toISOString(),
@@ -177,7 +225,6 @@ const DashboardStats: React.FC = () => {
 
           if (response.ok) {
             const data: ProgressiveDataPoint[] = await response.json();
-            const startIndex = batchIndex * batchSize;
             for (
               let i = 0;
               i < data.length && startIndex + i < allData.length;
@@ -185,9 +232,11 @@ const DashboardStats: React.FC = () => {
             ) {
               allData[startIndex + i] = data[i];
             }
-            const progress = Math.round(
-              ((batchCount - batchIndex) / batchCount) * 100,
-            );
+            if (cacheEnabled) {
+              writeCache(data, currentGranularitySeconds, metric);
+            }
+            batchesCompleted++;
+            const progress = Math.round((batchesCompleted / batchCount) * 100);
             onProgress([...allData], false);
             setLoadingProgress(progress);
           } else {
@@ -234,7 +283,6 @@ const DashboardStats: React.FC = () => {
   const handleMetricChange = (val: MetricType) => {
     setMetric(val);
     setGraphData([]);
-    resetVisibleWindow();
   };
 
   const handleGranularityChange = (value: string) => {
@@ -244,29 +292,22 @@ const DashboardStats: React.FC = () => {
     }
   };
 
-  const handleScroll = (direction: 'left' | 'right') => {
-    if (!graphData.length) return;
-    const step = Math.floor(graphData.length / 2);
-    setVisibleWindow((prev) => {
-      if (!prev) {
-        return { start: 0, end: graphData.length };
-      }
-      if (direction === 'left') {
-        return {
-          start: Math.max(0, prev.start - step),
-          end: Math.max(prev.start, prev.end - step),
-        };
-      } else {
-        return {
-          start: Math.min(graphData.length - (prev.end - prev.start), prev.start + step),
-          end: Math.min(graphData.length, prev.end + step),
-        };
-      }
-    });
+  const handleScroll = (direction: "left" | "right", step: "full" | "half") => {
+    if (!startDate || !endDate) return;
+    const windowMs = endDate.getTime() - startDate.getTime();
+    const stepMs = step === "full" ? windowMs : windowMs / 2;
+    const shift = direction === "left" ? -stepMs : stepMs;
+    setStartDate(new Date(startDate.getTime() + shift));
+    setEndDate(new Date(endDate.getTime() + shift));
   };
 
-  const resetVisibleWindow = () => {
-    setVisibleWindow(null);
+  const handleToggleCache = (enabled: boolean) => {
+    setCacheEnabledState(enabled);
+    setCacheEnabled(enabled);
+  };
+
+  const handlePurgeCache = () => {
+    clearCache();
   };
 
   const handleGraphRefresh = async () => {
@@ -284,9 +325,6 @@ const DashboardStats: React.FC = () => {
       const newAbortController = new AbortController();
       abortControllerRef.current = newAbortController;
 
-      setGraphLoading(true);
-      setLoadingProgress(0);
-
       await fetchGraphDataProgressive(
         startDate,
         endDate,
@@ -299,9 +337,6 @@ const DashboardStats: React.FC = () => {
             setLoadingProgress(100);
             setTimeout(() => setLoadingProgress(0), 500);
             abortControllerRef.current = null;
-            if (!visibleWindow && data.length > 0) {
-              setVisibleWindow({ start: 0, end: data.length });
-            }
           }
         },
         newAbortController.signal,
@@ -342,7 +377,14 @@ const DashboardStats: React.FC = () => {
         abortControllerRef.current.abort();
       }
     };
-  }, [startDate, endDate, granularity, metric, selectedUserId, selectedApiKeyId]);
+  }, [
+    startDate,
+    endDate,
+    granularity,
+    metric,
+    selectedUserId,
+    selectedApiKeyId,
+  ]);
 
   return (
     <>
@@ -393,13 +435,18 @@ const DashboardStats: React.FC = () => {
         }}
       >
         <Typography variant="h6">Time Range Metrics</Typography>
-        <Button
-          onClick={handleRefreshRange}
-          size="small"
-          startIcon={<Refresh />}
-        >
-          Refresh
-        </Button>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <IconButton size="small" onClick={() => setSettingsOpen(true)}>
+            <Settings />
+          </IconButton>
+          <Button
+            onClick={handleRefreshRange}
+            size="small"
+            startIcon={<Refresh />}
+          >
+            Refresh
+          </Button>
+        </Box>
       </Box>
 
       <DateRangePicker
@@ -407,17 +454,14 @@ const DashboardStats: React.FC = () => {
         endDate={endDate}
         onStartDateChange={(date) => {
           setStartDate(date);
-          resetVisibleWindow();
           handleGraphRefresh();
         }}
         onEndDateChange={(date) => {
           setEndDate(date);
-          resetVisibleWindow();
           handleGraphRefresh();
         }}
         onGranularityChange={(seconds) => {
           setGranularity(seconds);
-          resetVisibleWindow();
         }}
       />
 
@@ -431,17 +475,50 @@ const DashboardStats: React.FC = () => {
         request_count={rangeMetrics?.request_count}
       />
 
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 1,
+        }}
+      >
         <Box />
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           {graphData.length > 0 && (
             <>
-              <IconButton size="small" onClick={() => handleScroll('left')}>
-                <KeyboardArrowLeft />
-              </IconButton>
-              <IconButton size="small" onClick={() => handleScroll('right')}>
-                <KeyboardArrowRight />
-              </IconButton>
+              <Tooltip title="Jump to start">
+                <IconButton
+                  size="small"
+                  onClick={() => handleScroll("left", "full")}
+                >
+                  <FirstPage />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Scroll left half window">
+                <IconButton
+                  size="small"
+                  onClick={() => handleScroll("left", "half")}
+                >
+                  <KeyboardArrowLeft />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Scroll right half window">
+                <IconButton
+                  size="small"
+                  onClick={() => handleScroll("right", "half")}
+                >
+                  <KeyboardArrowRight />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Jump to end">
+                <IconButton
+                  size="small"
+                  onClick={() => handleScroll("right", "full")}
+                >
+                  <LastPage />
+                </IconButton>
+              </Tooltip>
             </>
           )}
         </Box>
@@ -453,7 +530,6 @@ const DashboardStats: React.FC = () => {
         metric={metric}
         loading={graphLoading}
         loadingProgress={loadingProgress}
-        visibleWindow={visibleWindow}
         onGranularityChange={handleGranularityChange}
         onMetricChange={(value) => handleMetricChange(value)}
       />
@@ -465,6 +541,15 @@ const DashboardStats: React.FC = () => {
         apiKeyId={selectedApiKeyId || undefined}
         config={insightsConfig}
         onConfigChange={setInsightsConfig}
+      />
+
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        cacheEnabled={cacheEnabled}
+        onToggleCache={handleToggleCache}
+        cacheSize={getCacheSize()}
+        onPurge={handlePurgeCache}
       />
     </>
   );
