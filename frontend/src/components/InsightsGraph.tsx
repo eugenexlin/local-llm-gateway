@@ -124,6 +124,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
       const response = await fetch('/api/metrics/insights', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString(),
@@ -145,6 +146,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
         const heatResponse = await fetch('/api/metrics/insights/heatmap', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({
             startDate: startDate.toISOString(),
             endDate: endDate.toISOString(),
@@ -198,7 +200,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
     if (point && point.payload) {
       setSelectedPoint(point.payload);
       try {
-        const response = await fetch(`/api/metrics/insights/log/${point.payload.request_id}`);
+        const response = await fetch(`/api/metrics/insights/log/${point.payload.id}`, { credentials: 'include' });
         if (response.ok) {
           const details = await response.json();
           setLogDetails(details);
@@ -414,8 +416,9 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
           {logDetails ? (
             <DialogContentText>
               <Box sx={{ mt: 2 }}>
-                <p><strong>Request ID:</strong> {logDetails.request_id}</p>
-                <p><strong>API Key:</strong> {logDetails.api_key_name || 'N/A'}</p>
+                <p><strong>Log ID:</strong> {logDetails.id}</p>
+                <p><strong>User:</strong> {logDetails.user_email || 'N/A'}</p>
+                {logDetails.api_key_name && <p><strong>API Key:</strong> {logDetails.api_key_name}</p>}
                 <p><strong>Timestamp:</strong> {new Date(logDetails.timestamp).toLocaleString()}</p>
                 <p><strong>Input Tokens:</strong> {logDetails.prompt_tokens}</p>
                 <p><strong>Output Tokens:</strong> {logDetails.completion_tokens}</p>

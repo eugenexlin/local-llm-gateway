@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   Box,
   Paper,
@@ -22,11 +22,70 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
+  Legend,
 } from "recharts";
 import { metricLabels } from "../utils/metricsLabels";
 import { getAllGranularityOptions } from "../utils/granularityDisplay";
 import type { GranularitySeconds, MetricType, ProgressiveDataPoint } from "../types/metrics";
 import { formatValue } from "../utils/formatValue";
+
+export type UserGraphData = Record<string, ProgressiveDataPoint[]>;
+
+const USER_COLORS = [
+  "#1976d2",
+  "#d32f2f",
+  "#388e3c",
+  "#f57c00",
+  "#7b1fa2",
+  "#0097a7",
+  "#c2185b",
+  "#43a047",
+  "#e64a19",
+  "#5e35b1",
+];
+
+function getUserColor(userId: string, index: number): string {
+  return USER_COLORS[index % USER_COLORS.length];
+}
+
+function getUserLabel(userId: string, userOptions: { id: string; name?: string; email?: string }[]): string {
+  const user = userOptions.find((u) => u.id === userId);
+  return user?.name || user?.email || userId.substring(0, 8);
+}
+
+interface TransformedDataPoint {
+  timestamp: string;
+  [userKey: string]: number | null;
+}
+
+function transformUserGraphData(
+  userGraphData: UserGraphData,
+  userOptions: { id: string; name?: string; email?: string }[],
+): { transformedData: TransformedDataPoint[]; userKeys: string[] } {
+  const users = Object.keys(userGraphData);
+  if (users.length === 0) {
+    return { transformedData: [], userKeys: [] };
+  }
+
+  const baseData = userGraphData[users[0]];
+  const transformedData: TransformedDataPoint[] = baseData.map((_, index) => {
+    const point: TransformedDataPoint = {
+      timestamp: baseData[index].timestamp,
+    };
+
+    for (const userId of users) {
+      const userKey = `__user_${userId}`;
+      const userPoint = userGraphData[userId][index];
+      point[userKey] = userPoint.hasValue ? userPoint.value : null;
+    }
+
+    return point;
+  });
+
+  const userKeys = users.map((userId) => `__user_${userId}`);
+
+  return { transformedData, userKeys };
+}
 
 interface ProgressiveGraphProps {
   data: ProgressiveDataPoint[];
@@ -37,6 +96,8 @@ interface ProgressiveGraphProps {
   loadingProgress: number;
   onGranularityChange?: (value: string) => void;
   onMetricChange?: (metric: MetricType) => void;
+  userGraphData?: UserGraphData;
+  userOptions?: { id: string; name?: string; email?: string }[];
 }
 
 const isRateMetric = (metric: MetricType): boolean => {
@@ -138,8 +199,19 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
   loadingProgress,
   onGranularityChange,
   onMetricChange,
+  userGraphData,
+  userOptions = [],
 }) => {
-  const displayData = data;
+  const hasMultipleUsers = userGraphData && Object.keys(userGraphData).length > 1;
+
+  const { transformedData, userKeys } = useMemo(() => {
+    if (hasMultipleUsers && userGraphData) {
+      return transformUserGraphData(userGraphData, userOptions);
+    }
+    return { transformedData: [] as TransformedDataPoint[], userKeys: [] as string[] };
+  }, [hasMultipleUsers, userGraphData, userOptions]);
+
+  const displayData = hasMultipleUsers ? transformedData : data;
   const displayLength = data.length;
   const granularityOptions = getAllGranularityOptions();
   const theme = useTheme();
@@ -205,13 +277,13 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                 position: "absolute",
                 top: 0,
                 left: 80,
-                right: 0,
                 height: 40,
                 display: "flex",
                 alignItems: "center",
-                pl: 2,
+                px: 2,
                 zIndex: 10,
-                background: "rgba(255, 255, 255, 0.9)",
+                background: "rgba(255, 255, 255, 0.5)",
+                borderRadius: 1,
               }}
             >
               <CircularProgress size={16} sx={{ mr: 1 }} />
@@ -246,6 +318,14 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
           <ResponsiveContainer width="100%" height="100%">
             {isRateMetric(metric) ? (
               <LineChart data={displayData}>
+                {hasMultipleUsers && (
+                  <Legend
+                    formatter={(value: string, entry: { color?: string; payload?: { label?: string } }) => {
+                      const label = entry.payload?.label || value;
+                      return <span style={{ color: entry.color || '#000' }}>{label}</span>;
+                    }}
+                  />
+                )}
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   dataKey="timestamp"
@@ -267,12 +347,25 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                   tickFormatter={(value) => formatValue(value)}
                 />
                 <Tooltip
-                  formatter={(value: number | undefined) => [
-                    value !== undefined
-                      ? Math.round(value).toLocaleString()
-                      : "N/A",
-                    metricLabels[metric],
-                  ]}
+                  formatter={(value: number | undefined, key: string) => {
+                    if (hasMultipleUsers && userKeys.includes(key)) {
+                      const userIndex = userKeys.indexOf(key);
+                      const userId = userOptions[userIndex]?.id || key;
+                      const label = getUserLabel(userId, userOptions);
+                      return [
+                        value !== undefined
+                          ? Math.round(value).toLocaleString()
+                          : "N/A",
+                        label,
+                      ];
+                    }
+                    return [
+                      value !== undefined
+                        ? Math.round(value).toLocaleString()
+                        : "N/A",
+                      metricLabels[metric],
+                    ];
+                  }}
                   labelFormatter={(label) => {
                     const date = new Date(label);
                     return `Date: ${date.toLocaleString("en-US", {
@@ -283,20 +376,46 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                     })}`;
                   }}
                 />
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  stroke="#1976d2"
-                  strokeWidth={2}
-                  dot={{
-                    r: 4,
-                    fill: "#1976d2",
-                    stroke: "#fff",
-                    strokeWidth: 2,
-                  }}
-                  connectNulls={true}
-                  isAnimationActive={false}
-                />
+                {hasMultipleUsers ? (
+                  userKeys.map((userKey, index) => {
+                    const userId = userOptions[index]?.id || userKey.replace("__user_", "");
+                    const color = getUserColor(userId, index);
+                    const label = getUserLabel(userId, userOptions);
+                    return (
+                      <Line
+                        key={userKey}
+                        type="monotone"
+                        dataKey={userKey}
+                        stroke={color}
+                        strokeWidth={2}
+                        dot={{
+                          r: 4,
+                          fill: color,
+                          stroke: "#fff",
+                          strokeWidth: 2,
+                        }}
+                        connectNulls={true}
+                        isAnimationActive={false}
+                        name={label}
+                      />
+                    );
+                  })
+                ) : (
+                  <Line
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#1976d2"
+                    strokeWidth={2}
+                    dot={{
+                      r: 4,
+                      fill: "#1976d2",
+                      stroke: "#fff",
+                      strokeWidth: 2,
+                    }}
+                    connectNulls={true}
+                    isAnimationActive={false}
+                  />
+                )}
               </LineChart>
             ) : (
               <Box sx={{ position: "relative", width: "100%", height: "100%" }}>
@@ -305,6 +424,14 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                   dataLength={displayLength}
                 />
                 <BarChart data={displayData}>
+                  {hasMultipleUsers && (
+                    <Legend
+                      formatter={(value: string, entry: { color?: string; payload?: { label?: string } }) => {
+                        const label = entry.payload?.label || value;
+                        return <span style={{ color: entry.color || '#000' }}>{label}</span>;
+                      }}
+                    />
+                  )}
                   <XAxis
                     dataKey="timestamp"
                     tick={{ fontSize: 12 }}
@@ -325,12 +452,25 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                     tickFormatter={(value) => formatValue(value)}
                   />
                   <Tooltip
-                    formatter={(value: number | undefined) => [
-                      value !== undefined
-                        ? Math.round(value).toLocaleString()
-                        : "0",
-                      metricLabels[metric],
-                    ]}
+                    formatter={(value: number | undefined, key: string) => {
+                      if (hasMultipleUsers && userKeys.includes(key)) {
+                        const userIndex = userKeys.indexOf(key);
+                        const userId = userOptions[userIndex]?.id || key;
+                        const label = getUserLabel(userId, userOptions);
+                        return [
+                          value !== undefined
+                            ? Math.round(value).toLocaleString()
+                            : "0",
+                          label,
+                        ];
+                      }
+                      return [
+                        value !== undefined
+                          ? Math.round(value).toLocaleString()
+                          : "0",
+                        metricLabels[metric],
+                      ];
+                    }}
                     labelFormatter={(label) => {
                       const date = new Date(label);
                       return `Date: ${date.toLocaleString("en-US", {
@@ -341,12 +481,30 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                       })}`;
                     }}
                   />
-                  <Bar
-                    dataKey="value"
-                    fill="#1976d2"
-                    radius={[4, 4, 0, 0]}
-                    isAnimationActive={false}
-                  />
+                  {hasMultipleUsers ? (
+                    userKeys.map((userKey, index) => {
+                      const userId = userOptions[index]?.id || userKey.replace("__user_", "");
+                      const color = getUserColor(userId, index);
+                      const label = getUserLabel(userId, userOptions);
+                      return (
+                        <Bar
+                          key={userKey}
+                          dataKey={userKey}
+                          fill={color}
+                          radius={[4, 4, 0, 0]}
+                          isAnimationActive={false}
+                          name={label}
+                        />
+                      );
+                    })
+                  ) : (
+                    <Bar
+                      dataKey="value"
+                      fill="#1976d2"
+                      radius={[4, 4, 0, 0]}
+                      isAnimationActive={false}
+                    />
+                  )}
                   
                 </BarChart>
               </Box>

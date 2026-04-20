@@ -1046,9 +1046,8 @@ export async function getInsightsData(
       ul.prompt_tokens,
       ul.completion_tokens,
       ul.total_tokens,
-      ul.duration_ms,
-      ak.name as api_key_name,
-      COALESCE(ul.cache_creation_input_tokens, 0) as cache_creation_input_tokens,
+     ul.duration_ms,
+       COALESCE(ul.cache_creation_input_tokens, 0) as cache_creation_input_tokens,
       COALESCE(ul.cache_read_input_tokens, 0) as cache_read_input_tokens,
       CASE 
         WHEN ul.duration_ms > 0 THEN ROUND(ul.total_tokens * 1000.0 / ul.duration_ms, 2)
@@ -1069,12 +1068,10 @@ export async function getInsightsData(
   let whereClause = 'WHERE ul.timestamp >= ? AND ul.timestamp < ?';
 
   if (apiKeyId) {
-    query += ' JOIN api_keys ak ON ul.api_key_id = ak.id';
     whereClause += ' AND ul.api_key_id = ?';
     queryParams.push(apiKeyId);
   } else if (userId) {
-    query += ' JOIN api_keys ak ON ul.api_key_id = ak.id';
-    whereClause += ' AND ak.user_id = ?';
+    whereClause += ' AND ul.api_key_id IN (SELECT id FROM api_keys WHERE user_id = ?)';
     queryParams.push(userId);
   }
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Box,
   FormControl,
@@ -10,6 +10,8 @@ import {
   Typography,
   Stack,
   FormControlLabel,
+  ListItemText,
+  Radio,
 } from "@mui/material";
 import type { User } from "../context/AuthContext";
 
@@ -28,8 +30,8 @@ interface ApiKeyOption {
 
 interface UserFilterProps {
   currentUser: User | null;
-  selectedUserId: string | null;
-  onUserChange: (userId: string | null) => void;
+  selectedUserIds: string[];
+  onUserChange: (userIds: string[]) => void;
   selectedApiKeyId: string | null;
   onApiKeyChange: (apiKeyId: string | null) => void;
   loading?: boolean;
@@ -37,7 +39,7 @@ interface UserFilterProps {
 
 const UserFilter: React.FC<UserFilterProps> = ({
   currentUser,
-  selectedUserId,
+  selectedUserIds,
   onUserChange,
   selectedApiKeyId,
   onApiKeyChange,
@@ -47,12 +49,13 @@ const UserFilter: React.FC<UserFilterProps> = ({
   const [apiKeys, setApiKeys] = useState<ApiKeyOption[]>([]);
   const [fetchingUsers, setFetchingUsers] = useState(false);
   const [showRevoked, setShowRevoked] = useState(false);
+  const prevSelectedRef = useRef<string[]>(selectedUserIds);
 
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         setFetchingUsers(true);
-        const response = await fetch("/api/metrics/users");
+        const response = await fetch("/api/metrics/users", { credentials: 'include' });
         if (response.ok) {
           const data = await response.json();
           setUsers(data);
@@ -67,7 +70,12 @@ const UserFilter: React.FC<UserFilterProps> = ({
   }, []);
 
   useEffect(() => {
-    // Only fetch API keys if selected user matches current user
+    prevSelectedRef.current = selectedUserIds;
+  }, [selectedUserIds]);
+
+  const selectedUserId = selectedUserIds.length === 1 ? selectedUserIds[0] : null;
+
+  useEffect(() => {
     if (
       selectedUserId &&
       selectedUserId !== "all" &&
@@ -77,12 +85,12 @@ const UserFilter: React.FC<UserFilterProps> = ({
         try {
           const response = await fetch(
             `/api/metrics/users/${selectedUserId}/api-keys?show_revoked=${showRevoked}`,
+            { credentials: 'include' },
           );
           if (response.ok) {
             const data = await response.json();
             setApiKeys(data);
           } else if (response.status === 403) {
-            // User doesn't own these API keys
             setApiKeys([]);
           }
         } catch (error) {
@@ -97,9 +105,27 @@ const UserFilter: React.FC<UserFilterProps> = ({
   }, [selectedUserId, currentUser?.id, showRevoked]);
 
   const handleUserChange = (event: any) => {
-    const userId = event.target.value;
-    onUserChange(userId);
-    if (userId === "all") {
+    const newValues: string[] = event.target.value;
+    const prevValues = prevSelectedRef.current;
+    
+    const prevHadAll = prevValues.includes("all");
+    const newHasAll = newValues.includes("all");
+    
+    let userIds: string[];
+    
+    if (!prevHadAll && newHasAll) {
+      userIds = ["all"];
+    } else if (prevHadAll && !newHasAll) {
+      userIds = [];
+    } else if (prevHadAll && newHasAll) {
+      userIds = newValues.filter((id: string) => id !== "all");
+    } else {
+      userIds = newValues.filter((id: string) => id !== "all");
+    }
+    
+    prevSelectedRef.current = userIds;
+    onUserChange(userIds);
+    if (userIds.length !== 1) {
       onApiKeyChange(null);
     }
   };
@@ -119,114 +145,95 @@ const UserFilter: React.FC<UserFilterProps> = ({
 
   const selectedUser = users.find((u) => u.id === selectedUserId);
 
-  // Check if current user is already in the users list to avoid duplicates
   const currentUserInUsers = users.some((u) => u.id === currentUserOption?.id);
+
+  const isMultipleSelected = selectedUserIds.length > 1;
+  const isAllSelected = selectedUserIds.includes("all");
+  const showApiKeyFilter =
+    selectedUserIds.length === 1 &&
+    selectedUserIds[0] !== "all" &&
+    currentUser?.id === selectedUserIds[0];
+
+  const renderSelectedValue = (value: string[]) => {
+    if (value.length === 0) {
+      return "All Users";
+    }
+    if (value.length === 1 && value[0] === "all") {
+      return <Chip label="All Users" size="small" color="primary" variant="outlined" />;
+    }
+    if (value.length === 1) {
+      const user = users.find((u) => u.id === value[0]);
+      if (user) {
+        return <Chip label={user.name || user.email} size="small" color="primary" variant="outlined" />;
+      }
+    }
+    return (
+      <Stack direction="row" spacing={0.5} flexWrap="wrap">
+        {value.map((uid) => {
+          if (uid === "all") return null;
+          const user = users.find((u) => u.id === uid);
+          return user ? (
+            <Chip
+              key={uid}
+              label={user.name || user.email}
+              size="small"
+              color="primary"
+              variant="outlined"
+            />
+          ) : null;
+        })}
+      </Stack>
+    );
+  };
 
   return (
     <Box
       sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}
     >
-      <FormControl size="small" sx={{ minWidth: 200 }}>
+      <FormControl size="small" sx={{ minWidth: 250 }}>
         <InputLabel>User</InputLabel>
         <Select
-          value={selectedUserId || "all"}
+          value={selectedUserIds}
           label="User"
           onChange={handleUserChange}
+          multiple
           disabled={loading || fetchingUsers}
-          renderValue={(value) => {
-            if (value === "all") {
-              return (
-                <Chip
-                  label="All Users"
-                  size="small"
-                  color="primary"
-                  variant="outlined"
-                />
-              );
-            }
-            const user = users.find((u) => u.id === value);
-            const currentUserMatch = currentUserOption?.id === value;
-            const currentUserByEmail = currentUserOption
-              ? users.find((u) => u.email === currentUserOption.email)
-              : undefined;
-
-            // Check if selected by current user's email (in case ID mismatch)
-            const userByEmailMatch =
-              currentUserOption &&
-              users.some(
-                (u) => u.id === value && u.email === currentUserOption.email,
-              );
-
-            if (user) {
-              return (
-                <Chip
-                  label={user.name || user.email}
-                  size="small"
-                  color="primary"
-                  variant="outlined"
-                />
-              );
-            } else if (currentUserMatch && currentUserOption) {
-              return (
-                <Chip
-                  label={currentUserOption.name || currentUserOption.email}
-                  size="small"
-                  color="primary"
-                  variant="outlined"
-                />
-              );
-            } else if (userByEmailMatch) {
-              const matchedUser = users.find((u) => u.id === value);
-              return matchedUser ? (
-                <Chip
-                  label={matchedUser.name || matchedUser.email}
-                  size="small"
-                  color="primary"
-                  variant="outlined"
-                />
-              ) : null;
-            } else {
-              return (
-                <Chip
-                  label="All Users"
-                  size="small"
-                  color="primary"
-                  variant="outlined"
-                />
-              );
-            }
+          renderValue={renderSelectedValue}
+          MenuProps={{
+            PaperProps: {
+              sx: { maxHeight: 400 },
+            },
           }}
         >
           <MenuItem value="all">
-            <Chip
-              label="All Users"
+            <Radio
+              checked={isAllSelected}
               size="small"
-              color="primary"
-              variant="outlined"
             />
+            <ListItemText primary="All Users" />
           </MenuItem>
           {currentUserOption && !currentUserInUsers && (
             <MenuItem value={currentUserOption.id}>
-              <Chip
-                label={currentUserOption.name || currentUserOption.email}
+              <Checkbox
+                checked={selectedUserIds.includes(currentUserOption.id)}
                 size="small"
-                variant="filled"
               />
+              <ListItemText primary={currentUserOption.name || currentUserOption.email} />
             </MenuItem>
           )}
           {users.map((user) => (
             <MenuItem key={user.id} value={user.id}>
-              <Chip
-                label={user.name || user.email}
+              <Checkbox
+                checked={selectedUserIds.includes(user.id)}
                 size="small"
-                variant="outlined"
               />
+              <ListItemText primary={user.name || user.email} />
             </MenuItem>
           ))}
         </Select>
       </FormControl>
 
-      {selectedUserId && selectedUserId !== "all" && (
+      {showApiKeyFilter && (
         <Stack direction="row" spacing={1} alignItems="center">
           {apiKeys.length > 0 && (
             <FormControlLabel
@@ -244,7 +251,7 @@ const UserFilter: React.FC<UserFilterProps> = ({
         </Stack>
       )}
 
-      {selectedUserId && selectedUserId !== "all" && currentUser?.id === selectedUserId && (
+      {showApiKeyFilter && currentUser?.id === selectedUserIds[0] && (
         <FormControl size="small" sx={{ minWidth: 200 }}>
           <InputLabel>API Key</InputLabel>
           <Select

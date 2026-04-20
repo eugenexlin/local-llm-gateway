@@ -11,6 +11,7 @@ export interface  ProgressiveDataPoint {
   timestamp: string;
   value: number | null;
   hasValue: boolean;
+  userId?: string;
 }
 
 export interface Metrics {
