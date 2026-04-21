@@ -1,5 +1,5 @@
 {
-  "name": "llm-firewall-backend",
+  "name": "backend",
   "version": "1.0.0",
   "description": "Proxy server for local LLM with authentication and usage tracking",
   "main": "dist/index.js",

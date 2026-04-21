@@ -26,7 +26,11 @@ import {
 } from "recharts";
 import { metricLabels } from "../utils/metricsLabels";
 import { getAllGranularityOptions } from "../utils/granularityDisplay";
-import type { GranularitySeconds, MetricType, ProgressiveDataPoint } from "../types/metrics";
+import type {
+  GranularitySeconds,
+  MetricType,
+  ProgressiveDataPoint,
+} from "../types/metrics";
 import { formatValue } from "../utils/formatValue";
 
 export type UserGraphData = Record<string, ProgressiveDataPoint[]>;
@@ -48,7 +52,10 @@ function getUserColor(userId: string, index: number): string {
   return USER_COLORS[index % USER_COLORS.length];
 }
 
-function getUserLabel(userId: string, userOptions: { id: string; name?: string; email?: string }[]): string {
+function getUserLabel(
+  userId: string,
+  userOptions: { id: string; name?: string; email?: string }[],
+): string {
   const user = userOptions.find((u) => u.id === userId);
   return user?.name || user?.email || userId.substring(0, 8);
 }
@@ -202,13 +209,17 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
   userGraphData,
   userOptions = [],
 }) => {
-  const hasMultipleUsers = userGraphData && Object.keys(userGraphData).length > 1;
+  const hasMultipleUsers =
+    userGraphData && Object.keys(userGraphData).length > 1;
 
   const { transformedData, userKeys } = useMemo(() => {
     if (hasMultipleUsers && userGraphData) {
       return transformUserGraphData(userGraphData, userOptions);
     }
-    return { transformedData: [] as TransformedDataPoint[], userKeys: [] as string[] };
+    return {
+      transformedData: [] as TransformedDataPoint[],
+      userKeys: [] as string[],
+    };
   }, [hasMultipleUsers, userGraphData, userOptions]);
 
   const displayData = hasMultipleUsers ? transformedData : data;
@@ -320,9 +331,16 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
               <LineChart data={displayData}>
                 {hasMultipleUsers && (
                   <Legend
-                    formatter={(value: string, entry: { color?: string; payload?: { label?: string } }) => {
+                    formatter={(
+                      value: string,
+                      entry: { color?: string; payload?: { label?: string } },
+                    ) => {
                       const label = entry.payload?.label || value;
-                      return <span style={{ color: entry.color || '#000' }}>{label}</span>;
+                      return (
+                        <span style={{ color: entry.color || "#000" }}>
+                          {label}
+                        </span>
+                      );
                     }}
                   />
                 )}
@@ -347,6 +365,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                   tickFormatter={(value) => formatValue(value)}
                 />
                 <Tooltip
+                  isAnimationActive={false}
                   formatter={(value: number | undefined, key: string) => {
                     if (hasMultipleUsers && userKeys.includes(key)) {
                       const userIndex = userKeys.indexOf(key);
@@ -378,7 +397,8 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                 />
                 {hasMultipleUsers ? (
                   userKeys.map((userKey, index) => {
-                    const userId = userOptions[index]?.id || userKey.replace("__user_", "");
+                    const userId =
+                      userOptions[index]?.id || userKey.replace("__user_", "");
                     const color = getUserColor(userId, index);
                     const label = getUserLabel(userId, userOptions);
                     return (
@@ -426,9 +446,16 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                 <BarChart data={displayData}>
                   {hasMultipleUsers && (
                     <Legend
-                      formatter={(value: string, entry: { color?: string; payload?: { label?: string } }) => {
+                      formatter={(
+                        value: string,
+                        entry: { color?: string; payload?: { label?: string } },
+                      ) => {
                         const label = entry.payload?.label || value;
-                        return <span style={{ color: entry.color || '#000' }}>{label}</span>;
+                        return (
+                          <span style={{ color: entry.color || "#000" }}>
+                            {label}
+                          </span>
+                        );
                       }}
                     />
                   )}
@@ -452,6 +479,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                     tickFormatter={(value) => formatValue(value)}
                   />
                   <Tooltip
+                    isAnimationActive={false}
                     formatter={(value: number | undefined, key: string) => {
                       if (hasMultipleUsers && userKeys.includes(key)) {
                         const userIndex = userKeys.indexOf(key);
@@ -483,7 +511,9 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                   />
                   {hasMultipleUsers ? (
                     userKeys.map((userKey, index) => {
-                      const userId = userOptions[index]?.id || userKey.replace("__user_", "");
+                      const userId =
+                        userOptions[index]?.id ||
+                        userKey.replace("__user_", "");
                       const color = getUserColor(userId, index);
                       const label = getUserLabel(userId, userOptions);
                       return (
@@ -505,7 +535,6 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                       isAnimationActive={false}
                     />
                   )}
-                  
                 </BarChart>
               </Box>
             )}

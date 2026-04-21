@@ -1,4 +1,4 @@
-# LLM Firewall Backend
+# LLM Gateway Backend
 
 Node.js proxy server for local LLM with authentication and usage tracking.
 

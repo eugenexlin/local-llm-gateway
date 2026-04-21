@@ -85,7 +85,7 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 database.init()
   .then(() => {
     app.listen(PORT, () => {
-      console.log(`LLM Firewall Proxy running on port ${PORT}`);
+      console.log(`LLM Gateway Proxy running on port ${PORT}`);
       console.log(`Llama CPP URL: ${config.llamaCppUrl}`);
     });
   })

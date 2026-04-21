@@ -61,9 +61,11 @@ const DashboardStats: React.FC = () => {
     user?.id ? [user.id] : [],
   );
   const [selectedApiKeyId, setSelectedApiKeyId] = useState<string | null>(null);
-  const [allUsers, setAllUsers] = useState<{ id: string; name?: string; email?: string }[]>([]);
+  const [allUsers, setAllUsers] = useState<
+    { id: string; name?: string; email?: string }[]
+  >([]);
 
-  const [graphData, setGraphData] = useState<any[]>([]);
+  const [graphData, setGraphData] = useState<ProgressiveDataPoint[]>([]);
   const [userGraphData, setUserGraphData] = useState<UserGraphData>({});
   const [graphLoading, setGraphLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -81,7 +83,9 @@ const DashboardStats: React.FC = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const response = await fetch("/api/metrics/users", { credentials: 'include' });
+        const response = await fetch("/api/metrics/users", {
+          credentials: "include",
+        });
         if (response.ok) {
           const data = await response.json();
           setAllUsers(data);
@@ -106,7 +110,7 @@ const DashboardStats: React.FC = () => {
       }
       const response = await fetch(
         `/api/metrics/lifetime${params.toString() ? `?${params.toString()}` : ""}`,
-        { credentials: 'include' },
+        { credentials: "include" },
       );
       if (response.ok) {
         const data = await response.json();
@@ -133,7 +137,9 @@ const DashboardStats: React.FC = () => {
           params.append("apiKeyId", selectedApiKeyId);
         }
       }
-      const response = await fetch(`/api/metrics/range?${params.toString()}`, { credentials: 'include' });
+      const response = await fetch(`/api/metrics/range?${params.toString()}`, {
+        credentials: "include",
+      });
       if (response.ok) {
         const data = await response.json();
         setRangeMetrics(data);
@@ -159,9 +165,7 @@ const DashboardStats: React.FC = () => {
     const displayValue =
       secondsToDisplayValue(currentGranularitySeconds) || "1h";
 
-    const usersToFetch = selectedUserIds.filter(
-      (id) => id !== "all",
-    );
+    const usersToFetch = selectedUserIds.filter((id) => id !== "all");
 
     if (usersToFetch.length === 0) {
       const templateParams = new URLSearchParams({
@@ -171,10 +175,10 @@ const DashboardStats: React.FC = () => {
       });
 
       try {
-    const templateResponse = await fetch(
-           `/api/metrics/timestamps?${templateParams.toString()}`,
-           { signal, credentials: 'include' },
-         );
+        const templateResponse = await fetch(
+          `/api/metrics/timestamps?${templateParams.toString()}`,
+          { signal, credentials: "include" },
+        );
 
         if (!templateResponse.ok) {
           throw new Error("Failed to fetch timestamp template");
@@ -189,7 +193,13 @@ const DashboardStats: React.FC = () => {
         }));
 
         if (cacheEnabled) {
-          mergeCachedData(allData, currentGranularitySeconds, metric, null, selectedApiKeyId);
+          mergeCachedData(
+            allData,
+            currentGranularitySeconds,
+            metric,
+            null,
+            selectedApiKeyId,
+          );
         }
 
         const allFilled = !allData.some((point) => !point.hasValue);
@@ -234,10 +244,10 @@ const DashboardStats: React.FC = () => {
               batchIndex: String(batchIndex),
               batchSize: String(batchSize),
             });
-          const response = await fetch(
-               `/api/metrics/progressive?${params.toString()}`,
-               { signal, credentials: 'include' },
-             );
+            const response = await fetch(
+              `/api/metrics/progressive?${params.toString()}`,
+              { signal, credentials: "include" },
+            );
 
             if (response.ok) {
               const data: ProgressiveDataPoint[] = await response.json();
@@ -249,10 +259,18 @@ const DashboardStats: React.FC = () => {
                 allData[startIndex + i] = data[i];
               }
               if (cacheEnabled) {
-                writeCache(data, currentGranularitySeconds, metric, null, selectedApiKeyId);
+                writeCache(
+                  data,
+                  currentGranularitySeconds,
+                  metric,
+                  null,
+                  selectedApiKeyId,
+                );
               }
               batchesCompleted++;
-              const progress = Math.round((batchesCompleted / batchCount) * 100);
+              const progress = Math.round(
+                (batchesCompleted / batchCount) * 100,
+              );
               onProgress([...allData], false);
               setLoadingProgress(progress);
             }
@@ -293,11 +311,13 @@ const DashboardStats: React.FC = () => {
 
       const templateResponse = await fetch(
         `/api/metrics/timestamps?${templateParams.toString()}`,
-        { signal, credentials: 'include' },
+        { signal, credentials: "include" },
       );
 
       if (!templateResponse.ok) {
-        throw new Error(`Failed to fetch timestamp template for user ${userId}`);
+        throw new Error(
+          `Failed to fetch timestamp template for user ${userId}`,
+        );
       }
 
       const templateData: ProgressiveDataPoint[] =
@@ -309,7 +329,13 @@ const DashboardStats: React.FC = () => {
       }));
 
       if (cacheEnabled) {
-        mergeCachedData(allData, currentGranularitySeconds, metric, userId, selectedApiKeyId);
+        mergeCachedData(
+          allData,
+          currentGranularitySeconds,
+          metric,
+          userId,
+          selectedApiKeyId,
+        );
       }
 
       userTemplates.set(userId, templateData);
@@ -323,9 +349,11 @@ const DashboardStats: React.FC = () => {
     if (allFilled) {
       const mergedData = mergeUserDatasets(userDataMap, usersToFetch);
       setGraphData(mergedData);
-      setUserGraphData(Object.fromEntries(
-        usersToFetch.map((userId) => [userId, userDataMap.get(userId)!])
-      ));
+      setUserGraphData(
+        Object.fromEntries(
+          usersToFetch.map((userId) => [userId, userDataMap.get(userId)!]),
+        ),
+      );
       onProgress(mergedData, true);
       return;
     }
@@ -375,7 +403,7 @@ const DashboardStats: React.FC = () => {
           }
           const response = await fetch(
             `/api/metrics/progressive?${params.toString()}`,
-            { signal, credentials: 'include' },
+            { signal, credentials: "include" },
           );
 
           if (response.ok) {
@@ -389,7 +417,13 @@ const DashboardStats: React.FC = () => {
               userCache[startIndex + i] = data[i];
             }
             if (cacheEnabled) {
-              writeCache(data, currentGranularitySeconds, metric, userId, selectedApiKeyId);
+              writeCache(
+                data,
+                currentGranularitySeconds,
+                metric,
+                userId,
+                selectedApiKeyId,
+              );
             }
             return { userId, data };
           }
@@ -398,13 +432,16 @@ const DashboardStats: React.FC = () => {
           if (error.name === "AbortError") {
             return null;
           }
-          console.error(`Error fetching batch ${batchIndex} for user ${userId}:`, error);
+          console.error(
+            `Error fetching batch ${batchIndex} for user ${userId}:`,
+            error,
+          );
           return null;
         }
       });
 
       const batchResults = await Promise.all(userBatchPromises);
-      batchesCompleted += batchResults.filter(r => r !== null).length;
+      batchesCompleted += batchResults.filter((r) => r !== null).length;
 
       const merged = mergeUserDatasets(userDataMap, usersToFetch);
       const progress = Math.round((batchesCompleted / totalBatches) * 100);
@@ -414,9 +451,11 @@ const DashboardStats: React.FC = () => {
 
     if (!signal.aborted) {
       const finalMerged = mergeUserDatasets(userDataMap, usersToFetch);
-      setUserGraphData(Object.fromEntries(
-        usersToFetch.map((userId) => [userId, userDataMap.get(userId)!])
-      ));
+      setUserGraphData(
+        Object.fromEntries(
+          usersToFetch.map((userId) => [userId, userDataMap.get(userId)!]),
+        ),
+      );
       onProgress(finalMerged, true);
     }
   };
@@ -470,8 +509,10 @@ const DashboardStats: React.FC = () => {
   };
 
   const handleMetricChange = (val: MetricType) => {
+    // quick wipe the data
+    setGraphLoading(true);
+    setGraphData(graphData.map((d) => ({ ...d, value: null })));
     setMetric(val);
-    setGraphData([]);
   };
 
   const handleGranularityChange = (value: string) => {
@@ -725,6 +766,7 @@ const DashboardStats: React.FC = () => {
         apiKeyId={selectedApiKeyId || undefined}
         config={insightsConfig}
         onConfigChange={setInsightsConfig}
+        userOptions={allUsers}
       />
 
       <SettingsModal

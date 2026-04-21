@@ -83,7 +83,7 @@ router.get("/trends", (req: Request, res: Response) => {
 // Get lifetime metrics
 router.get("/lifetime", (req: Request, res: Response) => {
   try {
-    const userId = req.query.userId as string | undefined;
+    const userId = req.query.userId as string | string[] | undefined;
     const apiKeyId = req.query.apiKeyId as string | undefined;
 
     const metrics = database.getLifetimeMetrics(userId, apiKeyId);
@@ -99,7 +99,7 @@ router.get("/range", (req: Request, res: Response) => {
   try {
     const start = req.query.start as string | undefined;
     const end = req.query.end as string | undefined;
-    const userId = req.query.userId as string | undefined;
+    const userId = req.query.userId as string | string[] | undefined;
     const apiKeyId = req.query.apiKeyId as string | undefined;
 
     if (!start || !end) {
@@ -423,9 +423,12 @@ router.get("/insights/log/:id", (req: Request, res: Response) => {
         ul.cache_creation_input_tokens,
         ul.cache_read_input_tokens,
         ak.name as api_key_name,
-        ak.description as api_key_description
+        ak.description as api_key_description,
+        u.name as user_name,
+        u.email as user_email
       FROM usage_logs ul
       JOIN api_keys ak ON ul.api_key_id = ak.id
+      LEFT JOIN users u ON ak.user_id = u.id
       WHERE ul.id = ?
     `,
       [id],

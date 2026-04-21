@@ -89,7 +89,7 @@ function proxyRequestStreaming(
     method: method,
     headers: {
       'Content-Type': contentType,
-      'User-Agent': 'LLM-Firewall-Proxy/1.0'
+      'User-Agent': 'LLM-Gateway/1.0'
     }
   };
   

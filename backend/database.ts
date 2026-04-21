@@ -677,7 +677,7 @@ export function getUsageTrends(startDate: string, endDate: string): TrendsDataPo
   });
 }
 
-export function getLifetimeMetrics(userId?: string, apiKeyId?: string): LifetimeMetrics {
+export function getLifetimeMetrics(userId?: string | string[], apiKeyId?: string): LifetimeMetrics {
   let query = `
     SELECT 
       COUNT(*) as request_count,
@@ -697,11 +697,25 @@ export function getLifetimeMetrics(userId?: string, apiKeyId?: string): Lifetime
   }
   
   if (userId && apiKeyId) {
-    query += ` WHERE api_keys.user_id = ? AND api_keys.id = ?`;
-    params.push(userId, apiKeyId);
+    const userIds = Array.isArray(userId) ? userId : [userId];
+    if (userIds.length === 1) {
+      query += ` WHERE api_keys.user_id = ? AND api_keys.id = ?`;
+      params.push(userIds[0], apiKeyId);
+    } else {
+      const placeholders = userIds.map(() => '?').join(', ');
+      query += ` WHERE api_keys.user_id IN (${placeholders}) AND api_keys.id = ?`;
+      params.push(...userIds, apiKeyId);
+    }
   } else if (userId) {
-    query += ` WHERE api_keys.user_id = ?`;
-    params.push(userId);
+    const userIds = Array.isArray(userId) ? userId : [userId];
+    if (userIds.length === 1) {
+      query += ` WHERE api_keys.user_id = ?`;
+      params.push(userIds[0]);
+    } else {
+      const placeholders = userIds.map(() => '?').join(', ');
+      query += ` WHERE api_keys.user_id IN (${placeholders})`;
+      params.push(...userIds);
+    }
   }
   
   const result = db!.exec(query, params);
@@ -728,13 +742,32 @@ export function getLifetimeMetrics(userId?: string, apiKeyId?: string): Lifetime
   const lastRequest: string | null = row[6]?.toString() || null;
   
   // Calculate tokens_per_sec using actual duration from usage logs (hardware throughput)
+  let durationWhere = '';
+  if (userId && apiKeyId) {
+    const userIds = Array.isArray(userId) ? userId : [userId];
+    if (userIds.length === 1) {
+      durationWhere = 'WHERE api_keys.user_id = ? AND api_keys.id = ?';
+    } else {
+      const placeholders = userIds.map(() => '?').join(', ');
+      durationWhere = `WHERE api_keys.user_id IN (${placeholders}) AND api_keys.id = ?`;
+    }
+  } else if (userId) {
+    const userIds = Array.isArray(userId) ? userId : [userId];
+    if (userIds.length === 1) {
+      durationWhere = 'WHERE api_keys.user_id = ?';
+    } else {
+      const placeholders = userIds.map(() => '?').join(', ');
+      durationWhere = `WHERE api_keys.user_id IN (${placeholders})`;
+    }
+  }
+  
+  const durationParams = [...params];
   const durationResult = db!.exec(`
     SELECT SUM(duration_ms) as total_duration_ms
     FROM usage_logs
     ${userId ? 'JOIN api_keys ON usage_logs.api_key_id = api_keys.id' : ''}
-    ${userId && apiKeyId ? 'WHERE api_keys.user_id = ? AND api_keys.id = ?' : ''}
-    ${userId && !apiKeyId ? 'WHERE api_keys.user_id = ?' : ''}
-  `, params);
+    ${durationWhere}
+  `, durationParams);
   
   const totalDurationMs = durationResult.length > 0 && durationResult[0].values.length > 0 
     ? Number(durationResult[0].values[0][0] || 0) 
@@ -762,7 +795,7 @@ export function getLifetimeMetrics(userId?: string, apiKeyId?: string): Lifetime
   };
 }
 
-export function getRangeMetrics(startDate: string, endDate: string, userId?: string, apiKeyId?: string): RangeMetrics {
+export function getRangeMetrics(startDate: string, endDate: string, userId?: string | string[], apiKeyId?: string): RangeMetrics {
   const start = new Date(startDate);
   const end = new Date(endDate);
   const durationSeconds = (end.getTime() - start.getTime()) / 1000 + 1;
@@ -787,11 +820,25 @@ export function getRangeMetrics(startDate: string, endDate: string, userId?: str
   params.push(startDate, endDate);
   
   if (userId && apiKeyId) {
-    query += ` AND api_keys.user_id = ? AND api_keys.id = ?`;
-    params.push(userId, apiKeyId);
+    const userIds = Array.isArray(userId) ? userId : [userId];
+    if (userIds.length === 1) {
+      query += ` AND api_keys.user_id = ? AND api_keys.id = ?`;
+      params.push(userIds[0], apiKeyId);
+    } else {
+      const placeholders = userIds.map(() => '?').join(', ');
+      query += ` AND api_keys.user_id IN (${placeholders}) AND api_keys.id = ?`;
+      params.push(...userIds, apiKeyId);
+    }
   } else if (userId) {
-    query += ` AND api_keys.user_id = ?`;
-    params.push(userId);
+    const userIds = Array.isArray(userId) ? userId : [userId];
+    if (userIds.length === 1) {
+      query += ` AND api_keys.user_id = ?`;
+      params.push(userIds[0]);
+    } else {
+      const placeholders = userIds.map(() => '?').join(', ');
+      query += ` AND api_keys.user_id IN (${placeholders})`;
+      params.push(...userIds);
+    }
   }
   
   const result = db!.exec(query, params);
@@ -818,23 +865,41 @@ export function getRangeMetrics(startDate: string, endDate: string, userId?: str
   const totalTokens = totalInputTokens + totalOutputTokens;
   
   // Calculate tokens_per_sec using actual duration from usage logs (hardware throughput)
-  const durationQuery = `
+  let durationWhere = '';
+  if (userId && apiKeyId) {
+    const userIds = Array.isArray(userId) ? userId : [userId];
+    if (userIds.length === 1) {
+      durationWhere = 'AND api_keys.user_id = ? AND api_keys.id = ?';
+    } else {
+      const placeholders = userIds.map(() => '?').join(', ');
+      durationWhere = `AND api_keys.user_id IN (${placeholders}) AND api_keys.id = ?`;
+    }
+  } else if (userId) {
+    const userIds = Array.isArray(userId) ? userId : [userId];
+    if (userIds.length === 1) {
+      durationWhere = 'AND api_keys.user_id = ?';
+    } else {
+      const placeholders = userIds.map(() => '?').join(', ');
+      durationWhere = `AND api_keys.user_id IN (${placeholders})`;
+    }
+  }
+  
+  const durationParams: (string | number)[] = [startDate, endDate];
+  if (userId && apiKeyId) {
+    const userIds = Array.isArray(userId) ? userId : [userId];
+    durationParams.push(...userIds, apiKeyId);
+  } else if (userId) {
+    const userIds = Array.isArray(userId) ? userId : [userId];
+    durationParams.push(...userIds);
+  }
+  
+  const durationResult = db!.exec(`
     SELECT SUM(duration_ms) as total_duration_ms
     FROM usage_logs
     ${userId ? 'JOIN api_keys ON usage_logs.api_key_id = api_keys.id' : ''}
     WHERE timestamp >= ? AND timestamp <= ?
-    ${userId && apiKeyId ? 'AND api_keys.user_id = ? AND api_keys.id = ?' : ''}
-    ${userId && !apiKeyId ? 'AND api_keys.user_id = ?' : ''}
-  `;
-  
-  const durationParams: (string | number)[] = [startDate, endDate];
-  if (userId && apiKeyId) {
-    durationParams.push(userId, apiKeyId);
-  } else if (userId) {
-    durationParams.push(userId);
-  }
-  
-  const durationResult = db!.exec(durationQuery, durationParams);
+    ${durationWhere}
+  `, durationParams);
   
   const totalDurationMs = durationResult.length > 0 && durationResult[0].values.length > 0 
     ? Number(durationResult[0].values[0][0] || 0) 
@@ -1041,27 +1106,34 @@ export async function getInsightsData(
 ): Promise<any[]> {
   let query = `
      SELECT 
-       ul.id,
-       ul.timestamp,
-      ul.prompt_tokens,
-      ul.completion_tokens,
-      ul.total_tokens,
-     ul.duration_ms,
-       COALESCE(ul.cache_creation_input_tokens, 0) as cache_creation_input_tokens,
-      COALESCE(ul.cache_read_input_tokens, 0) as cache_read_input_tokens,
-      CASE 
-        WHEN ul.duration_ms > 0 THEN ROUND(ul.total_tokens * 1000.0 / ul.duration_ms, 2)
-        ELSE NULL 
-      END as tokens_per_sec,
-      CASE 
-        WHEN ul.duration_ms > 0 THEN ROUND(ul.prompt_tokens * 1000.0 / ul.duration_ms, 2)
-        ELSE NULL 
-      END as input_tokens_per_sec,
-      CASE 
-        WHEN ul.duration_ms > 0 THEN ROUND(ul.completion_tokens * 1000.0 / ul.duration_ms, 2)
-        ELSE NULL 
-      END as output_tokens_per_sec
-    FROM usage_logs ul
+        ul.id,
+        ul.timestamp,
+       ul.prompt_tokens,
+       ul.completion_tokens,
+       ul.total_tokens,
+      ul.duration_ms,
+        COALESCE(ul.cache_creation_input_tokens, 0) as cache_creation_input_tokens,
+       COALESCE(ul.cache_read_input_tokens, 0) as cache_read_input_tokens,
+       ak.id as api_key_id,
+       ak.name as api_key_name,
+       u.id as user_id,
+       u.name as user_name,
+       u.email as user_email,
+       CASE 
+         WHEN ul.duration_ms > 0 THEN ROUND(ul.total_tokens * 1000.0 / ul.duration_ms, 2)
+         ELSE NULL 
+       END as tokens_per_sec,
+       CASE 
+         WHEN ul.duration_ms > 0 THEN ROUND(ul.prompt_tokens * 1000.0 / ul.duration_ms, 2)
+         ELSE NULL 
+       END as input_tokens_per_sec,
+       CASE 
+         WHEN ul.duration_ms > 0 THEN ROUND(ul.completion_tokens * 1000.0 / ul.duration_ms, 2)
+         ELSE NULL 
+       END as output_tokens_per_sec
+     FROM usage_logs ul
+     LEFT JOIN api_keys ak ON ul.api_key_id = ak.id
+     LEFT JOIN users u ON ak.user_id = u.id
   `;
 
   const queryParams: (string | number)[] = [startDate, endDate];

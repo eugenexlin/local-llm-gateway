@@ -73,6 +73,9 @@ export interface InsightsDataPoint {
   total_tokens: number;
   duration_ms: number;
   api_key_name?: string;
+  user_id?: string;
+  user_name?: string;
+  user_email?: string;
   cache_creation_input_tokens?: number;
   cache_read_input_tokens?: number;
   tokens_per_sec?: number;

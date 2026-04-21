@@ -93,7 +93,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const testUser: User = {
       id: 'test-user-001',
       name: 'Test User',
-      email: 'test@llmfirewall.com',
+      email: 'test@test.com',
       oauthProvider: 'test',
     };
     login(testUser);
