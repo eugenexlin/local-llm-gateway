@@ -1210,6 +1210,22 @@ export async function countInsightsData(
   return Number(row[0] || 0);
 }
 
+function getHeatMapColumnExpr(type: string): string {
+  if (type === 'timestamp') {
+    return "strftime('%s', ul.timestamp)";
+  }
+  if (type === 'tokens_per_sec') {
+    return "CASE WHEN ul.duration_ms > 0 THEN ROUND(ul.total_tokens * 1000.0 / ul.duration_ms, 2) ELSE NULL END";
+  }
+  if (type === 'input_tokens_per_sec') {
+    return "CASE WHEN ul.duration_ms > 0 THEN ROUND(ul.prompt_tokens * 1000.0 / ul.duration_ms, 2) ELSE NULL END";
+  }
+  if (type === 'output_tokens_per_sec') {
+    return "CASE WHEN ul.duration_ms > 0 THEN ROUND(ul.completion_tokens * 1000.0 / ul.duration_ms, 2) ELSE NULL END";
+  }
+  return 'ul.' + type;
+}
+
 export async function getHeatMapData(
   startDate: string,
   endDate: string,
@@ -1223,10 +1239,13 @@ export async function getHeatMapData(
   // For heat map, we need to bin the data
   // This is a simplified implementation that works for numeric axes
   
+  const xExpr = getHeatMapColumnExpr(xAxisType);
+  const yExpr = getHeatMapColumnExpr(yAxisType);
+  
   let query = `
     SELECT 
-      ${xAxisType === 'timestamp' ? 'strftime(\'%s\', ul.timestamp)' : 'ul.' + xAxisType} as x_val,
-      ${yAxisType === 'timestamp' ? 'strftime(\'%s\', ul.timestamp)' : 'ul.' + yAxisType} as y_val
+      ${xExpr} as x_val,
+      ${yExpr} as y_val
     FROM usage_logs ul
   `;
 
@@ -1253,8 +1272,22 @@ export async function getHeatMapData(
 
   // Process data in JavaScript for binning
   const values = result[0].values as (string | number | null)[][];
-  const xValues = values.map(row => Number(row[0] || 0));
-  const yValues = values.map(row => Number(row[1] || 0));
+  
+  const validRows: number[][] = [];
+  for (const row of values) {
+    const x = Number(row[0]);
+    const y = Number(row[1]);
+    if (!isNaN(x) && !isNaN(y) && row[0] !== null && row[1] !== null) {
+      validRows.push([x, y]);
+    }
+  }
+  
+  if (validRows.length === 0) {
+    return [];
+  }
+
+  const xValues = validRows.map(r => r[0]);
+  const yValues = validRows.map(r => r[1]);
 
   const minX = Math.min(...xValues);
   const maxX = Math.max(...xValues);
@@ -1267,10 +1300,7 @@ export async function getHeatMapData(
   // Create bins
   const bins = new Map<string, number>();
   
-  for (let i = 0; i < values.length; i++) {
-    const x = Number(values[i][0] || 0);
-    const y = Number(values[i][1] || 0);
-    
+  for (const [x, y] of validRows) {
     const xBin = Math.min(Math.floor((x - minX) / xStep), gridWidth - 1);
     const yBin = Math.min(Math.floor((y - minY) / yStep), gridHeight - 1);
     

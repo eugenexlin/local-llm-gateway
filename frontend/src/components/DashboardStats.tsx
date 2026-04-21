@@ -32,6 +32,7 @@ import type {
   GranularitySeconds,
   InsightsConfig,
   ProgressiveDataPoint,
+  BarGrouping,
 } from "../types/metrics";
 
 export type UserGraphData = Record<string, ProgressiveDataPoint[]>;
@@ -61,6 +62,7 @@ const DashboardStats: React.FC = () => {
     user?.id ? [user.id] : [],
   );
   const [selectedApiKeyId, setSelectedApiKeyId] = useState<string | null>(null);
+  const [barGrouping, setBarGrouping] = useState<BarGrouping>("side-by-side");
   const [allUsers, setAllUsers] = useState<
     { id: string; name?: string; email?: string }[]
   >([]);
@@ -755,6 +757,8 @@ const DashboardStats: React.FC = () => {
         loadingProgress={loadingProgress}
         onGranularityChange={handleGranularityChange}
         onMetricChange={(value) => handleMetricChange(value)}
+        barGrouping={barGrouping}
+        onBarGroupingChange={setBarGrouping}
         userGraphData={userGraphData}
         userOptions={allUsers}
       />

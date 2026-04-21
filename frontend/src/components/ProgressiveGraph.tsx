@@ -11,6 +11,8 @@ import {
   CircularProgress,
   useMediaQuery,
   useTheme,
+  ToggleButtonGroup,
+  ToggleButton,
 } from "@mui/material";
 import {
   LineChart,
@@ -30,6 +32,7 @@ import type {
   GranularitySeconds,
   MetricType,
   ProgressiveDataPoint,
+  BarGrouping,
 } from "../types/metrics";
 import { formatValue } from "../utils/formatValue";
 
@@ -62,7 +65,7 @@ function getUserLabel(
 
 interface TransformedDataPoint {
   timestamp: string;
-  [userKey: string]: number | null;
+  [key: string]: number | null | string;
 }
 
 function transformUserGraphData(
@@ -103,6 +106,8 @@ interface ProgressiveGraphProps {
   loadingProgress: number;
   onGranularityChange?: (value: string) => void;
   onMetricChange?: (metric: MetricType) => void;
+  barGrouping?: BarGrouping;
+  onBarGroupingChange?: (grouping: BarGrouping) => void;
   userGraphData?: UserGraphData;
   userOptions?: { id: string; name?: string; email?: string }[];
 }
@@ -206,6 +211,8 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
   loadingProgress,
   onGranularityChange,
   onMetricChange,
+  barGrouping = "side-by-side",
+  onBarGroupingChange,
   userGraphData,
   userOptions = [],
 }) => {
@@ -222,7 +229,9 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
     };
   }, [hasMultipleUsers, userGraphData, userOptions]);
 
-  const displayData = hasMultipleUsers ? transformedData : data;
+  const displayData = hasMultipleUsers
+    ? (transformedData as unknown as ProgressiveDataPoint[])
+    : data;
   const displayLength = data.length;
   const granularityOptions = getAllGranularityOptions();
   const theme = useTheme();
@@ -278,6 +287,20 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
             ))}
           </Select>
         </FormControl>
+
+        {hasMultipleUsers && (
+          <ToggleButtonGroup
+            value={barGrouping}
+            exclusive
+            onChange={(_, newValue: BarGrouping) => {
+              if (newValue) onBarGroupingChange?.(newValue);
+            }}
+            size="small"
+          >
+            <ToggleButton value="side-by-side">Side by Side</ToggleButton>
+            <ToggleButton value="stacked">Stacked</ToggleButton>
+          </ToggleButtonGroup>
+        )}
       </Box>
 
       {data.length > 0 && (
@@ -443,7 +466,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                   tickSpacing={calculateTickSpacing(displayLength)}
                   dataLength={displayLength}
                 />
-                <BarChart data={displayData}>
+                <BarChart data={displayData} barGap={0} barCategoryGap={'10%'}>
                   {hasMultipleUsers && (
                     <Legend
                       formatter={(
@@ -521,9 +544,11 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                           key={userKey}
                           dataKey={userKey}
                           fill={color}
-                          radius={[4, 4, 0, 0]}
                           isAnimationActive={false}
                           name={label}
+                          stackId={
+                            barGrouping === "stacked" ? "user" : undefined
+                          }
                         />
                       );
                     })
@@ -531,7 +556,6 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                     <Bar
                       dataKey="value"
                       fill="#1976d2"
-                      radius={[4, 4, 0, 0]}
                       isAnimationActive={false}
                     />
                   )}

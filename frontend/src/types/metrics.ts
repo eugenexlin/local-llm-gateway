@@ -89,6 +89,8 @@ export interface HeatMapDataPoint {
   count: number;
 }
 
+export type BarGrouping = 'side-by-side' | 'stacked';
+
 export interface InsightsConfig {
   xAxis: AxisType | null;
   yAxis: AxisType | null;
