@@ -1308,13 +1308,21 @@ export async function getHeatMapData(
     bins.set(key, (bins.get(key) || 0) + 1);
   }
 
-  // Convert to array
+  // Convert to array with actual center values
   return Array.from(bins.entries()).map(([key, count]) => {
     const [xBin, yBin] = key.split(',').map(Number);
     return {
-      x: xBin,
-      y: yBin,
-      count
+      x: minX + (xBin + 0.5) * xStep,
+      y: minY + (yBin + 0.5) * yStep,
+      count,
+      _xBin: xBin,
+      _yBin: yBin,
+      _minX: minX,
+      _maxX: maxX,
+      _minY: minY,
+      _maxY: maxY,
+      _xStep: xStep,
+      _yStep: yStep,
     };
   });
 }

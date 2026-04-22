@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   ScatterChart,
   Scatter,
@@ -102,6 +102,94 @@ interface InsightsGraphProps {
   userOptions?: { id: string; name?: string; email?: string }[];
 }
 
+const HEATMAP_COLOR_STOPS = [
+  "#e8f5e9",
+  "#c8e6c9",
+  "#a5d6a7",
+  "#81c784",
+  "#66bb6a",
+  "#4caf50",
+  "#43a047",
+  "#388e3c",
+  "#2e7d32",
+  "#1b5e20",
+];
+
+function getHeatmapColor(count: number, maxCount: number): string {
+  if (maxCount === 0) return HEATMAP_COLOR_STOPS[0];
+  const ratio = Math.min(count / maxCount, 1);
+  const index = Math.min(
+    Math.floor(ratio * HEATMAP_COLOR_STOPS.length),
+    HEATMAP_COLOR_STOPS.length - 1,
+  );
+  return HEATMAP_COLOR_STOPS[index];
+}
+
+interface HeatMapCellProps {
+  x: number;
+  y: number;
+  count: number;
+  maxCount: number;
+  xScale: (val: number) => number;
+  yScale: (val: number) => number;
+  xDomain: [number, number];
+  yDomain: [number, number];
+  cellGap: number;
+}
+
+const HeatMapCell: React.FC<HeatMapCellProps> = ({
+  x,
+  y,
+  count,
+  maxCount,
+  xScale,
+  yScale,
+  xDomain,
+  yDomain,
+  cellGap,
+}) => {
+  const rect = useRef<SVGRectElement>(null);
+
+  const { width, height, x: rectX, y: rectY } = useMemo(() => {
+    const [xMin, xMax] = xDomain;
+    const [yMin, yMax] = yDomain;
+
+    const pixelWidth = xScale(xMax) - xScale(xMin);
+    const pixelHeight = yScale(yMax) - yScale(yMin);
+
+    const cellWidth = pixelWidth / 30;
+    const cellHeight = pixelHeight / 20;
+
+    const gap = cellGap || Math.min(cellWidth, cellHeight) * 0.1;
+
+    const rectW = Math.max(cellWidth - gap * 2, 1);
+    const rectH = Math.max(cellHeight - gap * 2, 1);
+
+    const centerX = xScale(x);
+    const centerY = yScale(y);
+
+    return {
+      width: rectW,
+      height: rectH,
+      x: centerX - rectW / 2,
+      y: centerY - rectH / 2,
+    };
+  }, [x, y, count, maxCount, xScale, yScale, xDomain, yDomain, cellGap]);
+
+  return (
+    <rect
+      ref={rect}
+      x={rectX}
+      y={rectY}
+      width={width}
+      height={height}
+      fill={getHeatmapColor(count, maxCount)}
+      rx={2}
+      ry={2}
+    />
+  );
+};
+
 const USER_COLORS = [
   "#1976d2",
   "#d32f2f",
@@ -143,6 +231,10 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
     null,
   );
   const [logDetails, setLogDetails] = useState<any>(null);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const [chartDimensions, setChartDimensions] = useState({ width: 800, height: 400 });
+  const [heatmapGrid, setHeatmapGrid] = useState({ gridWidth: 20, gridHeight: 15 });
+  const [localViewMode, setLocalViewMode] = useState<"scatter" | "heatmap">(config.viewMode);
 
   const userColorMap = useMemo(() => {
     if (!data || !userOptions) return new Map<string, string>();
@@ -209,6 +301,8 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
             yAxisType: config.yAxis,
             userId: userId || undefined,
             apiKeyId: apiKeyId || undefined,
+            gridWidth: heatmapGrid.gridWidth,
+            gridHeight: heatmapGrid.gridHeight,
           }),
         });
         const heatResult = await heatResponse.json();
@@ -224,6 +318,55 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
   useEffect(() => {
     fetchData();
   }, [config, startDate, endDate, userId, apiKeyId]);
+
+  useEffect(() => {
+    const container = chartContainerRef.current;
+    if (!container) return;
+
+    const updateDimensions = () => {
+      const rect = container.getBoundingClientRect();
+      setChartDimensions({
+        width: rect.width,
+        height: rect.height,
+      });
+    };
+
+    updateDimensions();
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateDimensions();
+    });
+
+    resizeObserver.observe(container);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!heatMapData || heatMapData.length === 0) return;
+
+    const aspectRatio = chartDimensions.width / chartDimensions.height;
+    const targetBins = 300;
+
+    let gridW = Math.round(Math.sqrt(targetBins * aspectRatio));
+    let gridH = Math.round(Math.sqrt(targetBins / aspectRatio));
+
+    gridW = Math.max(5, Math.min(40, gridW));
+    gridH = Math.max(5, Math.min(30, gridH));
+
+    const finalRatio = gridW / gridH;
+    const idealRatio = aspectRatio;
+
+    if (finalRatio > idealRatio && gridH > 5) {
+      gridH = Math.max(5, gridH - 1);
+    } else if (finalRatio < idealRatio && gridW < 40) {
+      gridW = Math.min(40, gridW + 1);
+    }
+
+    setHeatmapGrid({ gridWidth: gridW, gridHeight: gridH });
+  }, [heatMapData, chartDimensions]);
 
   const handlePresetChange = (presetId: string) => {
     const preset = PRESETS.find((p) => p.id === presetId);
@@ -249,10 +392,17 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
     _: React.MouseEvent<HTMLElement>,
     mode: "scatter" | "heatmap" | null,
   ) => {
-    if (mode) {
+    if (mode === "scatter" || mode === "heatmap") {
+      setLocalViewMode(mode);
       onConfigChange({ ...config, viewMode: mode });
     }
   };
+
+  useEffect(() => {
+    if (localViewMode !== config.viewMode) {
+      setLocalViewMode(config.viewMode);
+    }
+  }, [config.viewMode]);
 
   const handlePointClick = async (point: any) => {
     if (point && point.payload) {
@@ -305,7 +455,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
         )}
 
         <ToggleButtonGroup
-          value={config.viewMode}
+          value={localViewMode}
           onChange={handleViewModeChange}
           size="small"
         >
@@ -395,7 +545,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
                     position: "insideBottom",
                     offset: -10,
                   }}
-                  tickFormatter={(value, index) => formatValue(value)}
+                  tickFormatter={(value) => formatValue(value as number)}
                 />
                 <YAxis
                   type="number"
@@ -406,7 +556,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
                     angle: -90,
                     position: "insideLeft",
                   }}
-                  tickFormatter={(value, index) => formatValue(value)}
+                  tickFormatter={(value) => formatValue(value as number)}
                 />
                 <Tooltip
                   isAnimationActive={false}
@@ -428,10 +578,10 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
                             {userName}
                           </p>
                           <p style={{ margin: "4px 0 0 0", fontSize: "12px" }}>
-                            X: {formatValue(data[config.xAxis!])}
+                            X: {formatValue(Number(data[config.xAxis!]))}
                           </p>
                           <p style={{ margin: "4px 0 0 0", fontSize: "12px" }}>
-                            Y: {formatValue(data[config.yAxis!])}
+                            Y: {formatValue(Number(data[config.yAxis!]))}
                           </p>
                         </div>
                       );
@@ -459,61 +609,118 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
                 )}
               </ScatterChart>
             ) : (
-              <ScatterChart
-                margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  type="number"
-                  dataKey="x"
-                  label={{
-                    value: getAxisLabel(config.xAxis),
-                    position: "insideBottom",
-                    offset: -10,
-                  }}
-                />
-                <YAxis
-                  type="number"
-                  dataKey="y"
-                  label={{
-                    value: getAxisLabel(config.yAxis),
-                    angle: -90,
-                    position: "insideLeft",
-                  }}
-                />
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const point = payload[0].payload as HeatMapDataPoint;
-                      return (
-                        <div
-                          style={{
-                            background: "#fff",
-                            padding: "8px",
-                            border: "1px solid #ccc",
-                            borderRadius: "4px",
+              <div ref={chartContainerRef} style={{ width: "100%", height: "100%" }}>
+                <ResponsiveContainer>
+                  <ScatterChart
+                    margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis
+                      type="number"
+                      dataKey="x"
+                      domain={
+                        heatMapData?.length
+                          ? [
+                              Math.min(...heatMapData.map((d) => d.x)),
+                              Math.max(...heatMapData.map((d) => d.x)),
+                            ]
+                          : [0, 1]
+                      }
+                      label={{
+                        value: getAxisLabel(config.xAxis),
+                        position: "insideBottom",
+                        offset: -10,
+                      }}
+                      tickFormatter={(value) => formatValue(value)}
+                    />
+                    <YAxis
+                      type="number"
+                      dataKey="y"
+                      domain={
+                        heatMapData?.length
+                          ? [
+                              Math.min(...heatMapData.map((d) => d.y)),
+                              Math.max(...heatMapData.map((d) => d.y)),
+                            ]
+                          : [0, 1]
+                      }
+                      label={{
+                        value: getAxisLabel(config.yAxis),
+                        angle: -90,
+                        position: "insideLeft",
+                      }}
+                      tickFormatter={(value) => formatValue(value)}
+                    />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const point = payload[0].payload as HeatMapDataPoint;
+                          return (
+                            <div
+                              style={{
+                                background: "#fff",
+                                padding: "8px",
+                                border: "1px solid #ccc",
+                                borderRadius: "4px",
+                              }}
+                            >
+                              <p style={{ margin: 0, fontWeight: "bold" }}>
+                                Count: {point.count}
+                              </p>
+                              <p style={{ margin: "4px 0 0 0", fontSize: "12px" }}>
+                                X: {formatValue(point.x)}
+                              </p>
+                              <p style={{ margin: "4px 0 0 0", fontSize: "12px" }}>
+                                Y: {formatValue(point.y)}
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Scatter
+                      data={heatMapData || []}
+                      fill="#82ca9d"
+                    >
+                      {heatMapData?.map((point, index) => (
+                        <HeatMapCell
+                          key={index}
+                          x={point.x}
+                          y={point.y}
+                          count={point.count}
+                          maxCount={Math.max(...(heatMapData || []).map((d) => d.count))}
+                          xScale={(value: number) => {
+                            const data = heatMapData || [];
+                            if (data.length === 0) return 0;
+                            const xMin = Math.min(...data.map((d) => d.x));
+                            const xMax = Math.max(...data.map((d) => d.x));
+                            const chartWidth = chartDimensions.width - 40;
+                            return ((value - xMin) / (xMax - xMin || 1)) * chartWidth;
                           }}
-                        >
-                          <p style={{ margin: 0 }}>
-                            X Bin: {point.x}, Y Bin: {point.y}
-                          </p>
-                          <p
-                            style={{ margin: "4px 0 0 0", fontWeight: "bold" }}
-                          >
-                            Count: {point.count}
-                          </p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Scatter
-                  data={heatMapData || []}
-                  fill="#82ca9d"
-                  shape="rectangle"
-                />
-              </ScatterChart>
+                          yScale={(value: number) => {
+                            const data = heatMapData || [];
+                            if (data.length === 0) return 0;
+                            const yMin = Math.min(...data.map((d) => d.y));
+                            const yMax = Math.max(...data.map((d) => d.y));
+                            const chartHeight = chartDimensions.height - 40;
+                            return chartHeight - ((value - yMin) / (yMax - yMin || 1)) * chartHeight;
+                          }}
+                          xDomain={[
+                            Math.min(...(heatMapData || []).map((d) => d.x)),
+                            Math.max(...(heatMapData || []).map((d) => d.x)),
+                          ]}
+                          yDomain={[
+                            Math.min(...(heatMapData || []).map((d) => d.y)),
+                            Math.max(...(heatMapData || []).map((d) => d.y)),
+                          ]}
+                          cellGap={2}
+                        />
+                      ))}
+                    </Scatter>
+                  </ScatterChart>
+                </ResponsiveContainer>
+              </div>
             )}
           </ResponsiveContainer>
         </Paper>
