@@ -10,6 +10,7 @@ import { validateApiKey } from './middleware/auth';
 import apiKeys from './routes/apiKeys';
 import metrics from './routes/metrics';
 import proxy from './routes/proxy';
+import serverStats from './routes/serverStats';
 import config from './config';
 import './utils/passport';
 
@@ -42,6 +43,7 @@ app.use(passport.session());
 // Routes
 app.use('/api/api-keys', apiKeys);
 app.use('/api/metrics', metrics);
+app.use('/api/server-stats', serverStats);
 app.use('/v1', (req, res, next) => {
   if (process.env.SUPPRESS_CONSOLE !== 'true') {
     console.log('\n=== INCOMING REQUEST ===');

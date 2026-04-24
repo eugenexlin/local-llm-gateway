@@ -1,11 +1,10 @@
 import { useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 function AuthCallback() {
   const [searchParams] = useSearchParams();
   const { handleOAuthLogin } = useAuth();
-  const navigate = useNavigate();
   const hasNavigated = useRef(false);
 
   useEffect(() => {

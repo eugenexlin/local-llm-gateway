@@ -172,7 +172,6 @@ export function roundToSecond(date: Date): Date {
  */
 export function isUTC(date: Date): boolean {
   const utcString = date.toISOString();
-  const localString = date.toString();
   const dateObj = new Date(utcString);
   return dateObj.getTime() === date.getTime();
 }

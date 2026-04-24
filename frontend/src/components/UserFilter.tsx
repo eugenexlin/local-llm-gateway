@@ -143,11 +143,8 @@ const UserFilter: React.FC<UserFilterProps> = ({
       }
     : null;
 
-  const selectedUser = users.find((u) => u.id === selectedUserId);
-
   const currentUserInUsers = users.some((u) => u.id === currentUserOption?.id);
 
-  const isMultipleSelected = selectedUserIds.length > 1;
   const isAllSelected = selectedUserIds.includes("all");
   const showApiKeyFilter =
     selectedUserIds.length === 1 &&

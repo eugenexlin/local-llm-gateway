@@ -1,16 +1,18 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import Dashboard from "./pages/Dashboard";
 import APIKeys from "./pages/APIKeys";
+import ServerStats from "./pages/ServerStats";
 import Login from "./pages/Login";
 import AuthCallback from "./pages/AuthCallback";
+import MainLayout from "./components/MainLayout";
 
 interface PrivateRouteProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 interface PublicRouteProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 function PrivateRoute({ children }: PrivateRouteProps) {
@@ -24,7 +26,7 @@ function PrivateRoute({ children }: PrivateRouteProps) {
     );
   }
 
-  return user ? children : <Navigate to="/login" replace />;
+  return user ? (children || <Outlet />) : <Navigate to="/login" replace />;
 }
 
 function PublicRoute({ children }: PublicRouteProps) {
@@ -42,7 +44,7 @@ function PublicRoute({ children }: PublicRouteProps) {
 }
 
 function RootRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { loading } = useAuth();
 
   if (loading) {
     return (
@@ -91,22 +93,19 @@ function App() {
             }
           />
           <Route
-            path="/dashboard"
+            path="/"
             element={
               <PrivateRoute>
-                <Dashboard />
+                <MainLayout>
+                  <Outlet />
+                </MainLayout>
               </PrivateRoute>
             }
-          />
-          <Route
-            path="/api-keys"
-            element={
-              <PrivateRoute>
-                <APIKeys />
-              </PrivateRoute>
-            }
-          />
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          >
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/api-keys" element={<APIKeys />} />
+            <Route path="/server-stats" element={<ServerStats />} />
+          </Route>
           <Route path="*" element={<NotFoundRoute />} />
         </Routes>
       </AuthProvider>
@@ -115,4 +114,3 @@ function App() {
 }
 
 export default App;
-

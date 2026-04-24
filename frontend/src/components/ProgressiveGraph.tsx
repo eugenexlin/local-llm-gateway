@@ -52,15 +52,15 @@ const USER_COLORS = [
   "#5e35b1",
 ];
 
-function getUserColor(userId: string, index: number): string {
+function getUserColor(_userId: string, index: number): string {
   return USER_COLORS[index % USER_COLORS.length];
 }
 
 function getUserLabel(
   userId: string,
-  userOptions: { id: string; name?: string; email?: string }[],
+  _userOptions: { id: string; name?: string; email?: string }[],
 ): string {
-  const user = userOptions.find((u) => u.id === userId);
+  const user = _userOptions.find((u: { id: string; name?: string; email?: string }) => u.id === userId);
   return user?.name || user?.email || userId.substring(0, 8);
 }
 
@@ -71,7 +71,7 @@ interface TransformedDataPoint {
 
 function transformUserGraphData(
   userGraphData: UserGraphData,
-  userOptions: { id: string; name?: string; email?: string }[],
+  _userOptions: { id: string; name?: string; email?: string }[],
 ): { transformedData: TransformedDataPoint[]; userKeys: string[] } {
   const users = Object.keys(userGraphData);
   if (users.length === 0) {
@@ -142,7 +142,7 @@ interface CustomGridProps {
 }
 
 const CustomVerticalGrid: React.FC<CustomGridProps> = ({
-  tickSpacing,
+  tickSpacing: _tickSpacing,
   dataLength,
 }) => {
   if (dataLength <= 1) return null;
@@ -374,7 +374,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                   tick={{ fontSize: 12 }}
                   niceTicks="auto"
                   interval={dataPointsPerTick}
-                  tickFormatter={(value, index) =>
+                  tickFormatter={(value, _index) =>
                     formatXAxisTimestamp(value, totalSecondsPerTick)
                   }
                   domain={[
@@ -495,7 +495,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                     tick={{ fontSize: 12 }}
                     niceTicks="auto"
                     interval={dataPointsPerTick}
-                    tickFormatter={(value, index) =>
+tickFormatter={(value, _index) =>
                       formatXAxisTimestamp(value, totalSecondsPerTick)
                     }
                     domain={[

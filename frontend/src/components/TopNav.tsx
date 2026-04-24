@@ -13,6 +13,7 @@ import {
 import MenuIcon from "@mui/icons-material/Menu";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import KeyIcon from "@mui/icons-material/Key";
+import MonitorHeartIcon from "@mui/icons-material/MonitorHeart";
 import LogoutIcon from "@mui/icons-material/Logout";
 
 const TopNav: React.FC<{ onMenuClick: () => void }> = ({ onMenuClick }) => {
@@ -113,6 +114,13 @@ const TopNav: React.FC<{ onMenuClick: () => void }> = ({ onMenuClick }) => {
             sx={{ display: { xs: "none", sm: "inline-flex" } }}
           >
             <KeyIcon />
+          </IconButton>
+          <IconButton
+            color={isActive("/server-stats") ? "primary" : "inherit"}
+            onClick={() => navigateTo("/server-stats")}
+            sx={{ display: { xs: "none", sm: "inline-flex" } }}
+          >
+            <MonitorHeartIcon />
           </IconButton>
 
           <IconButton

@@ -12,6 +12,7 @@ import {
 } from "@mui/material";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import KeyIcon from "@mui/icons-material/Key";
+import MonitorHeartIcon from "@mui/icons-material/MonitorHeart";
 import { useNavigate, useLocation } from "react-router-dom";
 import TopNav from "./TopNav";
 
@@ -33,6 +34,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const menuItems = [
     { text: "Dashboard", icon: <DashboardIcon />, path: "/dashboard" },
     { text: "API Keys", icon: <KeyIcon />, path: "/api-keys" },
+    { text: "Server Stats", icon: <MonitorHeartIcon />, path: "/server-stats" },
   ];
 
   const drawer = (

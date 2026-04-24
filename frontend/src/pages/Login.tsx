@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { User, Loader2 } from "lucide-react";
+import { User } from "lucide-react";
 import {
   Box,
   Button,

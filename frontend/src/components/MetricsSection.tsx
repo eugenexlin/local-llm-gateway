@@ -71,11 +71,7 @@ const MetricsSection: React.FC<MetricsSectionProps> = ({
         {cards.map((card) => (
           <Grid
             key={card.key}
-            item
-            xs={12}
-            sm={6}
-            md={4}
-            lg={2.4}
+            size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}
             sx={{
               mb: 0.4,
               minWidth: 0,

@@ -25,6 +25,7 @@ import {
   setCacheEnabled,
   writeCache,
   mergeCachedData,
+  clearCache,
 } from "../utils/dataCache";
 import { useAuth } from "../context/AuthContext";
 import type {
@@ -279,7 +280,7 @@ const DashboardStats: React.FC = () => {
               setLoadingProgress(progress);
             }
           } catch (error) {
-            if (error.name === "AbortError") {
+            if ((error as Error).name === "AbortError") {
               console.log("Request cancelled, stopping fetch");
               return;
             }
@@ -292,7 +293,7 @@ const DashboardStats: React.FC = () => {
           onProgress(allData, true);
         }
       } catch (error) {
-        if (error.name !== "AbortError") {
+        if ((error as Error).name !== "AbortError") {
           console.error("Error fetching timestamp template:", error);
         }
       }
@@ -433,7 +434,7 @@ const DashboardStats: React.FC = () => {
           }
           return null;
         } catch (error) {
-          if (error.name === "AbortError") {
+          if ((error as Error).name === "AbortError") {
             return null;
           }
           console.error(

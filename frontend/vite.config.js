@@ -11,11 +11,7 @@ export default defineConfig({
     host: true,
     strictPort: true,
      proxy: {
-        '/api/api-keys': {
-          target: processEnv.BACKEND_BASE_URL || 'http://localhost:3000',
-          changeOrigin: true
-        },
-        '/api/metrics': {
+        '/api/': {
           target: processEnv.BACKEND_BASE_URL || 'http://localhost:3000',
           changeOrigin: true
         },

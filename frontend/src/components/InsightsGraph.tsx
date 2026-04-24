@@ -579,7 +579,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
               >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
-                  type={isDateTimeAxis(config.xAxis) ? "time" : "number"}
+                  type={isDateTimeAxis(config.xAxis) ? ("time" as any) : "number"}
                   dataKey={getXDataKey(config.xAxis)}
                   name={getAxisLabel(config.xAxis)}
                   label={{

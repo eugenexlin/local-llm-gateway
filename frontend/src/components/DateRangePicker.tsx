@@ -7,7 +7,6 @@ import {
   FormControl,
   InputLabel,
   Select,
-  Typography,
 } from "@mui/material";
 import { calculateOptimalGranularitySeconds } from "../utils/granularity";
 import type { GranularitySeconds } from "../types/metrics";
