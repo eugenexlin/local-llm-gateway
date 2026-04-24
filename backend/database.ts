@@ -311,6 +311,16 @@ export function permanentlyDeleteApiKey(id: string): void {
   saveDatabase();
 }
 
+export function updateApiKeyName(id: string, name: string): void {
+  db!.run('UPDATE api_keys SET name = ? WHERE id = ?', [name, id]);
+  saveDatabase();
+}
+
+export function updateApiKeyDescription(id: string, description: string | null): void {
+  db!.run('UPDATE api_keys SET description = ? WHERE id = ?', [description, id]);
+  saveDatabase();
+}
+
 export function findUserByEmail(email: string): User | null {
   const result = db!.exec('SELECT id, email, name, oauth_id, oauth_provider, created_at FROM users WHERE LOWER(email) = LOWER(?)', [email]);
   if (result.length === 0 || result[0].values.length === 0) return null;
@@ -677,129 +687,20 @@ export function getUsageTrends(startDate: string, endDate: string): TrendsDataPo
   });
 }
 
-export function getLifetimeMetrics(userId?: string | string[], apiKeyId?: string): LifetimeMetrics {
-  let query = `
-    SELECT 
-      COUNT(*) as request_count,
-      SUM(prompt_tokens) as total_input_tokens,
-      SUM(completion_tokens) as total_output_tokens,
-      SUM(cache_creation_input_tokens) as cache_creation_tokens,
-      SUM(cache_read_input_tokens) as cache_read_tokens,
-      MIN(timestamp) as first_request,
-      MAX(timestamp) as last_request
-    FROM usage_logs
-  `;
-  
-  const params: (string | number)[] = [];
-  
-  if (userId) {
-    query += ` JOIN api_keys ON usage_logs.api_key_id = api_keys.id`;
-  }
-  
-  if (userId && apiKeyId) {
-    const userIds = Array.isArray(userId) ? userId : [userId];
-    if (userIds.length === 1) {
-      query += ` WHERE api_keys.user_id = ? AND api_keys.id = ?`;
-      params.push(userIds[0], apiKeyId);
-    } else {
-      const placeholders = userIds.map(() => '?').join(', ');
-      query += ` WHERE api_keys.user_id IN (${placeholders}) AND api_keys.id = ?`;
-      params.push(...userIds, apiKeyId);
-    }
-  } else if (userId) {
-    const userIds = Array.isArray(userId) ? userId : [userId];
-    if (userIds.length === 1) {
-      query += ` WHERE api_keys.user_id = ?`;
-      params.push(userIds[0]);
-    } else {
-      const placeholders = userIds.map(() => '?').join(', ');
-      query += ` WHERE api_keys.user_id IN (${placeholders})`;
-      params.push(...userIds);
-    }
-  }
-  
-  const result = db!.exec(query, params);
-  
-  if (result.length === 0 || result[0].values.length === 0) {
-    return {
-      total_tokens: 0,
-      total_input_tokens: 0,
-      total_output_tokens: 0,
-      tokens_per_sec: 0,
-      input_tokens_per_sec: 0,
-      output_tokens_per_sec: 0,
-      request_count: 0,
-      cache_creation_tokens: 0,
-      cache_read_tokens: 0
-    };
-  }
-  
-  const row = result[0].values[0] as (string | number | null)[];
-  const requestCount: number = Number(row[0] || 0);
-  const totalInputTokens: number = Number(row[1] || 0);
-  const totalOutputTokens: number = Number(row[2] || 0);
-  const firstRequest: string | null = row[5]?.toString() || null;
-  const lastRequest: string | null = row[6]?.toString() || null;
-  
-  // Calculate tokens_per_sec using actual duration from usage logs (hardware throughput)
-  let durationWhere = '';
-  if (userId && apiKeyId) {
-    const userIds = Array.isArray(userId) ? userId : [userId];
-    if (userIds.length === 1) {
-      durationWhere = 'WHERE api_keys.user_id = ? AND api_keys.id = ?';
-    } else {
-      const placeholders = userIds.map(() => '?').join(', ');
-      durationWhere = `WHERE api_keys.user_id IN (${placeholders}) AND api_keys.id = ?`;
-    }
-  } else if (userId) {
-    const userIds = Array.isArray(userId) ? userId : [userId];
-    if (userIds.length === 1) {
-      durationWhere = 'WHERE api_keys.user_id = ?';
-    } else {
-      const placeholders = userIds.map(() => '?').join(', ');
-      durationWhere = `WHERE api_keys.user_id IN (${placeholders})`;
-    }
-  }
-  
-  const durationParams = [...params];
-  const durationResult = db!.exec(`
-    SELECT SUM(duration_ms) as total_duration_ms
-    FROM usage_logs
-    ${userId ? 'JOIN api_keys ON usage_logs.api_key_id = api_keys.id' : ''}
-    ${durationWhere}
-  `, durationParams);
-  
-  const totalDurationMs = durationResult.length > 0 && durationResult[0].values.length > 0 
-    ? Number(durationResult[0].values[0][0] || 0) 
-    : 0;
-  
-  let tokensPerSec = 0;
-  let inputTokensPerSec = 0;
-  let outputTokensPerSec = 0;
-  if (totalDurationMs > 0) {
-    tokensPerSec = (totalInputTokens + totalOutputTokens) * 1000 / totalDurationMs;
-    inputTokensPerSec = totalInputTokens * 1000 / totalDurationMs;
-    outputTokensPerSec = totalOutputTokens * 1000 / totalDurationMs;
-  }
-  
-  return {
-    total_tokens: totalInputTokens + totalOutputTokens,
-    total_input_tokens: totalInputTokens,
-    total_output_tokens: totalOutputTokens,
-    tokens_per_sec: Math.round(tokensPerSec * 100) / 100,
-    input_tokens_per_sec: Math.round(inputTokensPerSec * 100) / 100,
-    output_tokens_per_sec: Math.round(outputTokensPerSec * 100) / 100,
-    request_count: requestCount,
-    cache_creation_tokens: Number(row[3] || 0),
-    cache_read_tokens: Number(row[4] || 0)
-  };
+interface _AggregatedMetricsResult {
+  requestCount: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  totalDurationMs: number;
 }
 
-export function getRangeMetrics(startDate: string, endDate: string, userId?: string | string[], apiKeyId?: string): RangeMetrics {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  const durationSeconds = (end.getTime() - start.getTime()) / 1000 + 1;
-  
+function _buildAggregatedMetrics(
+  userId?: string | string[],
+  apiKeyId?: string,
+  dateRange?: [string, string],
+): _AggregatedMetricsResult {
   let query = `
     SELECT 
       COUNT(*) as request_count,
@@ -809,106 +710,136 @@ export function getRangeMetrics(startDate: string, endDate: string, userId?: str
       SUM(cache_read_input_tokens) as cache_read_tokens
     FROM usage_logs
   `;
-  
-  const params: (string | number)[] = [];
-  
+
   if (userId) {
     query += ` JOIN api_keys ON usage_logs.api_key_id = api_keys.id`;
   }
-  
-  query += ` WHERE timestamp >= ? AND timestamp <= ?`;
-  params.push(startDate, endDate);
-  
+
+  const conditions: string[] = [];
+  const params: (string | number)[] = [];
+
+  if (dateRange) {
+    conditions.push('timestamp >= ? AND timestamp <= ?');
+    params.push(...dateRange);
+  }
+
   if (userId && apiKeyId) {
     const userIds = Array.isArray(userId) ? userId : [userId];
     if (userIds.length === 1) {
-      query += ` AND api_keys.user_id = ? AND api_keys.id = ?`;
+      conditions.push('api_keys.user_id = ? AND api_keys.id = ?');
       params.push(userIds[0], apiKeyId);
     } else {
       const placeholders = userIds.map(() => '?').join(', ');
-      query += ` AND api_keys.user_id IN (${placeholders}) AND api_keys.id = ?`;
+      conditions.push(`api_keys.user_id IN (${placeholders}) AND api_keys.id = ?`);
       params.push(...userIds, apiKeyId);
     }
   } else if (userId) {
     const userIds = Array.isArray(userId) ? userId : [userId];
     if (userIds.length === 1) {
-      query += ` AND api_keys.user_id = ?`;
+      conditions.push('api_keys.user_id = ?');
       params.push(userIds[0]);
     } else {
       const placeholders = userIds.map(() => '?').join(', ');
-      query += ` AND api_keys.user_id IN (${placeholders})`;
+      conditions.push(`api_keys.user_id IN (${placeholders})`);
       params.push(...userIds);
     }
   }
-  
+
+  if (conditions.length > 0) {
+    query += ' WHERE ' + conditions.join(' AND ');
+  }
+
   const result = db!.exec(query, params);
-  
+
   if (result.length === 0 || result[0].values.length === 0) {
     return {
-      total_tokens: 0,
-      total_input_tokens: 0,
-      total_output_tokens: 0,
-      tokens_per_sec: 0,
-      input_tokens_per_sec: 0,
-      output_tokens_per_sec: 0,
-      request_count: 0,
-      duration_seconds: durationSeconds,
-      cache_creation_tokens: 0,
-      cache_read_tokens: 0
+      requestCount: 0,
+      totalInputTokens: 0,
+      totalOutputTokens: 0,
+      cacheCreationTokens: 0,
+      cacheReadTokens: 0,
+      totalDurationMs: 0,
     };
   }
-  
+
   const row = result[0].values[0] as (string | number | null)[];
-  const requestCount: number = Number(row[0] || 0);
-  const totalInputTokens: number = Number(row[1] || 0);
-  const totalOutputTokens: number = Number(row[2] || 0);
-  const totalTokens = totalInputTokens + totalOutputTokens;
-  
+
   // Calculate tokens_per_sec using actual duration from usage logs (hardware throughput)
-  let durationWhere = '';
-  if (userId && apiKeyId) {
-    const userIds = Array.isArray(userId) ? userId : [userId];
-    if (userIds.length === 1) {
-      durationWhere = 'AND api_keys.user_id = ? AND api_keys.id = ?';
-    } else {
-      const placeholders = userIds.map(() => '?').join(', ');
-      durationWhere = `AND api_keys.user_id IN (${placeholders}) AND api_keys.id = ?`;
-    }
-  } else if (userId) {
-    const userIds = Array.isArray(userId) ? userId : [userId];
-    if (userIds.length === 1) {
-      durationWhere = 'AND api_keys.user_id = ?';
-    } else {
-      const placeholders = userIds.map(() => '?').join(', ');
-      durationWhere = `AND api_keys.user_id IN (${placeholders})`;
-    }
-  }
-  
-  const durationParams: (string | number)[] = [startDate, endDate];
-  if (userId && apiKeyId) {
-    const userIds = Array.isArray(userId) ? userId : [userId];
-    durationParams.push(...userIds, apiKeyId);
-  } else if (userId) {
-    const userIds = Array.isArray(userId) ? userId : [userId];
-    durationParams.push(...userIds);
-  }
-  
-  const durationResult = db!.exec(`
+  let durationQuery = `
     SELECT SUM(duration_ms) as total_duration_ms
     FROM usage_logs
-    ${userId ? 'JOIN api_keys ON usage_logs.api_key_id = api_keys.id' : ''}
-    WHERE timestamp >= ? AND timestamp <= ?
-    ${durationWhere}
-  `, durationParams);
-  
-  const totalDurationMs = durationResult.length > 0 && durationResult[0].values.length > 0 
-    ? Number(durationResult[0].values[0][0] || 0) 
+  `;
+
+  if (userId) {
+    durationQuery += ` JOIN api_keys ON usage_logs.api_key_id = api_keys.id`;
+  }
+
+  const durationConditions: string[] = [];
+  const durationParams: (string | number)[] = [];
+
+  if (dateRange) {
+    durationConditions.push('timestamp >= ? AND timestamp <= ?');
+    durationParams.push(...dateRange);
+  }
+
+  if (userId && apiKeyId) {
+    const userIds = Array.isArray(userId) ? userId : [userId];
+    if (userIds.length === 1) {
+      durationConditions.push('api_keys.user_id = ? AND api_keys.id = ?');
+      durationParams.push(userIds[0], apiKeyId);
+    } else {
+      const placeholders = userIds.map(() => '?').join(', ');
+      durationConditions.push(`api_keys.user_id IN (${placeholders}) AND api_keys.id = ?`);
+      durationParams.push(...userIds, apiKeyId);
+    }
+  } else if (userId) {
+    const userIds = Array.isArray(userId) ? userId : [userId];
+    if (userIds.length === 1) {
+      durationConditions.push('api_keys.user_id = ?');
+      durationParams.push(userIds[0]);
+    } else {
+      const placeholders = userIds.map(() => '?').join(', ');
+      durationConditions.push(`api_keys.user_id IN (${placeholders})`);
+      durationParams.push(...userIds);
+    }
+  }
+
+  if (durationConditions.length > 0) {
+    durationQuery += ' WHERE ' + durationConditions.join(' AND ');
+  }
+
+  const durationResult = db!.exec(durationQuery, durationParams);
+
+  const totalDurationMs = durationResult.length > 0 && durationResult[0].values.length > 0
+    ? Number(durationResult[0].values[0][0] || 0)
     : 0;
-  
-  const tokensPerSec = totalDurationMs > 0 ? (totalTokens * 1000) / totalDurationMs : 0;
-  const inputTokensPerSec = totalDurationMs > 0 ? (totalInputTokens * 1000) / totalDurationMs : 0;
-  const outputTokensPerSec = totalDurationMs > 0 ? (totalOutputTokens * 1000) / totalDurationMs : 0;
-  
+
+  return {
+    requestCount: Number(row[0] || 0),
+    totalInputTokens: Number(row[1] || 0),
+    totalOutputTokens: Number(row[2] || 0),
+    cacheCreationTokens: Number(row[3] || 0),
+    cacheReadTokens: Number(row[4] || 0),
+    totalDurationMs,
+  };
+}
+
+function _buildMetricsFromResult(
+  result: _AggregatedMetricsResult,
+  extraFields: Record<string, number> = {},
+): LifetimeMetrics {
+  const { requestCount, totalInputTokens, totalOutputTokens, totalDurationMs, cacheCreationTokens, cacheReadTokens } = result;
+  const totalTokens = totalInputTokens + totalOutputTokens;
+
+  let tokensPerSec = 0;
+  let inputTokensPerSec = 0;
+  let outputTokensPerSec = 0;
+  if (totalDurationMs > 0) {
+    tokensPerSec = totalTokens * 1000 / totalDurationMs;
+    inputTokensPerSec = totalInputTokens * 1000 / totalDurationMs;
+    outputTokensPerSec = totalOutputTokens * 1000 / totalDurationMs;
+  }
+
   return {
     total_tokens: totalTokens,
     total_input_tokens: totalInputTokens,
@@ -917,10 +848,24 @@ export function getRangeMetrics(startDate: string, endDate: string, userId?: str
     input_tokens_per_sec: Math.round(inputTokensPerSec * 100) / 100,
     output_tokens_per_sec: Math.round(outputTokensPerSec * 100) / 100,
     request_count: requestCount,
-    duration_seconds: durationSeconds,
-    cache_creation_tokens: Number(row[3] || 0),
-    cache_read_tokens: Number(row[4] || 0)
+    cache_creation_tokens: cacheCreationTokens,
+    cache_read_tokens: cacheReadTokens,
+    ...extraFields,
   };
+}
+
+export function getLifetimeMetrics(userId?: string | string[], apiKeyId?: string): LifetimeMetrics {
+  const result = _buildAggregatedMetrics(userId, apiKeyId);
+  return _buildMetricsFromResult(result);
+}
+
+export function getRangeMetrics(startDate: string, endDate: string, userId?: string | string[], apiKeyId?: string): RangeMetrics {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const durationSeconds = (end.getTime() - start.getTime()) / 1000 + 1;
+
+  const result = _buildAggregatedMetrics(userId, apiKeyId, [startDate, endDate]);
+  return _buildMetricsFromResult(result, { duration_seconds: durationSeconds }) as RangeMetrics;
 }
 
 export function getProgressiveData(
@@ -1335,6 +1280,8 @@ export default {
   getApiKeysByUserId,
   deleteApiKey,
   permanentlyDeleteApiKey,
+  updateApiKeyName,
+  updateApiKeyDescription,
   checkApiKeyHasMetrics,
   validateApiKey,
   logUsage,

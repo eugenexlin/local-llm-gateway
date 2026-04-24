@@ -85,6 +85,34 @@ router.get("/", (req: Request, res: Response) => {
   }
 });
 
+// Update API key (name and/or description)
+router.put("/:id", (req: Request<{ id: string }, {}, { name?: string; description?: string }>, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { name, description } = req.body;
+
+    const key = database.getApiKeyById(id);
+    if (!key) {
+      return res.status(404).json({ error: "API key not found" });
+    }
+
+    if (name !== undefined) {
+      database.updateApiKeyName(id, name);
+    }
+    if (description !== undefined) {
+      database.updateApiKeyDescription(id, description || null);
+    }
+
+    const updatedName = name !== undefined ? name : key.name;
+    const updatedDescription = description !== undefined ? description : key.description;
+
+    res.json({ message: "Updated", name: updatedName, description: updatedDescription });
+  } catch (error) {
+    console.error("Error updating API key:", error);
+    res.status(500).json({ error: "Failed to update API key" });
+  }
+});
+
 // Revoke API key
 router.delete("/:id", (req: Request<{ id: string }>, res: Response) => {
   try {

@@ -1,10 +1,13 @@
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, FormEvent, useRef } from "react";
 import {
   Key,
   ContentCopy,
   Delete,
   Add,
   SettingsRemote,
+  Edit,
+  Save,
+  Close,
 } from "@mui/icons-material";
 import { useAuth } from "../context/AuthContext";
 import MainLayout from "../components/MainLayout";
@@ -14,6 +17,7 @@ import {
   DialogContent,
   DialogActions,
   Button,
+  IconButton,
   TextField,
   Typography,
   Box,
@@ -23,6 +27,7 @@ import {
   Chip,
   Checkbox,
   FormControlLabel,
+  TextareaAutosize,
 } from "@mui/material";
 
 interface ApiKey {
@@ -47,14 +52,20 @@ function APIKeys() {
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showRevoked, setShowRevoked] = useState(false);
+  const [editingKeyId, setEditingKeyId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+  const [editingDescription, setEditingDescription] = useState("");
+  const [newKeyDescription, setNewKeyDescription] = useState("");
+  const [saving, setSaving] = useState<string | null>(null);
+  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const CREATED_KEY_TAG = "CREATED_KEY_TAG"
+  const CREATED_KEY_TAG = "CREATED_KEY_TAG";
 
   useEffect(() => {
     if (user?.id) {
       fetchApiKeys();
     }
-  }, [user]); // Removed showRevoked from dependency array to prevent re-fetching
+  }, [user]);
 
   const fetchApiKeys = async () => {
     if (!user?.id) return;
@@ -87,13 +98,18 @@ function APIKeys() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ name: newKeyName, user_id: user.id }),
+        body: JSON.stringify({
+          name: newKeyName,
+          description: newKeyDescription || null,
+          user_id: user.id,
+        }),
       });
 
       if (response.ok) {
         const data = await response.json();
         setApiKeys([{ ...data, api_key: data.api_key }, ...apiKeys]);
         setNewKeyName("");
+        setNewKeyDescription("");
         setShowForm(false);
         setCreatedKey(data.api_key);
         setShowCreatedKeyDialog(true);
@@ -137,10 +153,10 @@ function APIKeys() {
   const copyToClipboard = async (key: string, keyId?: string) => {
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        console.info("saving to clipboard with navigator")
+        console.info("saving to clipboard with navigator");
         await navigator.clipboard.writeText(key);
       } else {
-        console.info("saving to clipboard with textarea")
+        console.info("saving to clipboard with textarea");
         const textarea = document.createElement("textarea");
         textarea.value = key;
         textarea.style.position = "fixed";
@@ -167,6 +183,63 @@ function APIKeys() {
       }
     } catch (error) {
       console.error("Failed to copy:", error);
+    }
+  };
+
+  const handleStartEdit = (key: ApiKey) => {
+    setEditingKeyId(key.id);
+    setEditingName(key.name);
+    setEditingDescription(key.description || "");
+    setTimeout(() => {
+      const nameInput = document.getElementById(`edit-name-${key.id}`);
+      nameInput?.focus();
+    }, 50);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingKeyId(null);
+    setEditingName("");
+    setEditingDescription("");
+  };
+
+  const handleSaveEdit = async (keyId: string) => {
+    if (!editingName.trim()) return;
+    setSaving(keyId);
+    try {
+      const response = await fetch(`/api/api-keys/${keyId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: editingName,
+          description: editingDescription || null,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setApiKeys((prev) =>
+          prev.map((key) =>
+            key.id === keyId
+              ? { ...key, name: data.name, description: data.description }
+              : key,
+          ),
+        );
+        handleCancelEdit();
+      }
+    } catch (error) {
+      console.error("Failed to save:", error);
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const handleEditKeyDown = (e: React.KeyboardEvent, keyId: string) => {
+    if (e.key === "Escape") {
+      handleCancelEdit();
+    } else if (e.key === "Enter" && e.shiftKey) {
+      handleSaveEdit(keyId);
     }
   };
 
@@ -207,10 +280,6 @@ function APIKeys() {
                   }
                   label="Show Revoked"
                 />
-                <Typography
-                  variant="body2"
-                  sx={{ color: "text.secondary" }}
-                ></Typography>
                 <Button
                   onClick={() => setShowForm(true)}
                   variant="contained"
@@ -249,6 +318,22 @@ function APIKeys() {
                   onChange={(e) => setNewKeyName(e.target.value)}
                   placeholder="e.g., Production Key"
                   required
+                  sx={{ mb: 2 }}
+                />
+                <TextField
+                  margin="dense"
+                  id="keyDescription"
+                  label="Description (optional)"
+                  type="text"
+                  fullWidth
+                  variant="outlined"
+                  value={newKeyDescription}
+                  onChange={(e) =>
+                    setNewKeyDescription(e.target.value.slice(0, 512))
+                  }
+                  placeholder="e.g., Main production API key"
+                  inputProps={{ maxLength: 512 }}
+                  helperText={`${newKeyDescription.length}/512`}
                 />
               </DialogContent>
               <DialogActions>
@@ -299,44 +384,194 @@ function APIKeys() {
                   <Box
                     sx={{
                       display: "flex",
-                      alignItems: "center",
+                      alignItems: "flex-start",
                       justifyContent: "space-between",
                       flexWrap: "wrap",
                       gap: 2,
                     }}
                   >
                     <Box sx={{ flex: 1, minWidth: 0 }}>
+                      {/* Header row with name and edit/save/cancel buttons */}
                       <Stack
                         direction="row"
                         spacing={1}
                         alignItems="center"
                         sx={{ mb: 1 }}
                       >
-                        <Typography
-                          variant="body1"
-                          sx={{
-                            fontWeight: 500,
-                            color: "#1976d2",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {key.name}
-                        </Typography>
-                        {!key.is_active && (
-                          <Chip
-                            label="Revoked"
-                            size="small"
-                            sx={{
-                              fontSize: "11px",
-                              bgcolor: "#ffebee",
-                              color: "#c62828",
-                              height: 20,
-                            }}
-                          />
+                        {editingKeyId === key.id ? (
+                          <>
+                            <TextField
+                              id={`edit-name-${key.id}`}
+                              value={editingName}
+                              onChange={(e) =>
+                                setEditingName(e.target.value.slice(0, 100))
+                              }
+                              onKeyDown={(e) =>
+                                handleEditKeyDown(
+                                  e as unknown as React.KeyboardEvent,
+                                  key.id,
+                                )
+                              }
+                              size="small"
+                              fullWidth
+                              variant="outlined"
+                              autoFocus
+                              inputProps={{ maxLength: 100 }}
+                              sx={{ maxWidth: 400 }}
+                            />
+                            <Box
+                              sx={{
+                                flex: 1,
+                              }}
+                            ></Box>
+                            <Stack direction="row" spacing={0.5}>
+                              <IconButton
+                                onClick={() => handleSaveEdit(key.id)}
+                                disabled={
+                                  saving === key.id || !editingName.trim()
+                                }
+                                size="small"
+                                sx={{ p: 0.5 }}
+                                title="Save"
+                              >
+                                {saving === key.id ? (
+                                  <CircularProgress size={16} />
+                                ) : (
+                                  <Save />
+                                )}
+                              </IconButton>
+                              <IconButton
+                                onClick={handleCancelEdit}
+                                size="small"
+                                sx={{ p: 0.5 }}
+                                title="Cancel"
+                              >
+                                <Close />
+                              </IconButton>
+                            </Stack>
+                          </>
+                        ) : (
+                          <>
+                            <Typography
+                              variant="body1"
+                              sx={{
+                                fontWeight: 500,
+                                color: "#1976d2",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                flex: 1,
+                              }}
+                            >
+                              {key.name}
+                            </Typography>
+                            {!key.is_active && (
+                              <Chip
+                                label="Revoked"
+                                size="small"
+                                sx={{
+                                  fontSize: "11px",
+                                  bgcolor: "#ffebee",
+                                  color: "#c62828",
+                                  height: 20,
+                                }}
+                              />
+                            )}
+                            <Button
+                              onClick={() => handleStartEdit(key)}
+                              startIcon={<Edit />}
+                              size="small"
+                              sx={{
+                                minWidth: 0,
+                                p: 0.5,
+                                color: "text.secondary",
+                                "&:hover": {
+                                  color: "text.primary",
+                                  bgcolor: "transparent",
+                                },
+                              }}
+                            >
+                              Edit
+                            </Button>
+                          </>
                         )}
                       </Stack>
+
+                      {/* Edit mode: description field */}
+                      {editingKeyId === key.id ? (
+                        <Stack direction="column" spacing={0.5} sx={{ mb: 2 }}>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: "text.secondary",
+                              display: "block",
+                              mb: 0.5,
+                            }}
+                          >
+                            Description
+                          </Typography>
+                          <TextareaAutosize
+                            ref={editTextareaRef}
+                            minRows={1}
+                            maxRows={5}
+                            value={editingDescription}
+                            onChange={(e) =>
+                              setEditingDescription(
+                                e.target.value.slice(0, 512),
+                              )
+                            }
+                            onKeyDown={(e) =>
+                              handleEditKeyDown(
+                                e as unknown as React.KeyboardEvent,
+                                key.id,
+                              )
+                            }
+                            placeholder="Enter description..."
+                            style={{
+                              width: "100%",
+                              resize: "vertical",
+                              padding: "8px",
+                              border: "1px solid #ccc",
+                              borderRadius: 4,
+                              fontFamily: "inherit",
+                              fontSize: "14px",
+                            }}
+                          />
+                          <Stack
+                            direction="row"
+                            justifyContent="space-between"
+                            sx={{ mt: 0.5 }}
+                          >
+                            <Typography
+                              variant="caption"
+                              sx={{ color: "text.secondary" }}
+                            >
+                              Shift+Enter to save · Esc to cancel
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              sx={{ color: "text.secondary" }}
+                            >
+                              {editingDescription.length}/512
+                            </Typography>
+                          </Stack>
+                        </Stack>
+                      ) : (
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: key.description
+                              ? "text.primary"
+                              : "text.secondary",
+                            fontStyle: key.description ? "normal" : "italic",
+                            mb: 1,
+                          }}
+                        >
+                          {key.description || "No description"}
+                        </Typography>
+                      )}
+
+                      {/* Key info row */}
                       <Stack
                         direction="row"
                         spacing={1.5}
@@ -371,6 +606,8 @@ function APIKeys() {
                         sx={{ fontSize: "11px", height: 20 }}
                       />
                     </Box>
+
+                    {/* Action buttons */}
                     <Stack direction="row" spacing={1}>
                       <Button
                         onClick={() =>
@@ -392,13 +629,17 @@ function APIKeys() {
                       </Button>
                       {key.is_active ? (
                         <Button
-                          onClick={() => handleRevokeKey(key.id, key.has_metrics)}
+                          onClick={() =>
+                            handleRevokeKey(key.id, key.has_metrics)
+                          }
                           variant="outlined"
                           size="small"
                           startIcon={<Delete />}
                           sx={{
                             color: key.has_metrics ? "#d32f2f" : "#d32f2f",
-                            borderColor: key.has_metrics ? "#d32f2f" : "#d32f2f",
+                            borderColor: key.has_metrics
+                              ? "#d32f2f"
+                              : "#d32f2f",
                             textTransform: "none",
                             "&:hover": {
                               borderColor: "#c62828",
@@ -410,7 +651,9 @@ function APIKeys() {
                         </Button>
                       ) : (
                         <Button
-                          onClick={() => handleRevokeKey(key.id, key.has_metrics)}
+                          onClick={() =>
+                            handleRevokeKey(key.id, key.has_metrics)
+                          }
                           variant="outlined"
                           size="small"
                           startIcon={<Delete />}

@@ -115,6 +115,55 @@ const HEATMAP_COLOR_STOPS = [
   "#1b5e20",
 ];
 
+interface ChartTooltipProps {
+  timestamp?: string;
+  title?: string;
+  rows: { label: string; value: string }[];
+}
+
+export const ChartTooltip: React.FC<ChartTooltipProps> = ({
+  timestamp,
+  title,
+  rows,
+}) => {
+  const formattedTimestamp = timestamp
+    ? new Date(timestamp).toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : undefined;
+
+  return (
+    <div
+      style={{
+        background: "#fff",
+        padding: "8px 12px",
+        border: "1px solid #e0e0e0",
+        borderRadius: "4px",
+        fontSize: "12px",
+        lineHeight: 1.5,
+      }}
+    >
+      {formattedTimestamp && (
+        <div style={{ color: "#888", fontSize: "11px", marginBottom: "2px" }}>
+          {formattedTimestamp}
+        </div>
+      )}
+      {title && (
+        <div style={{ fontWeight: "bold", marginBottom: "2px" }}>{title}</div>
+      )}
+      {rows.map((row, i) => (
+        <div key={i} style={{ color: "#333" }}>
+          <span style={{ color: "#888" }}>{row.label}: </span>
+          <span>{row.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 function getHeatmapColor(count: number, maxCount: number): string {
   if (maxCount === 0) return HEATMAP_COLOR_STOPS[0];
   const ratio = Math.min(count / maxCount, 1);
@@ -234,7 +283,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const [chartDimensions, setChartDimensions] = useState({ width: 800, height: 400 });
   const [heatmapGrid, setHeatmapGrid] = useState({ gridWidth: 20, gridHeight: 15 });
-  const [localViewMode, setLocalViewMode] = useState<"scatter" | "heatmap">(config.viewMode);
+ 
 
   const userColorMap = useMemo(() => {
     if (!data || !userOptions) return new Map<string, string>();
@@ -393,16 +442,9 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
     mode: "scatter" | "heatmap" | null,
   ) => {
     if (mode === "scatter" || mode === "heatmap") {
-      setLocalViewMode(mode);
       onConfigChange({ ...config, viewMode: mode });
     }
   };
-
-  useEffect(() => {
-    if (localViewMode !== config.viewMode) {
-      setLocalViewMode(config.viewMode);
-    }
-  }, [config.viewMode]);
 
   const handlePointClick = async (point: any) => {
     if (point && point.payload) {
@@ -455,7 +497,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
         )}
 
         <ToggleButtonGroup
-          value={localViewMode}
+          value={config.viewMode}
           onChange={handleViewModeChange}
           size="small"
         >
@@ -519,17 +561,17 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
       )}
 
       {!config.xAxis || !config.yAxis ? (
-        <Paper sx={{ p: 4, textAlign: "center" }}>
+        <Paper sx={{ height: 400, minHeight: 400, p: 4, textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <Typography color="text.secondary">
             Select X and Y axes to visualize usage data
           </Typography>
         </Paper>
       ) : loading ? (
-        <Paper sx={{ p: 4, textAlign: "center" }}>
+        <Paper sx={{ height: 400, minHeight: 400, p: 4, textAlign: "center" }}>
           <CircularProgress />
         </Paper>
       ) : (
-        <Paper sx={{ height: 400 }}>
+        <Paper key={config.viewMode} sx={{ height: 400, minHeight: 400 }}>
           <ResponsiveContainer>
             {config.viewMode === "scatter" ? (
               <ScatterChart
@@ -545,6 +587,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
                     position: "insideBottom",
                     offset: -10,
                   }}
+                  tick={{ fontSize: 12 }}
                   tickFormatter={(value) => formatValue(value as number)}
                 />
                 <YAxis
@@ -556,6 +599,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
                     angle: -90,
                     position: "insideLeft",
                   }}
+                  tick={{ fontSize: 12 }}
                   tickFormatter={(value) => formatValue(value as number)}
                 />
                 <Tooltip
@@ -566,24 +610,20 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
                       const userName =
                         data.user_name || data.user_email || "Unknown";
                       return (
-                        <div
-                          style={{
-                            background: "#fff",
-                            padding: "8px",
-                            border: "1px solid #ccc",
-                            borderRadius: "4px",
-                          }}
-                        >
-                          <p style={{ margin: 0, fontWeight: "bold" }}>
-                            {userName}
-                          </p>
-                          <p style={{ margin: "4px 0 0 0", fontSize: "12px" }}>
-                            X: {formatValue(Number(data[config.xAxis!]))}
-                          </p>
-                          <p style={{ margin: "4px 0 0 0", fontSize: "12px" }}>
-                            Y: {formatValue(Number(data[config.yAxis!]))}
-                          </p>
-                        </div>
+                        <ChartTooltip
+                          timestamp={data.timestamp}
+                          title={userName}
+                          rows={[
+                            {
+                              label: getAxisLabel(config.xAxis),
+                              value: formatValue(Number(data[config.xAxis!])),
+                            },
+                            {
+                              label: getAxisLabel(config.yAxis),
+                              value: formatValue(Number(data[config.yAxis!])),
+                            },
+                          ]}
+                        />
                       );
                     }
                     return null;
@@ -631,6 +671,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
                         position: "insideBottom",
                         offset: -10,
                       }}
+                      tick={{ fontSize: 12 }}
                       tickFormatter={(value) => formatValue(value)}
                     />
                     <YAxis
@@ -649,6 +690,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
                         angle: -90,
                         position: "insideLeft",
                       }}
+                      tick={{ fontSize: 12 }}
                       tickFormatter={(value) => formatValue(value)}
                     />
                     <Tooltip
@@ -656,24 +698,19 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
                         if (active && payload && payload.length) {
                           const point = payload[0].payload as HeatMapDataPoint;
                           return (
-                            <div
-                              style={{
-                                background: "#fff",
-                                padding: "8px",
-                                border: "1px solid #ccc",
-                                borderRadius: "4px",
-                              }}
-                            >
-                              <p style={{ margin: 0, fontWeight: "bold" }}>
-                                Count: {point.count}
-                              </p>
-                              <p style={{ margin: "4px 0 0 0", fontSize: "12px" }}>
-                                X: {formatValue(point.x)}
-                              </p>
-                              <p style={{ margin: "4px 0 0 0", fontSize: "12px" }}>
-                                Y: {formatValue(point.y)}
-                              </p>
-                            </div>
+                            <ChartTooltip
+                              title={`Count: ${point.count}`}
+                              rows={[
+                                {
+                                  label: getAxisLabel(config.xAxis),
+                                  value: formatValue(point.x),
+                                },
+                                {
+                                  label: getAxisLabel(config.yAxis),
+                                  value: formatValue(point.y),
+                                },
+                              ]}
+                            />
                           );
                         }
                         return null;

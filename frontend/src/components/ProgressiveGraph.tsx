@@ -35,6 +35,7 @@ import type {
   BarGrouping,
 } from "../types/metrics";
 import { formatValue } from "../utils/formatValue";
+import { ChartTooltip } from "./InsightsGraph";
 
 export type UserGraphData = Record<string, ProgressiveDataPoint[]>;
 
@@ -389,33 +390,40 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                 />
                 <Tooltip
                   isAnimationActive={false}
-                  formatter={(value: number | undefined, key: string) => {
-                    if (hasMultipleUsers && userKeys.includes(key)) {
-                      const userIndex = userKeys.indexOf(key);
-                      const userId = userOptions[userIndex]?.id || key;
-                      const label = getUserLabel(userId, userOptions);
-                      return [
-                        value !== undefined
-                          ? Math.round(value).toLocaleString()
-                          : "N/A",
-                        label,
-                      ];
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const entry = payload[0];
+                      const timestamp = entry.payload?.timestamp;
+
+                      const rows = payload.map((p) => {
+                        const key = Object.keys(entry.payload || {}).find(
+                          (k) => k !== "timestamp",
+                        );
+                        const userIndex = key ? userKeys.indexOf(key) : -1;
+                        const userId =
+                          userIndex >= 0
+                            ? userOptions[userIndex]?.id
+                            : key;
+                        const label = hasMultipleUsers && userId
+                          ? getUserLabel(userId, userOptions)
+                          : metricLabels[metric];
+                        return {
+                          label,
+                          value:
+                            typeof p.value === "number"
+                              ? Math.round(p.value).toLocaleString()
+                              : "N/A",
+                        };
+                      });
+
+                      return (
+                        <ChartTooltip
+                          timestamp={timestamp}
+                          rows={rows}
+                        />
+                      );
                     }
-                    return [
-                      value !== undefined
-                        ? Math.round(value).toLocaleString()
-                        : "N/A",
-                      metricLabels[metric],
-                    ];
-                  }}
-                  labelFormatter={(label) => {
-                    const date = new Date(label);
-                    return `Date: ${date.toLocaleString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}`;
+                    return null;
                   }}
                 />
                 {hasMultipleUsers ? (
@@ -503,33 +511,40 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                   />
                   <Tooltip
                     isAnimationActive={false}
-                    formatter={(value: number | undefined, key: string) => {
-                      if (hasMultipleUsers && userKeys.includes(key)) {
-                        const userIndex = userKeys.indexOf(key);
-                        const userId = userOptions[userIndex]?.id || key;
-                        const label = getUserLabel(userId, userOptions);
-                        return [
-                          value !== undefined
-                            ? Math.round(value).toLocaleString()
-                            : "0",
-                          label,
-                        ];
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const entry = payload[0];
+                        const timestamp = entry.payload?.timestamp;
+
+                        const rows = payload.map((p) => {
+                          const key = Object.keys(entry.payload || {}).find(
+                            (k) => k !== "timestamp",
+                          );
+                          const userIndex = key ? userKeys.indexOf(key) : -1;
+                          const userId =
+                            userIndex >= 0
+                              ? userOptions[userIndex]?.id
+                              : key;
+                          const label = hasMultipleUsers && userId
+                            ? getUserLabel(userId, userOptions)
+                            : metricLabels[metric];
+                          return {
+                            label,
+                            value:
+                              typeof p.value === "number"
+                                ? Math.round(p.value).toLocaleString()
+                                : "N/A",
+                          };
+                        });
+
+                        return (
+                          <ChartTooltip
+                            timestamp={timestamp}
+                            rows={rows}
+                          />
+                        );
                       }
-                      return [
-                        value !== undefined
-                          ? Math.round(value).toLocaleString()
-                          : "0",
-                        metricLabels[metric],
-                      ];
-                    }}
-                    labelFormatter={(label) => {
-                      const date = new Date(label);
-                      return `Date: ${date.toLocaleString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}`;
+                      return null;
                     }}
                   />
                   {hasMultipleUsers ? (

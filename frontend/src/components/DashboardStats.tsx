@@ -110,8 +110,9 @@ const DashboardStats: React.FC = () => {
           params.append("apiKeyId", selectedApiKeyId);
         }
       }
+      const cacheBust = `&_t=${Date.now()}`;
       const response = await fetch(
-        `/api/metrics/lifetime${params.toString() ? `?${params.toString()}` : ""}`,
+        `/api/metrics/lifetime${params.toString() ? `?${params.toString()}${cacheBust}` : `?_t=${Date.now()}`}`,
         { credentials: "include" },
       );
       if (response.ok) {
@@ -139,7 +140,8 @@ const DashboardStats: React.FC = () => {
           params.append("apiKeyId", selectedApiKeyId);
         }
       }
-      const response = await fetch(`/api/metrics/range?${params.toString()}`, {
+      const cacheBust = `&_t=${Date.now()}`;
+      const response = await fetch(`/api/metrics/range?${params.toString()}${cacheBust}`, {
         credentials: "include",
       });
       if (response.ok) {
