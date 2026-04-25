@@ -242,7 +242,7 @@ async function getCpuInfo(): Promise<CpuInfo> {
   try {
     const currentLoad = await si.currentLoad();
     if (currentLoad && currentLoad.cpus) {
-      const totalLoad = currentLoad.cpus.reduce((sum: number, load: any) => sum + (load.cpu || 0), 0);
+      const totalLoad = currentLoad.cpus.reduce((sum: number, load: any) => sum + (load.load || 0), 0);
       const avgLoad = totalLoad / currentLoad.cpus.length;
 
       for (let i = 0; i < cores.length; i++) {
@@ -282,7 +282,7 @@ function getRamInfo(): RamInfo {
 }
 
 function getDatabaseInfo(): DatabaseInfo {
-  const dbPath = path.join(__dirname, '../', config.databasePath);
+  const dbPath = path.join(__dirname, '../../', config.databasePath);
 
   try {
     const stats = fs.statSync(dbPath);

@@ -179,26 +179,6 @@ const ServerStats: React.FC = () => {
     return `${diff}s ago`;
   };
 
-  if (loading && !stats) {
-    return (
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: 400,
-          gap: 2,
-        }}
-      >
-        <CircularProgress />
-        <Typography variant="body2" color="text.secondary">
-          Loading server stats...
-        </Typography>
-      </Box>
-    );
-  }
-
   if (error && !stats) {
     return (
       <Box sx={{ p: 3, textAlign: "center" }}>
@@ -210,7 +190,35 @@ const ServerStats: React.FC = () => {
     );
   }
 
-  if (!stats) return null;
+  if (!stats) {
+    return (
+      <>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 2,
+          }}
+        >
+          <Typography variant="h5">Server Stats</Typography>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Chip
+              size="small"
+              label="Connecting..."
+              sx={{
+                bgcolor: "warning.light",
+                color: "warning.contrastText",
+                fontWeight: 600,
+                fontSize: "0.75rem",
+              }}
+            />
+            <CircularProgress size={16} />
+          </Box>
+        </Box>
+      </>
+    );
+  }
 
   const cpuUsage = stats.cpu.usage;
   const ramUsage = stats.ram.usedPercent;
@@ -233,12 +241,14 @@ const ServerStats: React.FC = () => {
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Chip
             size="small"
-            label={lastUpdated ? `Updated ${secondsAgo()}` : "Connecting..."}
+            label={lastUpdated ? `Updated ${secondsAgo()}` : loading ? "Connecting..." : "Error"}
             sx={{
-              bgcolor: lastUpdated ? "success.light" : "warning.light",
+              bgcolor: lastUpdated ? "success.light" : loading ? "warning.light" : "error.light",
               color: lastUpdated
                 ? "success.contrastText"
-                : "warning.contrastText",
+                : loading
+                  ? "warning.contrastText"
+                  : "error.contrastText",
               fontWeight: 600,
               fontSize: "0.75rem",
             }}
@@ -296,11 +306,8 @@ const ServerStats: React.FC = () => {
               }}
             />
             <Box
-              sx={{ mt: 1.5, display: "flex", justifyContent: "space-between" }}
+              sx={{ mt: 1.5, display: "flex", justifyContent: "flex-end" }}
             >
-              <Typography variant="caption" color="text.secondary">
-                Load: {stats.cpu.loadAvg[0].toFixed(2)}
-              </Typography>
               <Typography variant="caption" color="text.secondary">
                 {stats.cpu.cores.length} cores
               </Typography>
@@ -481,20 +488,6 @@ const ServerStats: React.FC = () => {
                 {dbSize}
               </Typography>
             </Box>
-            <Typography
-              variant="caption"
-              sx={{
-                display: "block",
-                mb: 1,
-                color: "text.secondary",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                maxWidth: "100%",
-              }}
-            >
-              {stats.database.path}
-            </Typography>
             <LinearProgress
               variant="determinate"
               value={Math.min(
@@ -511,18 +504,6 @@ const ServerStats: React.FC = () => {
                 },
               }}
             />
-            <Box
-              sx={{ mt: 1.5, display: "flex", justifyContent: "space-between" }}
-            >
-              <Typography variant="caption" color="text.secondary">
-                {stats.database.totalRequests.toLocaleString()} requests
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {stats.database.lastModified
-                  ? new Date(stats.database.lastModified).toLocaleDateString()
-                  : "N/A"}
-              </Typography>
-            </Box>
           </StatsCard>
         </Grid>
 
@@ -666,7 +647,7 @@ const ServerStats: React.FC = () => {
         </Grid>
 
         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-          <StatsCard title="Uptime" icon={<PowerSettingsNewIcon />}>
+          <StatsCard title="App Uptime" icon={<PowerSettingsNewIcon />}>
             <Box sx={{ textAlign: "center", mb: 2 }}>
               <Typography
                 variant="h2"
@@ -680,7 +661,7 @@ const ServerStats: React.FC = () => {
                 sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}
               >
                 <Typography variant="body2" color="text.secondary">
-                  CPU Model
+                  CPU
                 </Typography>
                 <Typography
                   variant="body2"
