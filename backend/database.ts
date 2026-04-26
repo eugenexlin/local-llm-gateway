@@ -1,5 +1,4 @@
-import initSqlJs from 'sql.js';
-import fs from 'fs';
+import Database from 'better-sqlite3';
 import path from 'path';
 import config from './config';
 import type { MetricType, GranularitySeconds } from './types/metrics';
@@ -7,8 +6,7 @@ import { roundToGranularity } from './utils/granularity';
 
 const DB_PATH = path.join(__dirname, '../', config.databasePath);
 
-let db: any = null;
-let SQL: any = null;
+let db: Database.Database | null = null;
 let initialized = false;
 
 export interface ApiKey {
@@ -111,31 +109,22 @@ export interface Granularity {
   granularity: 'hourly' | 'daily' | 'weekly' | 'monthly';
 }
 
-export async function init(): Promise<void> {
-  const SQLConstructor = await initSqlJs();
-  SQL = SQLConstructor;
+export function init(): void {
+  db = new Database(DB_PATH);
+  db.pragma('journal_mode = WAL');
+  db.pragma('synchronous = NORMAL');
 
-  // Load existing database or create new one
-  if (fs.existsSync(DB_PATH)) {
-    const buffer = fs.readFileSync(DB_PATH);
-    db = new SQL.Database(buffer);
-  } else {
-    db = new SQL.Database();
-    createSchema();
-    saveDatabase();
-  }
+  createSchema();
 
   console.log('Database initialized');
   initialized = true;
 }
 
-
-
 export function isReady(): boolean {
   return initialized;
 }
 
-export function getDb(): any {
+export function getDb(): Database.Database | null {
   return db;
 }
 
@@ -143,11 +132,12 @@ export function close(): void {
   if (db) {
     db.close();
   }
+  db = null;
   initialized = false;
 }
 
 function createSchema(): void {
-  db!.run(`
+  db!.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       email TEXT UNIQUE NOT NULL,
@@ -158,7 +148,7 @@ function createSchema(): void {
     )
   `);
 
-  db!.run(`
+  db!.exec(`
     CREATE TABLE IF NOT EXISTS api_keys (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -172,7 +162,7 @@ function createSchema(): void {
     )
   `);
 
-  db!.run(`
+  db!.exec(`
     CREATE TABLE IF NOT EXISTS usage_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       api_key_id TEXT NOT NULL,
@@ -188,19 +178,13 @@ function createSchema(): void {
     )
   `);
 
-  db!.run(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
-  db!.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower ON users(LOWER(email))`);
-  db!.run(`CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id)`);
-  db!.run(`CREATE INDEX IF NOT EXISTS idx_api_key_hash ON api_keys(key_hash)`);
-  db!.run(`CREATE INDEX IF NOT EXISTS idx_api_key_id ON usage_logs(api_key_id)`);
-  db!.run(`CREATE INDEX IF NOT EXISTS idx_usage_timestamp ON usage_logs(timestamp)`);
-  db!.run(`CREATE INDEX IF NOT EXISTS idx_usage_api_key ON usage_logs(api_key_id)`);
-}
-
-function saveDatabase(): void {
-  const data = db!.export();
-  const buffer = Buffer.from(data);
-  fs.writeFileSync(DB_PATH, buffer);
+  db!.exec(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
+  db!.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower ON users(LOWER(email))`);
+  db!.exec(`CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id)`);
+  db!.exec(`CREATE INDEX IF NOT EXISTS idx_api_key_hash ON api_keys(key_hash)`);
+  db!.exec(`CREATE INDEX IF NOT EXISTS idx_api_key_id ON usage_logs(api_key_id)`);
+  db!.exec(`CREATE INDEX IF NOT EXISTS idx_usage_timestamp ON usage_logs(timestamp)`);
+  db!.exec(`CREATE INDEX IF NOT EXISTS idx_usage_api_key ON usage_logs(api_key_id)`);
 }
 
 export function createApiKey({ id, name, key_hash, description, user_id }: {
@@ -210,11 +194,16 @@ export function createApiKey({ id, name, key_hash, description, user_id }: {
   description?: string | null;
   user_id?: string | null;
 }): void {
-  db!.run(
-    'INSERT INTO api_keys (id, name, key_hash, description, user_id, created_at, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [id, name, key_hash, description || null, user_id || null, new Date().toISOString(), 1]
-  );
-  saveDatabase();
+  db!.prepare(
+    'INSERT INTO api_keys (id, name, key_hash, description, user_id, created_at, is_active) VALUES (:id, :name, :key_hash, :description, :user_id, :created_at, 1)'
+  ).run({
+    id,
+    name,
+    key_hash,
+    description: description || null,
+    user_id: user_id || null,
+    created_at: new Date().toISOString(),
+  });
 }
 
 export function getApiKeys(): Array<{
@@ -224,19 +213,7 @@ export function getApiKeys(): Array<{
   created_at: string;
   user_id: string | null;
 }> {
-  const result = db!.exec('SELECT id, name, description, created_at, user_id FROM api_keys WHERE is_active = 1 ORDER BY created_at DESC');
-  if (result.length === 0) return [];
-  
-  const columns = result[0].columns as string[];
-  const values = result[0].values as (string | number | null)[][];
-  
-  return values.map(row => {
-    const obj: any = {};
-    columns.forEach((col, i) => {
-      obj[col] = row[i];
-    });
-    return obj;
-  });
+  return db!.prepare('SELECT id, name, description, created_at, user_id FROM api_keys WHERE is_active = 1 ORDER BY created_at DESC').all() as any;
 }
 
 export function getApiKeyById(id: string): {
@@ -248,19 +225,7 @@ export function getApiKeyById(id: string): {
   is_active: number;
   revoked_at: string | null;
 } | null {
-  const result = db!.exec('SELECT id, name, description, created_at, user_id, is_active, revoked_at FROM api_keys WHERE id = ?', [id]);
-  if (result.length === 0 || result[0].values.length === 0) return null;
-  
-  const columns = result[0].columns as string[];
-  const values = result[0].values as (string | number | null)[][];
-  const row = values[0];
-  
-  const obj: any = {};
-  columns.forEach((col, i) => {
-    obj[col] = row[i];
-  });
-  
-  return obj;
+  return db!.prepare('SELECT id, name, description, created_at, user_id, is_active, revoked_at FROM api_keys WHERE id = ?').get(id) as any;
 }
 
 export function getApiKeysByUserId(userId: string, showRevoked = false): Array<{
@@ -277,71 +242,35 @@ export function getApiKeysByUserId(userId: string, showRevoked = false): Array<{
     : 'is_active = 1 AND user_id = ?';
   const params = showRevoked ? [userId] : [1, userId];
   
-  const result = db!.exec(`SELECT id, name, description, created_at, user_id, is_active, revoked_at FROM api_keys WHERE ${whereClause} ORDER BY created_at DESC`, params);
-  if (result.length === 0) return [];
-  
-  const columns = result[0].columns as string[];
-  const values = result[0].values as (string | number | null)[][];
-  
-  return values.map(row => {
-    const obj: any = {};
-    columns.forEach((col, i) => {
-      obj[col] = row[i];
-    });
-    return obj;
-  });
+  return db!.prepare(`SELECT id, name, description, created_at, user_id, is_active, revoked_at FROM api_keys WHERE ${whereClause} ORDER BY created_at DESC`).all(params) as any;
 }
 
 export function checkApiKeyHasMetrics(apiKeyId: string): boolean {
-  const result = db!.exec(
-    'SELECT 1 FROM usage_logs WHERE api_key_id = ? LIMIT 1',
-    [apiKeyId]
-  );
-  return result.length > 0 && result[0].values.length > 0;
+  const result = db!.prepare(
+    'SELECT 1 FROM usage_logs WHERE api_key_id = ? LIMIT 1'
+  ).get(apiKeyId);
+  return result !== undefined;
 }
 
 export function deleteApiKey(id: string): boolean {
-  db!.run('UPDATE api_keys SET is_active = 0, revoked_at = ? WHERE id = ?', [new Date().toISOString(), id]);
-  saveDatabase();
+  db!.prepare('UPDATE api_keys SET is_active = 0, revoked_at = ? WHERE id = ?').run(new Date().toISOString(), id);
   return true;
 }
 
 export function permanentlyDeleteApiKey(id: string): void {
-  db!.run('DELETE FROM api_keys WHERE id = ?', [id]);
-  saveDatabase();
+  db!.prepare('DELETE FROM api_keys WHERE id = ?').run(id);
 }
 
 export function updateApiKeyName(id: string, name: string): void {
-  db!.run('UPDATE api_keys SET name = ? WHERE id = ?', [name, id]);
-  saveDatabase();
+  db!.prepare('UPDATE api_keys SET name = ? WHERE id = ?').run(name, id);
 }
 
 export function updateApiKeyDescription(id: string, description: string | null): void {
-  db!.run('UPDATE api_keys SET description = ? WHERE id = ?', [description, id]);
-  saveDatabase();
+  db!.prepare('UPDATE api_keys SET description = ? WHERE id = ?').run(description, id);
 }
 
 export function findUserByEmail(email: string): User | null {
-  const result = db!.exec('SELECT id, email, name, oauth_id, oauth_provider, created_at FROM users WHERE LOWER(email) = LOWER(?)', [email]);
-  if (result.length === 0 || result[0].values.length === 0) return null;
-  
-  const columns = result[0].columns as string[];
-  const values = result[0].values as (string | number | null)[][];
-  const row = values[0];
-  
-  const obj: any = {};
-  columns.forEach((col, i) => {
-    obj[col] = row[i];
-  });
-  
-  return {
-    id: obj.id,
-    email: obj.email,
-    name: obj.name || '',
-    oauth_id: obj.oauth_id,
-    oauth_provider: obj.oauth_provider,
-    created_at: obj.created_at,
-  };
+  return db!.prepare('SELECT id, email, name, oauth_id, oauth_provider, created_at FROM users WHERE LOWER(email) = LOWER(?)').get(email) as any;
 }
 
 export function createUser({ id, email, name, oauth_id, oauth_provider }: {
@@ -352,64 +281,30 @@ export function createUser({ id, email, name, oauth_id, oauth_provider }: {
   oauth_provider: string | null;
 }): User {
   const normalizedEmail = email.toLowerCase().trim();
-  db!.run(
-    'INSERT INTO users (id, email, name, oauth_id, oauth_provider, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-    [id, normalizedEmail, name, oauth_id || null, oauth_provider || null, new Date().toISOString()]
-  );
-  saveDatabase();
+  db!.prepare(
+    'INSERT INTO users (id, email, name, oauth_id, oauth_provider, created_at) VALUES (:id, :email, :name, :oauth_id, :oauth_provider, :created_at)'
+  ).run({
+    id,
+    email: normalizedEmail,
+    name,
+    oauth_id: oauth_id || null,
+    oauth_provider: oauth_provider || null,
+    created_at: new Date().toISOString(),
+  });
   
   return { id, email: normalizedEmail, name, oauth_id, oauth_provider, created_at: new Date().toISOString() };
 }
 
 export function updateUserOauth(id: string, oauth_id: string, oauth_provider: string): void {
-  db!.run('UPDATE users SET oauth_id = ?, oauth_provider = ? WHERE id = ?', [oauth_id, oauth_provider, id]);
-  saveDatabase();
+  db!.prepare('UPDATE users SET oauth_id = ?, oauth_provider = ? WHERE id = ?').run(oauth_id, oauth_provider, id);
 }
 
 export function findUserByOauthId(oauth_id: string): User | null {
-  const result = db!.exec('SELECT id, email, name, oauth_id, oauth_provider, created_at FROM users WHERE oauth_id = ?', [oauth_id]);
-  if (result.length === 0 || result[0].values.length === 0) return null;
-  
-  const columns = result[0].columns as string[];
-  const values = result[0].values as (string | number | null)[][];
-  const row = values[0];
-  
-  const obj: any = {};
-  columns.forEach((col, i) => {
-    obj[col] = row[i];
-  });
-  
-  return {
-    id: obj.id,
-    email: obj.email,
-    name: obj.name || '',
-    oauth_id: obj.oauth_id,
-    oauth_provider: obj.oauth_provider,
-    created_at: obj.created_at,
-  };
+  return db!.prepare('SELECT id, email, name, oauth_id, oauth_provider, created_at FROM users WHERE oauth_id = ?').get(oauth_id) as any;
 }
 
 export function findUserById(id: string): User | null {
-  const result = db!.exec('SELECT id, email, name, oauth_id, oauth_provider, created_at FROM users WHERE id = ?', [id]);
-  if (result.length === 0 || result[0].values.length === 0) return null;
-  
-  const columns = result[0].columns as string[];
-  const values = result[0].values as (string | number | null)[][];
-  const row = values[0];
-  
-  const obj: any = {};
-  columns.forEach((col, i) => {
-    obj[col] = row[i];
-  });
-  
-  return {
-    id: obj.id,
-    email: obj.email,
-    name: obj.name || '',
-    oauth_id: obj.oauth_id,
-    oauth_provider: obj.oauth_provider,
-    created_at: obj.created_at,
-  };
+  return db!.prepare('SELECT id, email, name, oauth_id, oauth_provider, created_at FROM users WHERE id = ?').get(id) as any;
 }
 
 export function getAllUsers(): Array<{
@@ -417,23 +312,12 @@ export function getAllUsers(): Array<{
   email: string;
   name: string;
 }> {
-  const result = db!.exec('SELECT id, email, name FROM users ORDER BY name ASC');
-  if (result.length === 0) return [];
-  
-  const columns = result[0].columns as string[];
-  const values = result[0].values as (string | number | null)[][];
-  
-  return values.map(row => {
-    const obj: any = {};
-    columns.forEach((col, i) => {
-      obj[col] = row[i];
-    });
-    return {
-      id: obj.id,
-      email: obj.email,
-      name: obj.name || obj.email,
-    };
-  });
+  const results = db!.prepare('SELECT id, email, name FROM users ORDER BY name ASC').all() as any[];
+  return results.map((row: any) => ({
+    id: row.id,
+    email: row.email,
+    name: row.name || row.email,
+  }));
 }
 
 export function getApiKeysByUserIdFilter(userId: string, showRevoked = false): Array<{
@@ -446,32 +330,13 @@ export function getApiKeysByUserIdFilter(userId: string, showRevoked = false): A
   let params: (string | number)[] = [userId];
   
   if (showRevoked) {
-    // Return all keys for the user
     query = 'SELECT id, name, is_active, revoked_at FROM api_keys WHERE user_id = ? ORDER BY name ASC';
   } else {
-    // Return only active keys
     query = 'SELECT id, name, is_active, revoked_at FROM api_keys WHERE user_id = ? AND is_active = 1 ORDER BY name ASC';
     params = [userId];
   }
   
-  const result = db!.exec(query, params);
-  if (result.length === 0) return [];
-  
-  const columns = result[0].columns as string[];
-  const values = result[0].values as (string | number | null)[][];
-  
-  return values.map(row => {
-    const obj: any = {};
-    columns.forEach((col, i) => {
-      obj[col] = row[i];
-    });
-    return {
-      id: obj.id,
-      name: obj.name,
-      is_active: obj.is_active,
-      revoked_at: obj.revoked_at,
-    };
-  });
+  return db!.prepare(query).all(params) as any;
 }
 
 export function validateApiKey(keyHash: string): {
@@ -481,24 +346,9 @@ export function validateApiKey(keyHash: string): {
   is_active: number;
   last_used_at: string | null;
 } | null {
-  const result = db!.exec(
-    'SELECT id, name, created_at, is_active, last_used_at FROM api_keys WHERE key_hash = ? AND is_active = 1',
-    [keyHash]
-  );
-  
-  if (result.length === 0 || result[0].values.length === 0) {
-    return null;
-  }
-  
-  const row = result[0].values[0] as (string | number | null)[];
-  const columns = result[0].columns as string[];
-  
-  const keyData: any = {};
-  columns.forEach((col, i) => {
-    keyData[col] = row[i];
-  });
-  
-  return keyData;
+  return db!.prepare(
+    'SELECT id, name, created_at, is_active, last_used_at FROM api_keys WHERE key_hash = ? AND is_active = 1'
+  ).get(keyHash) as any;
 }
 
 export function logUsage({ 
@@ -522,53 +372,45 @@ export function logUsage({
   cache_creation_input_tokens?: number;
   cache_read_input_tokens?: number;
 }): void {
-  db!.run(
-    'INSERT INTO usage_logs (api_key_id, prompt_tokens, completion_tokens, total_tokens, duration_ms, timestamp, idempotency_key, cache_creation_input_tokens, cache_read_input_tokens) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [api_key_id, prompt_tokens, completion_tokens, total_tokens, duration_ms, timestamp, idempotency_key || null, cache_creation_input_tokens, cache_read_input_tokens]
-  );
-  saveDatabase();
+  db!.prepare(
+    'INSERT INTO usage_logs (api_key_id, prompt_tokens, completion_tokens, total_tokens, duration_ms, timestamp, idempotency_key, cache_creation_input_tokens, cache_read_input_tokens) VALUES (:api_key_id, :prompt_tokens, :completion_tokens, :total_tokens, :duration_ms, :timestamp, :idempotency_key, :cache_creation_input_tokens, :cache_read_input_tokens)'
+  ).run({
+    api_key_id,
+    prompt_tokens,
+    completion_tokens,
+    total_tokens,
+    duration_ms,
+    timestamp,
+    idempotency_key: idempotency_key || null,
+    cache_creation_input_tokens,
+    cache_read_input_tokens,
+  });
 }
 
 export function incrementApiKeyStats(apiKeyId: string): void {
-  db!.run(
-    'UPDATE api_keys SET last_used_at = ? WHERE id = ?',
-    [new Date().toISOString(), apiKeyId]
-  );
-  saveDatabase();
+  db!.prepare(
+    'UPDATE api_keys SET last_used_at = ? WHERE id = ?'
+  ).run(new Date().toISOString(), apiKeyId);
 }
 
 export function getUsageLogs({ limit = 100, offset = 0 }: {
   limit?: number;
   offset?: number;
 }): UsageLog[] {
-  const result = db!.exec(
+  return db!.prepare(
     `SELECT ul.id, ul.api_key_id, ul.prompt_tokens, ul.completion_tokens, ul.total_tokens, ul.duration_ms, ul.timestamp, ak.name as api_key_name, ul.idempotency_key, ul.cache_creation_input_tokens, ul.cache_read_input_tokens
      FROM usage_logs ul 
      JOIN api_keys ak ON ul.api_key_id = ak.id 
      ORDER BY ul.timestamp DESC 
-     LIMIT ? OFFSET ?`,
-    [limit, offset]
-  );
-  
-  if (result.length === 0) return [];
-  
-  const columns = result[0].columns as string[];
-  const values = result[0].values as (string | number | null)[][];
-  
-  return values.map(row => {
-    const obj: any = {};
-    columns.forEach((col, i) => {
-      obj[col] = row[i];
-    });
-    return obj;
-  });
+     LIMIT ? OFFSET ?`
+  ).all(limit, offset) as any;
 }
 
 export function getAggregatedUsage(period: string = '7d'): AggregatedUsage {
   const days = parseInt(period);
   const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
   
-  const result = db!.exec(`
+  const row = db!.prepare(`
     SELECT 
       COUNT(*) as total_requests,
       SUM(prompt_tokens) as total_input_tokens,
@@ -576,9 +418,9 @@ export function getAggregatedUsage(period: string = '7d'): AggregatedUsage {
       AVG(duration_ms) as avg_latency_ms
     FROM usage_logs 
     WHERE timestamp > ?
-  `, [startDate]);
+  `).get(startDate) as any;
   
-  if (result.length === 0 || result[0].values.length === 0) {
+  if (!row) {
     return {
       total_requests: 0,
       total_input_tokens: 0,
@@ -587,30 +429,25 @@ export function getAggregatedUsage(period: string = '7d'): AggregatedUsage {
     };
   }
   
-  const row = result[0].values[0] as (string | number | null)[];
-  const totalRequests: number = Number(row[0] || 0);
-  const totalInputTokens: number = Number(row[1] || 0);
-  const totalOutputTokens: number = Number(row[2] || 0);
-  const avgLatency: string | number = row[3] || 0;
   return {
-    total_requests: totalRequests,
-    total_input_tokens: totalInputTokens,
-    total_output_tokens: totalOutputTokens,
-    avg_latency_ms: typeof avgLatency === 'string' ? parseFloat(avgLatency) : avgLatency
+    total_requests: row.total_requests || 0,
+    total_input_tokens: row.total_input_tokens || 0,
+    total_output_tokens: row.total_output_tokens || 0,
+    avg_latency_ms: typeof row.avg_latency_ms === 'string' ? parseFloat(row.avg_latency_ms) : (row.avg_latency_ms || 0)
   };
 }
 
 export function getUsageSummary(): UsageSummary {
-  const result = db!.exec(`
+  const row = db!.prepare(`
     SELECT 
       COUNT(DISTINCT api_key_id) as active_keys,
       COUNT(*) as total_requests,
       SUM(prompt_tokens) as total_input_tokens,
       SUM(completion_tokens) as total_output_tokens
     FROM usage_logs
-  `);
+  `).get() as any;
   
-  if (result.length === 0 || result[0].values.length === 0) {
+  if (!row) {
     return {
       active_keys: 0,
       total_requests: 0,
@@ -619,17 +456,16 @@ export function getUsageSummary(): UsageSummary {
     };
   }
   
-  const row = result[0].values[0] as (string | number | null)[];
   return {
-    active_keys: Number(row[0] || 0),
-    total_requests: Number(row[1] || 0),
-    total_input_tokens: Number(row[2] || 0),
-    total_output_tokens: Number(row[3] || 0)
+    active_keys: row.active_keys || 0,
+    total_requests: row.total_requests || 0,
+    total_input_tokens: row.total_input_tokens || 0,
+    total_output_tokens: row.total_output_tokens || 0
   };
 }
 
 export function getApiKeyStats(apiKeyId: string): ApiKeyStats | null {
-  const result = db!.exec(`
+  const row = db!.prepare(`
     SELECT 
       COUNT(*) as total_requests,
       SUM(prompt_tokens) as total_input_tokens,
@@ -637,24 +473,22 @@ export function getApiKeyStats(apiKeyId: string): ApiKeyStats | null {
       AVG(duration_ms) as avg_latency_ms
     FROM usage_logs 
     WHERE api_key_id = ?
-  `, [apiKeyId]);
+  `).get(apiKeyId) as any;
   
-  if (result.length === 0 || result[0].values.length === 0) {
+  if (!row) {
     return null;
   }
   
-  const row = result[0].values[0];
-  const row3 = row[3];
   return {
-    total_requests: typeof row[0] === 'number' ? row[0] : 0,
-    total_input_tokens: typeof row[1] === 'number' ? row[1] : 0,
-    total_output_tokens: typeof row[2] === 'number' ? row[2] : 0,
-    avg_latency_ms: row3 && typeof row3 === 'number' ? parseFloat(row3.toFixed(2)) : 0
+    total_requests: row.total_requests || 0,
+    total_input_tokens: row.total_input_tokens || 0,
+    total_output_tokens: row.total_output_tokens || 0,
+    avg_latency_ms: row.avg_latency_ms ? parseFloat((row.avg_latency_ms as number).toFixed(2)) : 0
   };
 }
 
 export function getUsageTrends(startDate: string, endDate: string): TrendsDataPoint[] {
-  const result = db!.exec(`
+  const results = db!.prepare(`
     SELECT 
       DATE(timestamp) as date,
       COUNT(*) as requests,
@@ -664,27 +498,14 @@ export function getUsageTrends(startDate: string, endDate: string): TrendsDataPo
     WHERE timestamp >= ? AND timestamp <= ?
     GROUP BY DATE(timestamp)
     ORDER BY date ASC
-  `, [startDate, endDate]);
+  `).all(startDate, endDate) as any[];
   
-  if (result.length === 0 || result[0].values.length === 0) {
-    return [];
-  }
-  
-  const columns = result[0].columns as string[];
-  const values = result[0].values as (string | number | null)[][];
-  
-  return values.map(row => {
-    const obj: any = {};
-    columns.forEach((col, i) => {
-      obj[col] = row[i];
-    });
-    return {
-      date: obj.date,
-      requests: typeof obj.requests === 'number' ? obj.requests : 0,
-      input_tokens: typeof obj.input_tokens === 'number' ? obj.input_tokens : 0,
-      output_tokens: typeof obj.output_tokens === 'number' ? obj.output_tokens : 0
-    };
-  });
+  return results.map((row: any) => ({
+    date: row.date,
+    requests: row.requests || 0,
+    input_tokens: row.input_tokens || 0,
+    output_tokens: row.output_tokens || 0
+  }));
 }
 
 interface _AggregatedMetricsResult {
@@ -749,9 +570,9 @@ function _buildAggregatedMetrics(
     query += ' WHERE ' + conditions.join(' AND ');
   }
 
-  const result = db!.exec(query, params);
+  const row = db!.prepare(query).all(params) as any[];
 
-  if (result.length === 0 || result[0].values.length === 0) {
+  if (row.length === 0) {
     return {
       requestCount: 0,
       totalInputTokens: 0,
@@ -762,7 +583,7 @@ function _buildAggregatedMetrics(
     };
   }
 
-  const row = result[0].values[0] as (string | number | null)[];
+  const data = row[0];
 
   // Calculate tokens_per_sec using actual duration from usage logs (hardware throughput)
   let durationQuery = `
@@ -808,18 +629,18 @@ function _buildAggregatedMetrics(
     durationQuery += ' WHERE ' + durationConditions.join(' AND ');
   }
 
-  const durationResult = db!.exec(durationQuery, durationParams);
+  const durationRow = db!.prepare(durationQuery).all(durationParams) as any[];
 
-  const totalDurationMs = durationResult.length > 0 && durationResult[0].values.length > 0
-    ? Number(durationResult[0].values[0][0] || 0)
+  const totalDurationMs = durationRow.length > 0 && durationRow[0]
+    ? Number(durationRow[0].total_duration_ms || 0)
     : 0;
 
   return {
-    requestCount: Number(row[0] || 0),
-    totalInputTokens: Number(row[1] || 0),
-    totalOutputTokens: Number(row[2] || 0),
-    cacheCreationTokens: Number(row[3] || 0),
-    cacheReadTokens: Number(row[4] || 0),
+    requestCount: Number(data.request_count || 0),
+    totalInputTokens: Number(data.total_input_tokens || 0),
+    totalOutputTokens: Number(data.total_output_tokens || 0),
+    cacheCreationTokens: Number(data.cache_creation_tokens || 0),
+    cacheReadTokens: Number(data.cache_read_tokens || 0),
     totalDurationMs,
   };
 }
@@ -940,16 +761,11 @@ export function getProgressiveDataWithInterpolation(
       });
     }
     
-    // Query each bucket individually (one query per bucket for simplicity)
     const dataPoints: ProgressiveDataPoint[] = [];
-    
-    // Build JOIN and WHERE clause for user/apiKey filtering
-    let joinClause = '';
     
     for (let i = bucketStartIndex; i < bucketEndIndex; i++) {
       const bucket = buckets[i];
       
-        // Query for single bucket range with optional user filtering
       let query = `
         SELECT ${selectExpr} as value
         FROM usage_logs
@@ -962,12 +778,10 @@ export function getProgressiveDataWithInterpolation(
       queryParams.push(bucket.start.toISOString(), bucket.end.toISOString());
       
       if (apiKeyId) {
-        // Filter by specific API key (ignore userId)
         joinClause = ' JOIN api_keys ON usage_logs.api_key_id = api_keys.id';
         whereClause += ' AND api_keys.id = ?';
         queryParams.push(apiKeyId);
       } else if (userId) {
-        // Filter by user's all API keys
         joinClause = ' JOIN api_keys ON usage_logs.api_key_id = api_keys.id';
         whereClause += ' AND api_keys.user_id = ?';
         queryParams.push(userId);
@@ -975,14 +789,19 @@ export function getProgressiveDataWithInterpolation(
       
       query += joinClause;
       query += whereClause;
-      const result = db!.exec(query, queryParams);
       
-       let value: number | null = null;
-      if (result.length > 0 && result[0].values.length > 0) {
-        const rawValue = result[0].values[0][0];
+      const result = db!.prepare(query).all(queryParams) as any[];
+      
+      let value: number | null = null;
+      if (result.length > 0 && result[0] !== undefined && result[0] !== null) {
+        const rawValue = (result[0] as any).value;
         if (rawValue !== null && rawValue !== undefined && rawValue !== '') {
           value = Number(rawValue);
+        } else {
+          value = 0;
         }
+      } else {
+        value = 0;
       }
       
       dataPoints.push({
@@ -1030,25 +849,20 @@ export function getTimestampTemplate(
   });
 }
 
-export async function clearDatabase(): Promise<void> {
-  try {
-    db!.run('DELETE FROM usage_logs');
-    db!.run('DELETE FROM users');
-    db!.run('DELETE FROM api_keys');
-    saveDatabase();
-  } catch (error) {
-    console.error('Error clearing database:', error);
-  }
+export function clearDatabase(): void {
+  db!.prepare('DELETE FROM usage_logs').run();
+  db!.prepare('DELETE FROM users').run();
+  db!.prepare('DELETE FROM api_keys').run();
 }
 
 // Insights data functions
-export async function getInsightsData(
+export function getInsightsData(
   startDate: string,
   endDate: string,
   userId?: string,
   apiKeyId?: string,
   limit?: number
-): Promise<any[]> {
+): any[] {
   let query = `
      SELECT 
         ul.id,
@@ -1101,30 +915,15 @@ export async function getInsightsData(
     queryParams.push(limit);
   }
 
-  const result = db!.exec(query, queryParams);
-  
-  if (result.length === 0 || result[0].values.length === 0) {
-    return [];
-  }
-
-  const columns = result[0].columns as string[];
-  const values = result[0].values as (string | number | null)[][];
-  
-  return values.map(row => {
-    const obj: any = {};
-    columns.forEach((col, i) => {
-      obj[col] = row[i];
-    });
-    return obj;
-  });
+  return db!.prepare(query).all(queryParams) as any[];
 }
 
-export async function countInsightsData(
+export function countInsightsData(
   startDate: string,
   endDate: string,
   userId?: string,
   apiKeyId?: string
-): Promise<number> {
+): number {
   let query = `
     SELECT COUNT(*) as count
     FROM usage_logs ul
@@ -1145,14 +944,13 @@ export async function countInsightsData(
 
   query += ` ${whereClause}`;
 
-  const result = db!.exec(query, queryParams);
+  const row = db!.prepare(query).all(queryParams) as any[];
   
-  if (result.length === 0 || result[0].values.length === 0) {
+  if (row.length === 0 || !row[0]) {
     return 0;
   }
 
-  const row = result[0].values[0] as (string | number | null)[];
-  return Number(row[0] || 0);
+  return Number((row[0] as any).count || 0);
 }
 
 function getHeatMapColumnExpr(type: string): string {
@@ -1171,7 +969,7 @@ function getHeatMapColumnExpr(type: string): string {
   return 'ul.' + type;
 }
 
-export async function getHeatMapData(
+export function getHeatMapData(
   startDate: string,
   endDate: string,
   xAxisType: string,
@@ -1180,10 +978,7 @@ export async function getHeatMapData(
   apiKeyId?: string,
   gridWidth: number = 50,
   gridHeight: number = 50
-): Promise<any[]> {
-  // For heat map, we need to bin the data
-  // This is a simplified implementation that works for numeric axes
-  
+): any[] {
   const xExpr = getHeatMapColumnExpr(xAxisType);
   const yExpr = getHeatMapColumnExpr(yAxisType);
   
@@ -1209,20 +1004,17 @@ export async function getHeatMapData(
 
   query += ` ${whereClause}`;
 
-  const result = db!.exec(query, queryParams);
+  const results = db!.prepare(query).all(queryParams) as any[];
   
-  if (result.length === 0 || result[0].values.length === 0) {
+  if (results.length === 0) {
     return [];
   }
 
-  // Process data in JavaScript for binning
-  const values = result[0].values as (string | number | null)[][];
-  
   const validRows: number[][] = [];
-  for (const row of values) {
-    const x = Number(row[0]);
-    const y = Number(row[1]);
-    if (!isNaN(x) && !isNaN(y) && row[0] !== null && row[1] !== null) {
+  for (const row of results) {
+    const x = Number(row.x_val);
+    const y = Number(row.y_val);
+    if (!isNaN(x) && !isNaN(y) && row.x_val !== null && row.y_val !== null) {
       validRows.push([x, y]);
     }
   }
@@ -1242,7 +1034,6 @@ export async function getHeatMapData(
   const xStep = (maxX - minX) / gridWidth || 1;
   const yStep = (maxY - minY) / gridHeight || 1;
 
-  // Create bins
   const bins = new Map<string, number>();
   
   for (const [x, y] of validRows) {
@@ -1253,7 +1044,6 @@ export async function getHeatMapData(
     bins.set(key, (bins.get(key) || 0) + 1);
   }
 
-  // Convert to array with actual center values
   return Array.from(bins.entries()).map(([key, count]) => {
     const [xBin, yBin] = key.split(',').map(Number);
     return {

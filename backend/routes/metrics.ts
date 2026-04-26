@@ -152,15 +152,16 @@ router.get("/users/:userId/api-keys", (req: Request, res: Response) => {
 // Get cache usage summary
 router.get("/cache-summary", (_req: Request, res: Response) => {
   try {
-    const result = database.getDb()?.exec(`
+    const db = database.getDb();
+    const row = db?.prepare(`
       SELECT 
         SUM(cache_creation_input_tokens) as total_cache_creation,
         SUM(cache_read_input_tokens) as total_cache_read,
         COUNT(DISTINCT CASE WHEN cache_creation_input_tokens > 0 OR cache_read_input_tokens > 0 THEN id END) as cached_requests
       FROM usage_logs
-    `);
+    `).get() as any;
 
-    if (result.length === 0 || result[0].values.length === 0) {
+    if (!row) {
       return res.json({
         total_cache_creation: 0,
         total_cache_read: 0,
@@ -168,11 +169,10 @@ router.get("/cache-summary", (_req: Request, res: Response) => {
       });
     }
 
-    const row = result[0].values[0] as (string | number | null)[];
     res.json({
-      total_cache_creation: Number(row[0] || 0),
-      total_cache_read: Number(row[1] || 0),
-      cached_requests: Number(row[2] || 0),
+      total_cache_creation: Number(row.total_cache_creation || 0),
+      total_cache_read: Number(row.total_cache_read || 0),
+      cached_requests: Number(row.cached_requests || 0),
     });
   } catch (error) {
     console.error("Error getting cache summary:", error);
@@ -409,7 +409,8 @@ router.get("/insights/log/:id", (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const result = database.getDb()?.exec(
+    const db = database.getDb();
+    const logRow = db?.prepare(
       `
       SELECT 
         ul.id,
@@ -431,23 +432,13 @@ router.get("/insights/log/:id", (req: Request, res: Response) => {
       LEFT JOIN users u ON ak.user_id = u.id
       WHERE ul.id = ?
     `,
-      [id],
-    );
+    ).get(id) as any;
 
-    if (result.length === 0 || result[0].values.length === 0) {
+    if (!logRow) {
       return res.status(404).json({ error: "Log not found" });
     }
 
-    const columns = result[0].columns as string[];
-    const values = result[0].values as (string | number | null)[][];
-    const row = values[0];
-
-    const log: any = {};
-    columns.forEach((col, i) => {
-      log[col] = row[i];
-    });
-
-    res.json(log);
+    res.json(logRow);
   } catch (error) {
     console.error("Error getting log details:", error);
     res.status(500).json({ error: "Failed to get log details" });

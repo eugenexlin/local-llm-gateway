@@ -582,7 +582,7 @@ const DashboardStats: React.FC = () => {
   useEffect(() => {
     fetchLifetimeMetrics();
     fetchRangeMetrics();
-  }, [selectedUserIds, selectedApiKeyId]);
+  }, [selectedUserIds, selectedApiKeyId, startDate, endDate]);
 
   useEffect(() => {
     // Sync display granularity with seconds value

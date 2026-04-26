@@ -1,17 +1,20 @@
-const initSqlJs = require('sql.js');
-const fs = require('fs');
+const Database = require('better-sqlite3');
+const path = require('path');
 
-initSqlJs().then(SQL => {
-  try {
-    const db = new SQL.Database(fs.readFileSync('local_llm_gateway.db'));
-    const apiKeys = db.exec('SELECT COUNT(*) FROM api_keys');
-    const usageLogs = db.exec('SELECT COUNT(*) FROM usage_logs');
-    const users = db.exec('SELECT COUNT(*) FROM users');
-    
-    console.log('API Keys:', apiKeys.length > 0 && apiKeys[0].values.length > 0 ? apiKeys[0].values[0][0] : 'table empty or error');
-    console.log('Usage Logs:', usageLogs.length > 0 && usageLogs[0].values.length > 0 ? usageLogs[0].values[0][0] : 'table empty or error');
-    console.log('Users:', users.length > 0 && users[0].values.length > 0 ? users[0].values[0][0] : 'table empty or error');
-  } catch (e) {
-    console.error('Error:', e.message);
-  }
-});
+const DB_PATH = path.join(__dirname, 'local_llm_gateway.db');
+
+try {
+  const db = new Database(DB_PATH);
+  
+  const apiKeys = db.prepare('SELECT COUNT(*) as count FROM api_keys').get();
+  const usageLogs = db.prepare('SELECT COUNT(*) as count FROM usage_logs').get();
+  const users = db.prepare('SELECT COUNT(*) as count FROM users').get();
+  
+  console.log('API Keys:', apiKeys.count);
+  console.log('Usage Logs:', usageLogs.count);
+  console.log('Users:', users.count);
+  
+  db.close();
+} catch (e) {
+  console.error('Error:', e.message);
+}

@@ -110,12 +110,11 @@ function proxyRequestStreaming(
       
       // Check for duplicate request via idempotency key
       if (metrics.idempotencyKey) {
-        const existing = database.getDb()?.exec(
-          'SELECT 1 FROM usage_logs WHERE idempotency_key = ?',
-          [metrics.idempotencyKey]
-        );
+        const existing = database.getDb()?.prepare(
+          'SELECT 1 FROM usage_logs WHERE idempotency_key = ?'
+        ).get(metrics.idempotencyKey);
         
-        if (existing.length > 0 && existing[0].values.length > 0) {
+        if (existing) {
           console.log('Duplicate request detected (idempotency key already used), skipping logging');
           metrics.hasLogged = true;
           return;

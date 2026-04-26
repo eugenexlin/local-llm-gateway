@@ -4,11 +4,12 @@ describe('Metrics - Tokens Per Second Calculation', () => {
   let testApiKeyId: string;
   let testKeyIdHash: string;
 
-  beforeAll(async () => {
-    await database.init();
+  beforeAll(() => {
+    database.init();
   });
 
   beforeEach(() => {
+    database.clearDatabase();
     testApiKeyId = 'test-api-key-' + Date.now();
     testKeyIdHash = 'test-key-hash-' + Date.now();
     database.createApiKey({
