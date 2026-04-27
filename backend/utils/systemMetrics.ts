@@ -85,6 +85,7 @@ interface ServerStats {
 
 const CACHE_DURATION = 2000;
 let cache: { stats: ServerStats; timestamp: number } | null = null;
+let rocmLogged = false;
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -105,19 +106,24 @@ function formatUptime(seconds: number): string {
 
 async function getGpuInfo(): Promise<GpuInfo> {
   if (process.platform !== 'linux') {
+    if (!rocmLogged) { console.log(`[ROCm] Not running on Linux, platform: ${process.platform}`); rocmLogged = true; }
     return { rocmAvailable: false, gpus: [] };
   }
 
   try {
     await execFileAsync('which', ['rocm-smi']);
-  } catch {
+  } catch (err: any) {
+    if (!rocmLogged) { console.log(`[ROCm] rocm-smi not found in PATH. Error: ${err.message}`); rocmLogged = true; }
     return { rocmAvailable: false, gpus: [] };
   }
+  if (!rocmLogged) { console.log('[ROCm] rocm-smi binary found'); rocmLogged = true; }
 
   try {
+    if (!rocmLogged) { console.log('[ROCm] Running: rocm-smi --json --showinfo'); }
     const { stdout } = await execFileAsync('rocm-smi', ['--json', '--showinfo'], {
       timeout: 3000,
     });
+    if (!rocmLogged) { console.log(`[ROCm] rocm-smi --showinfo output length: ${stdout.length} chars`); }
 
     const json = JSON.parse(stdout);
     const gpus: GpuDetail[] = [];
@@ -190,17 +196,22 @@ async function getGpuInfo(): Promise<GpuInfo> {
     }
 
     if (gpus.length > 0) {
+      if (!rocmLogged) { console.log(`[ROCm] Detected ${gpus.length} GPU(s)`); rocmLogged = true; }
       return { rocmAvailable: true, gpus };
     }
-  } catch {
+    if (!rocmLogged) { console.log('[ROCm] rocm-smi --showinfo returned no GPU data'); rocmLogged = true; }
+  } catch (err: any) {
+    if (!rocmLogged) { console.log(`[ROCm] rocm-smi --showinfo failed: ${err.message}`); rocmLogged = true; }
     return { rocmAvailable: false, gpus: [] };
   }
 
   try {
+    if (!rocmLogged) { console.log('[ROCm] Running fallback: rocm-smi --json'); }
     const fallbackGpus: GpuDetail[] = [];
     const { stdout } = await execFileAsync('rocm-smi', ['--json'], {
       timeout: 3000,
     });
+    if (!rocmLogged) { console.log(`[ROCm] Fallback output length: ${stdout.length} chars`); }
 
     const json = JSON.parse(stdout);
     const data = json.data || {};
@@ -219,12 +230,16 @@ async function getGpuInfo(): Promise<GpuInfo> {
     }
 
     if (fallbackGpus.length > 0) {
+      if (!rocmLogged) { console.log(`[ROCm] Fallback detected ${fallbackGpus.length} GPU(s)`); rocmLogged = true; }
       return { rocmAvailable: true, gpus: fallbackGpus };
     }
-  } catch {
+    if (!rocmLogged) { console.log('[ROCm] Fallback returned no GPU data'); rocmLogged = true; }
+  } catch (err: any) {
+    if (!rocmLogged) { console.log(`[ROCm] Fallback rocm-smi --json failed: ${err.message}`); rocmLogged = true; }
     return { rocmAvailable: false, gpus: [] };
   }
 
+  if (!rocmLogged) { console.log('[ROCm] No GPUs detected, returning empty'); rocmLogged = true; }
   return { rocmAvailable: false, gpus: [] };
 }
 
