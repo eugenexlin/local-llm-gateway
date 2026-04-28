@@ -59,7 +59,7 @@ interface ServerStatsData {
     swapTotal: number;
   };
   gpu: {
-    rocmAvailable: boolean;
+    gpuAvailable: boolean;
     gpus: GpuDetail[];
   };
   database: {
@@ -376,7 +376,7 @@ const ServerStats: React.FC = () => {
                 mb: 1,
               }}
             >
-              {stats.gpu.rocmAvailable ? (
+              {stats.gpu.gpuAvailable ? (
                 <>
                   <Typography
                     variant="h3"
@@ -396,12 +396,12 @@ const ServerStats: React.FC = () => {
                   variant="h5"
                   sx={{ fontWeight: 600, color: "text.secondary" }}
                 >
-                  No ROCm
+                  No GPUs
                 </Typography>
               )}
             </Box>
-            {stats.gpu.rocmAvailable &&
-              stats.gpu.gpus.slice(0, 3).map((gpu, idx) => (
+{stats.gpu.gpuAvailable &&
+               stats.gpu.gpus.slice(0, 3).map((gpu, idx) => (
                 <Box
                   key={idx}
                   sx={{ mb: idx < stats.gpu.gpus.length - 1 ? 1.5 : 0 }}
@@ -462,7 +462,7 @@ const ServerStats: React.FC = () => {
                   </Box>
                 </Box>
               ))}
-            {stats.gpu.rocmAvailable && stats.gpu.gpus.length > 3 && (
+            {stats.gpu.gpuAvailable && stats.gpu.gpus.length > 3 && (
               <Typography
                 variant="caption"
                 color="text.secondary"
@@ -696,16 +696,16 @@ const ServerStats: React.FC = () => {
                 sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}
               >
                 <Typography variant="body2" color="text.secondary">
-                  ROCm
+                  GPU
                 </Typography>
                 <Chip
                   size="small"
-                  label={stats.gpu.rocmAvailable ? "Available" : "Not Found"}
+                  label={stats.gpu.gpuAvailable ? "Available" : "Not Found"}
                   sx={{
-                    bgcolor: stats.gpu.rocmAvailable
+                    bgcolor: stats.gpu.gpuAvailable
                       ? "success.light"
                       : "grey.300",
-                    color: stats.gpu.rocmAvailable ? "white" : "text.secondary",
+                    color: stats.gpu.gpuAvailable ? "white" : "text.secondary",
                     fontWeight: 600,
                     fontSize: "0.7rem",
                   }}

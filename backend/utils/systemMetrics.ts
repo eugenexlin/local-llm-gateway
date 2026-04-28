@@ -1,13 +1,9 @@
 import os from 'os';
 import fs from 'fs';
 import path from 'path';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
 import si from 'systeminformation';
 import config from '../config';
 import * as database from '../database';
-
-const execFileAsync = promisify(execFile);
 
 interface CpuCore {
   cpu: number;
@@ -33,7 +29,7 @@ interface RamInfo {
 }
 
 interface GpuInfo {
-  rocmAvailable: boolean;
+  gpuAvailable: boolean;
   gpus: GpuDetail[];
 }
 
@@ -85,12 +81,12 @@ interface ServerStats {
 
 const CACHE_DURATION = 2000;
 let cache: { stats: ServerStats; timestamp: number } | null = null;
-let rocmLogStep = 0;
+let gpuLogStep = 0;
 
-function rocmLog(step: number, message: string): void {
-  if (rocmLogStep < step) {
-    console.log(`[ROCm] ${message}`);
-    rocmLogStep = step;
+function gpuLog(step: number, message: string): void {
+  if (gpuLogStep < step) {
+    console.log(`[GPU] ${message}`);
+    gpuLogStep = step;
   }
 }
 
@@ -112,142 +108,210 @@ function formatUptime(seconds: number): string {
 }
 
 async function getGpuInfo(): Promise<GpuInfo> {
-  if (process.platform !== 'linux') {
-    rocmLog(1, `Not running on Linux, platform: ${process.platform}`);
-    return { rocmAvailable: false, gpus: [] };
-  }
+  const gpus: GpuDetail[] = [];
 
   try {
-    await execFileAsync('which', ['rocm-smi']);
-  } catch (err: any) {
-    rocmLog(2, `rocm-smi not found in PATH. Error: ${err.message}`);
-    return { rocmAvailable: false, gpus: [] };
-  }
-  rocmLog(3, 'rocm-smi binary found');
+    const graphics = await si.graphics();
 
-  try {
-    rocmLog(4, 'Running: rocm-smi --json --showinfo');
-    const { stdout } = await execFileAsync('rocm-smi', ['--json', '--showinfo'], {
-      timeout: 3000,
-    });
-    rocmLog(5, `rocm-smi --showinfo output length: ${stdout.length} chars`);
+    if (!graphics || !graphics.controllers) {
+      gpuLog(1, 'No GPUs detected');
+      return { gpuAvailable: false, gpus: [] };
+    }
 
-    const json = JSON.parse(stdout);
-    const gpus: GpuDetail[] = [];
+    gpuLog(1, `Detected ${graphics.controllers.length} GPU(s)`);
 
-    if (json['GPU iBMC Sensor Info']?.temp_edges?.length) {
-      const sensorData = json['GPU iBMC Sensor Info'];
-      const tempData = json['GPU Temperature'] || {};
-      const powerData = json['GPU Power'] || {};
-      const memData = json['GPU Memory Usage'] || {};
-      const computeData = json['GPU Utilization'] || {};
+    for (const controller of graphics.controllers) {
+      const memTotalGB = controller.vram ? Math.round(controller.vram / (1024 * 1024 * 1024)) : null;
 
-      const gpuCount = sensorData.temp_edges.length;
+      const gpu: GpuDetail = {
+        name: controller.model || 'Unknown GPU',
+        temperature: null,
+        power: null,
+        memUsed: null,
+        memTotal: memTotalGB,
+        utilization: null,
+      };
 
-      for (let i = 0; i < gpuCount; i++) {
-        const nameMatch = json['GPU ident']?.[`GPU${i}`]?.['GPU Name'] || 
-                          json['GPU Name']?.[i] || 
-                          `GPU ${i}`;
-
-        const tempEdge = sensorData.temp_edges[i];
-        const tempValue = typeof tempEdge === 'object' ? tempEdge['GPU${i}'] : tempEdge;
-        const tempC = tempData['GPU${i} Temperature'] || 
-                       (tempData['GPU${i} Temperature (VDDCI)'] as any)?.['VDDCI'] || 
-                       tempValue;
-
-        const powerValue = powerData[`GPU${i} Average Power`] || 
-                          powerData[`GPU${i} Power Instance Average`] || 
-                          null;
-
-        const memUsedValue = memData[`GPU${i} GPU Memory Used`] || 
-                            (memData['GPU Mem Memory Used'] as any)?.['GPU Mem'] || 
-                            null;
-
-        const memTotalValue = memData[`GPU${i} Total GPU Memory`] || 
-                             (memData['GPU Mem Memory Used'] as any)?.['Total'] || 
-                             null;
-
-        const utilValue = computeData[`GPU${i} GPU Activity`] || 
-                         computeData[`GPU${i} Average Activity`] || 
-                         null;
-
-        gpus.push({
-          name: nameMatch || `GPU ${i}`,
-          temperature: tempC ? parseFloat(tempC) : null,
-          power: powerValue ? parseFloat(powerValue) : null,
-          memUsed: memUsedValue ? Math.round(parseFloat(memUsedValue) / (1024 * 1024)) : null,
-          memTotal: memTotalValue ? Math.round(parseFloat(memTotalValue) / (1024 * 1024)) : null,
-          utilization: utilValue ? parseFloat(utilValue) : null,
-        });
+      if (process.platform === 'linux') {
+        enrichGpuLinux(controller, gpu);
+      } else if (process.platform === 'win32') {
+        await enrichGpuWindows(controller, gpu);
       }
-    } else if (json.data) {
-      const data = Array.isArray(json.data) ? json.data : Object.values(json.data);
 
-      for (const gpu of data) {
-        const temp = gpu['GPU Temp'] || gpu.temperature || null;
-        const power = gpu['GPU Power Draw'] || gpu.power || null;
-        const memUsed = gpu['GPU Memory Used'] || gpu.memory?.used || null;
-        const memTotal = gpu['GPU Memory Total'] || gpu.memory?.total || null;
-        const util = gpu['GPU Activity'] || gpu.utilization || null;
-        const name = gpu['GPU Name'] || gpu.name || gpu.device || `GPU`;
+      gpus.push(gpu);
+    }
+  } catch (err: any) {
+    gpuLog(2, `GPU detection failed: ${err.message}`);
+  }
 
-        gpus.push({
-          name: String(name).trim() || `GPU`,
-          temperature: temp ? parseFloat(temp) : null,
-          power: power ? parseFloat(power) : null,
-          memUsed: memUsed ? Math.round(parseFloat(memUsed) / (1024 * 1024)) : null,
-          memTotal: memTotal ? Math.round(parseFloat(memTotal) / (1024 * 1024)) : null,
-          utilization: util ? parseFloat(util) : null,
-        });
+  return { gpuAvailable: gpus.length > 0, gpus };
+}
+
+function enrichGpuLinux(_controller: any, gpu: GpuDetail): void {
+  const drmBase = '/sys/class/drm';
+
+  try {
+    const cards = fs.readdirSync(drmBase).filter((f: string) => f.startsWith('card'));
+
+    for (const card of cards) {
+      const cardPath = path.join(drmBase, card);
+      const devicePath = path.join(cardPath, 'device');
+
+      if (!fs.existsSync(devicePath)) continue;
+
+      try {
+        const uevent = fs.readFileSync(path.join(devicePath, 'uevent'), 'utf8');
+        const vendorMatch = uevent.match(/PCI_VENDOR=(.+)/);
+        const drmNameMatch = uevent.match(/DRM_NAME=(.+)/);
+        const pciNameMatch = uevent.match(/PCI_DEVICE_NAME=(.+)/);
+        const sysfsName = pciNameMatch?.[1]?.trim() || drmNameMatch?.[1]?.trim() || card;
+
+        if (vendorMatch?.[1]?.trim() !== '0x1002') {
+          continue;
+        }
+
+        if (gpu.name === 'Unknown GPU' || gpu.name === card) {
+          gpu.name = sysfsName || card;
+        }
+
+        try {
+          const hwmonDir = fs.readdirSync(path.join(devicePath, 'hwmon')).find((d: string) => d.startsWith('hwmon'));
+          if (hwmonDir) {
+            const hwmonPath = path.join(devicePath, 'hwmon', hwmonDir);
+            const tempFiles = fs.readdirSync(hwmonPath).filter((f: string) => f.startsWith('temp') && f.endsWith('_input'));
+            for (const tempFile of tempFiles) {
+              const tempVal = fs.readFileSync(path.join(hwmonPath, tempFile), 'utf8').trim();
+              const tempC = parseInt(tempVal, 10) / 1000;
+              if (!isNaN(tempC) && tempC > 0) {
+                gpu.temperature = Math.round(tempC);
+                break;
+              }
+            }
+          }
+        } catch {
+          gpuLog(3, `Failed to read temperature for ${card}`);
+        }
+
+        try {
+          const memTotalPath = path.join(devicePath, 'mem_info_vram_total');
+          const memUsedPath = path.join(devicePath, 'mem_info_vram_used');
+          if (fs.existsSync(memTotalPath) && fs.existsSync(memUsedPath)) {
+            const memTotalBytes = parseInt(fs.readFileSync(memTotalPath, 'utf8').trim(), 10);
+            const memUsedBytes = parseInt(fs.readFileSync(memUsedPath, 'utf8').trim(), 10);
+            if (!isNaN(memTotalBytes) && !isNaN(memUsedBytes)) {
+              gpu.memTotal = Math.round(memTotalBytes / (1024 * 1024 * 1024));
+              gpu.memUsed = Math.round(memUsedBytes / (1024 * 1024 * 1024));
+            }
+          }
+        } catch {
+          gpuLog(4, `Failed to read VRAM for ${card}`);
+        }
+
+        try {
+          const utilPath = path.join(devicePath, 'gpu_busy_percent');
+          if (fs.existsSync(utilPath)) {
+            const utilVal = fs.readFileSync(utilPath, 'utf8').trim();
+            const util = parseInt(utilVal, 10);
+            if (!isNaN(util) && util >= 0 && util <= 100) {
+              gpu.utilization = util;
+            }
+          }
+        } catch {
+          gpuLog(5, `Failed to read utilization for ${card}`);
+        }
+
+        try {
+          const hwmonDir = fs.readdirSync(path.join(devicePath, 'hwmon')).find((d: string) => d.startsWith('hwmon'));
+          if (hwmonDir) {
+            const hwmonPath = path.join(devicePath, 'hwmon', hwmonDir);
+            const powerFiles = fs.readdirSync(hwmonPath).filter((f: string) => f.startsWith('power') && f.includes('average'));
+            for (const powerFile of powerFiles) {
+              const powerVal = fs.readFileSync(path.join(hwmonPath, powerFile), 'utf8').trim();
+              const powerMicrowatts = parseInt(powerVal, 10);
+              if (!isNaN(powerMicrowatts) && powerMicrowatts > 0) {
+                gpu.power = Math.round(powerMicrowatts / 1000000);
+                break;
+              }
+            }
+          }
+        } catch {
+          gpuLog(6, `Failed to read power for ${card}`);
+        }
+
+        break;
+      } catch (err: any) {
+        gpuLog(7, `Error reading ${card}: ${err.message}`);
       }
     }
-
-    if (gpus.length > 0) {
-      rocmLog(6, `Detected ${gpus.length} GPU(s)`);
-      return { rocmAvailable: true, gpus };
-    }
-    rocmLog(7, 'rocm-smi --showinfo returned no GPU data');
   } catch (err: any) {
-    rocmLog(8, `rocm-smi --showinfo failed: ${err.message}`);
-    return { rocmAvailable: false, gpus: [] };
+    gpuLog(8, `Linux sysfs read failed: ${err.message}`);
+  }
+}
+
+async function enrichGpuWindows(_controller: any, gpu: GpuDetail): Promise<void> {
+  try {
+    const tempResult = await execPromise('powershell.exe', [
+      '-NoProfile',
+      '-Command',
+      'try { $results = @(); $sensors = Get-CimInstance -Namespace "root/WMI" -ClassName "MSAcpi_ThermalZoneTemperature" -ErrorAction SilentlyContinue; if ($sensors) { foreach ($s in $sensors) { $mtf = $s.CurrentRelationshipUnits; if ($mtf -gt 0) { $tempC = [math]::Round(($s.CurrentTemperature / 10.0) - 273.15, 1) } else { $tempC = $s.CurrentTemperature }; $results += $tempC } } else { $results = @() }; $nvidiaSensors = Get-CimInstance -Namespace "root/NV_Indigo" -ClassName "NV_ThermalData" -ErrorAction SilentlyContinue; if ($nvidiaSensors) { foreach ($n in $nvidiaSensors) { if ($n.Temperature -and $n.Temperature -gt 0) { $nvidiaTemp = [math]::Round(($n.Temperature - 32) * 5.0 / 9.0, 1) }; $results += $nvidiaTemp } }; $amdGpus = Get-CimInstance -Namespace "root/WMI" -ClassName "AMDTemperature" -ErrorAction SilentlyContinue; if ($amdGpus) { foreach ($a in $amdGpus) { $results += $a.CurrentTemperature } }; if ($results.Count -gt 0) { $results | Select-Object -First 1 } else { Write-Output "N/A" } } catch { Write-Output "N/A" }',
+    ]);
+    const tempStr = tempResult.stdout.trim();
+    if (tempStr !== 'N/A' && !tempStr.toLowerCase().includes('error')) {
+      const tempVal = parseFloat(tempStr);
+      if (!isNaN(tempVal) && tempVal > 0 && tempVal < 150) {
+        gpu.temperature = Math.round(tempVal);
+      }
+    }
+  } catch {
+    gpuLog(9, 'Failed to read temperature via WMI');
   }
 
   try {
-    rocmLog(9, 'Running fallback: rocm-smi --json');
-    const fallbackGpus: GpuDetail[] = [];
-    const { stdout } = await execFileAsync('rocm-smi', ['--json'], {
-      timeout: 3000,
-    });
-    rocmLog(10, `Fallback output length: ${stdout.length} chars`);
-
-    const json = JSON.parse(stdout);
-    const data = json.data || {};
-    const entries = Array.isArray(data) ? data : Object.values(data);
-
-    for (const gpu of entries) {
-      const name = gpu['GPU Name'] || gpu.name || gpu.device || `GPU`;
-      fallbackGpus.push({
-        name: String(name).trim() || `GPU`,
-        temperature: gpu['GPU Temp'] ? parseFloat(gpu['GPU Temp']) : null,
-        power: gpu['GPU Power Draw'] ? parseFloat(gpu['GPU Power Draw']) : null,
-        memUsed: gpu['GPU Memory Used'] ? Math.round(parseFloat(gpu['GPU Memory Used']) / (1024 * 1024)) : null,
-        memTotal: gpu['GPU Memory Total'] ? Math.round(parseFloat(gpu['GPU Memory Total']) / (1024 * 1024)) : null,
-        utilization: gpu['GPU Activity'] ? parseFloat(gpu['GPU Activity']) : null,
-      });
-    }
-
-    if (fallbackGpus.length > 0) {
-      rocmLog(11, `Fallback detected ${fallbackGpus.length} GPU(s)`);
-      return { rocmAvailable: true, gpus: fallbackGpus };
-    }
-    rocmLog(12, 'Fallback returned no GPU data');
-  } catch (err: any) {
-    rocmLog(13, `Fallback rocm-smi --json failed: ${err.message}`);
-    return { rocmAvailable: false, gpus: [] };
+    const utilResult = await execPromise('powershell.exe', [
+      '-NoProfile',
+      '-Command',
+      'try { $gpu = Get-CimInstance -Namespace "root\\CIMV2" -Class "Win32_VideoController" | Select-Object -First 1; if ($gpu) { $gpu.CurrentRefreshRate } else { Write-Output "N/A" } } catch { Write-Output "N/A" }',
+    ]);
+  } catch {
+    gpuLog(10, 'Failed to read utilization via WMI');
   }
 
-  rocmLog(14, 'No GPUs detected, returning empty');
-  return { rocmAvailable: false, gpus: [] };
+  try {
+    const powerResult = await execPromise('powershell.exe', [
+      '-NoProfile',
+      '-Command',
+      'try { $nvidiaPwr = Get-CimInstance -Namespace "root/NV_Indigo" -ClassName "NV_EnergyConsummeData" -ErrorAction SilentlyContinue; if ($nvidiaPwr -and $nvidiaPwr.CurrentPowerConsumption) { $nvidiaPwr.CurrentPowerConsumption } else { Write-Output "N/A" } } catch { Write-Output "N/A" }',
+    ]);
+    const powerStr = powerResult.stdout.trim();
+    if (powerStr !== 'N/A' && !powerStr.toLowerCase().includes('error')) {
+      const powerVal = parseFloat(powerStr);
+      if (!isNaN(powerVal) && powerVal > 0) {
+        gpu.power = Math.round(powerVal);
+      }
+    }
+  } catch {
+    gpuLog(11, 'Failed to read power via WMI');
+  }
+}
+
+function execPromise(command: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const child = require('child_process').spawn(command, args, { shell: true });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (data: Buffer) => { stdout += data.toString(); });
+    child.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
+    child.on('close', (code: number) => {
+      if (code === 0 || code === null) {
+        resolve({ stdout, stderr });
+      } else {
+        reject(new Error(`Process exited with code ${code}: ${stderr}`));
+      }
+    });
+    child.on('error', (err: Error) => {
+      reject(err);
+    });
+  });
 }
 
 async function getCpuInfo(): Promise<CpuInfo> {

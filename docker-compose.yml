@@ -21,13 +21,12 @@ services:
       - SUPPRESS_CONSOLE=${SUPPRESS_CONSOLE}
     volumes:
       - ./backend/data:/app/data
-      # Mount rocm-smi binary and libraries from host
-      - /usr/bin/rocm-smi:/usr/bin/rocm-smi:ro
-      - /opt/rocm/lib:/opt/rocm/lib:ro
-      # Mount AMD GPU device nodes
-      - /dev/kfd:/dev/kfd
-      - /dev/dri:/dev/dri
-    privileged: true
+      # Mount GPU sysfs for hardware monitoring (Linux AMD)
+      - /sys/class/drm:/sys/class/drm:ro
+      - /sys/kernel/debug:/sys/kernel/debug:ro
+      - /sys/class/hwmon:/sys/class/hwmon:ro
+    cap_add:
+      - SYS_ADMIN
     networks:
       - llm-network
 

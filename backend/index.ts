@@ -46,11 +46,8 @@ app.use('/api/metrics', metrics);
 app.use('/api/server-stats', serverStats);
 app.use('/v1', (req, res, next) => {
   if (process.env.SUPPRESS_CONSOLE !== 'true') {
-    console.log('\n=== INCOMING REQUEST ===');
-    console.log('Method:', req.method);
-    console.log('Path:', req.path);
-    console.log('Headers:', JSON.stringify(req.headers, null, 2));
-    console.log('Query:', req.query);
+    const safeHeaders = Object.fromEntries(Object.entries(req.headers).filter(([k]) => !['authorization', 'cookie', 'x-api-key'].includes(k.toLowerCase())));
+    console.log(`${req.method} ${req.path} | Query: ${JSON.stringify(req.query)} | Headers: ${JSON.stringify(safeHeaders)}`);
   }
   next();
 }, validateApiKey, proxy);
