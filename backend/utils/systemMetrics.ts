@@ -1,9 +1,13 @@
 import os from 'os';
 import fs from 'fs';
 import path from 'path';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import si from 'systeminformation';
 import config from '../config';
 import * as database from '../database';
+
+const execFilePromise = promisify(execFile);
 
 interface CpuCore {
   cpu: number;
@@ -107,75 +111,135 @@ function formatUptime(seconds: number): string {
   return `${minutes}m`;
 }
 
+async function detectGpusFromSysfs(): Promise<Array<{ name: string; vendorId: string; vram?: number }>> {
+  const gpus: Array<{ name: string; vendorId: string; vram?: number }> = [];
+  const drmBase = '/sys/class/drm';
+
+  try {
+    const entries = fs.readdirSync(drmBase);
+    const cards = entries.filter((f: string) => f.startsWith('card'));
+
+    for (const card of cards) {
+      const devicePath = path.join(drmBase, card, 'device');
+      const ueventPath = path.join(devicePath, 'uevent');
+
+      if (!fs.existsSync(ueventPath)) continue;
+
+      try {
+        const uevent = fs.readFileSync(ueventPath, 'utf8');
+        const vendorMatch = uevent.match(/PCI_VENDOR_ID=(.+)/);
+        const drmNameMatch = uevent.match(/DRM_NAME=(.+)/);
+        const pciNameMatch = uevent.match(/PCI_DEVICE_NAME=(.+)/);
+
+        const vendorId = vendorMatch?.[1]?.trim() || '';
+        const name = pciNameMatch?.[1]?.trim() || drmNameMatch?.[1]?.trim() || card;
+
+        let vram: number | undefined;
+        try {
+          const memTotalPath = path.join(devicePath, 'mem_info_vram_total');
+          if (fs.existsSync(memTotalPath)) {
+            const memBytes = parseInt(fs.readFileSync(memTotalPath, 'utf8').trim(), 10);
+            if (!isNaN(memBytes) && memBytes > 0) {
+              vram = memBytes;
+            }
+          }
+        } catch { /* skip */ }
+
+        gpus.push({ name, vendorId, vram });
+      } catch {
+        // Skip unreadable cards
+      }
+    }
+  } catch {
+    // sysfs not accessible
+  }
+
+  return gpus;
+}
+
 async function getGpuInfo(): Promise<GpuInfo> {
   const gpus: GpuDetail[] = [];
 
+  // Step 1: Try systeminformation
+  let detectedGpus: Array<{ name: string; vendorId: string; vram?: number }> = [];
+
   try {
     const graphics = await si.graphics();
-
-    if (!graphics || !graphics.controllers) {
-      gpuLog(1, 'No GPUs detected');
-      return { gpuAvailable: false, gpus: [] };
-    }
-
-    gpuLog(1, `Detected ${graphics.controllers.length} GPU(s)`);
-
-    for (const controller of graphics.controllers) {
-      const memTotalGB = controller.vram ? Math.round(controller.vram / (1024 * 1024 * 1024)) : null;
-
-      const gpu: GpuDetail = {
-        name: controller.model || 'Unknown GPU',
-        temperature: null,
-        power: null,
-        memUsed: null,
-        memTotal: memTotalGB,
-        utilization: null,
-      };
-
-      if (process.platform === 'linux') {
-        enrichGpuLinux(controller, gpu);
-      } else if (process.platform === 'win32') {
-        await enrichGpuWindows(controller, gpu);
-      }
-
-      gpus.push(gpu);
+    if (graphics && graphics.controllers && graphics.controllers.length > 0) {
+      gpuLog(1, `systeminformation detected ${graphics.controllers.length} GPU(s)`);
+      detectedGpus = graphics.controllers.map((c: any) => ({
+        name: c.model || 'Unknown GPU',
+        vendorId: c.vendorId || '',
+        vram: c.vram
+      }));
     }
   } catch (err: any) {
-    gpuLog(2, `GPU detection failed: ${err.message}`);
+    gpuLog(1, `systeminformation failed: ${err.message}`);
+  }
+
+  // Step 2: Fallback to pure sysfs detection
+  if (detectedGpus.length === 0) {
+    gpuLog(1, 'Falling back to sysfs detection');
+    detectedGpus = await detectGpusFromSysfs();
+    if (detectedGpus.length > 0) {
+      gpuLog(1, `sysfs detected ${detectedGpus.length} GPU(s)`);
+    }
+  }
+
+  // Step 3: Build GPU detail objects and enrich with sysfs
+  for (const source of detectedGpus) {
+    const gpu: GpuDetail = {
+      name: source.name,
+      temperature: null,
+      power: null,
+      memUsed: null,
+      memTotal: source.vram ? Math.round(source.vram / (1024 * 1024 * 1024)) : null,
+      utilization: null,
+    };
+
+    if (process.platform === 'linux') {
+      enrichGpuWithSysfs(gpu);
+    } else if (process.platform === 'win32') {
+      await enrichGpuWindows({ model: source.name, vendorId: source.vendorId }, gpu);
+    }
+
+    gpus.push(gpu);
+  }
+
+  // Step 4: NVIDIA-specific enrichment via nvidia-smi
+  if (process.platform === 'linux') {
+    await enrichGpusWithNvidiaSmi(gpus, detectedGpus);
   }
 
   return { gpuAvailable: gpus.length > 0, gpus };
 }
 
-function enrichGpuLinux(_controller: any, gpu: GpuDetail): void {
+function enrichGpuWithSysfs(gpu: GpuDetail): void {
   const drmBase = '/sys/class/drm';
 
   try {
-    const cards = fs.readdirSync(drmBase).filter((f: string) => f.startsWith('card'));
+    const entries = fs.readdirSync(drmBase);
+    const cards = entries.filter((f: string) => f.startsWith('card'));
 
     for (const card of cards) {
-      const cardPath = path.join(drmBase, card);
-      const devicePath = path.join(cardPath, 'device');
+      const devicePath = path.join(drmBase, card, 'device');
+      const ueventPath = path.join(devicePath, 'uevent');
 
-      if (!fs.existsSync(devicePath)) continue;
+      if (!fs.existsSync(ueventPath)) continue;
 
       try {
-        const uevent = fs.readFileSync(path.join(devicePath, 'uevent'), 'utf8');
-        const vendorMatch = uevent.match(/PCI_VENDOR=(.+)/);
+        const uevent = fs.readFileSync(ueventPath, 'utf8');
         const drmNameMatch = uevent.match(/DRM_NAME=(.+)/);
         const pciNameMatch = uevent.match(/PCI_DEVICE_NAME=(.+)/);
-        const sysfsName = pciNameMatch?.[1]?.trim() || drmNameMatch?.[1]?.trim() || card;
+        const sysfsName = pciNameMatch?.[1]?.trim() || drmNameMatch?.[1]?.trim();
 
-        if (vendorMatch?.[1]?.trim() !== '0x1002') {
-          continue;
-        }
-
-        if (gpu.name === 'Unknown GPU' || gpu.name === card) {
-          gpu.name = sysfsName || card;
+        if (gpu.name === 'Unknown GPU' && sysfsName) {
+          gpu.name = sysfsName;
         }
 
         try {
-          const hwmonDir = fs.readdirSync(path.join(devicePath, 'hwmon')).find((d: string) => d.startsWith('hwmon'));
+          const hwmonEntries = fs.readdirSync(path.join(devicePath, 'hwmon'));
+          const hwmonDir = hwmonEntries.find((d: string) => d.startsWith('hwmon'));
           if (hwmonDir) {
             const hwmonPath = path.join(devicePath, 'hwmon', hwmonDir);
             const tempFiles = fs.readdirSync(hwmonPath).filter((f: string) => f.startsWith('temp') && f.endsWith('_input'));
@@ -188,9 +252,7 @@ function enrichGpuLinux(_controller: any, gpu: GpuDetail): void {
               }
             }
           }
-        } catch {
-          gpuLog(3, `Failed to read temperature for ${card}`);
-        }
+        } catch { /* skip */ }
 
         try {
           const memTotalPath = path.join(devicePath, 'mem_info_vram_total');
@@ -203,9 +265,7 @@ function enrichGpuLinux(_controller: any, gpu: GpuDetail): void {
               gpu.memUsed = Math.round(memUsedBytes / (1024 * 1024 * 1024));
             }
           }
-        } catch {
-          gpuLog(4, `Failed to read VRAM for ${card}`);
-        }
+        } catch { /* skip */ }
 
         try {
           const utilPath = path.join(devicePath, 'gpu_busy_percent');
@@ -216,12 +276,11 @@ function enrichGpuLinux(_controller: any, gpu: GpuDetail): void {
               gpu.utilization = util;
             }
           }
-        } catch {
-          gpuLog(5, `Failed to read utilization for ${card}`);
-        }
+        } catch { /* skip */ }
 
         try {
-          const hwmonDir = fs.readdirSync(path.join(devicePath, 'hwmon')).find((d: string) => d.startsWith('hwmon'));
+          const hwmonEntries = fs.readdirSync(path.join(devicePath, 'hwmon'));
+          const hwmonDir = hwmonEntries.find((d: string) => d.startsWith('hwmon'));
           if (hwmonDir) {
             const hwmonPath = path.join(devicePath, 'hwmon', hwmonDir);
             const powerFiles = fs.readdirSync(hwmonPath).filter((f: string) => f.startsWith('power') && f.includes('average'));
@@ -234,13 +293,11 @@ function enrichGpuLinux(_controller: any, gpu: GpuDetail): void {
               }
             }
           }
-        } catch {
-          gpuLog(6, `Failed to read power for ${card}`);
-        }
+        } catch { /* skip */ }
 
         break;
-      } catch (err: any) {
-        gpuLog(7, `Error reading ${card}: ${err.message}`);
+      } catch {
+        // Skip unreadable cards
       }
     }
   } catch (err: any) {
@@ -291,6 +348,52 @@ async function enrichGpuWindows(_controller: any, gpu: GpuDetail): Promise<void>
     }
   } catch {
     gpuLog(11, 'Failed to read power via WMI');
+  }
+}
+
+async function enrichGpusWithNvidiaSmi(gpus: GpuDetail[], detectedGpus: Array<{ name: string; vendorId: string }>): Promise<void> {
+  const nvidiaIndices: number[] = [];
+  for (let i = 0; i < detectedGpus.length; i++) {
+    if (detectedGpus[i].vendorId === '0x10de' || detectedGpus[i].name.toLowerCase().includes('nvidia')) {
+      nvidiaIndices.push(i);
+    }
+  }
+
+  if (nvidiaIndices.length === 0) return;
+
+  try {
+    const { stdout } = await execFilePromise('nvidia-smi', [
+      '--query-gpu=temperature.gpu,memory.total,memory.used,utilization.gpu,power.draw',
+      '--format=csv,noheader,nounits'
+    ], { timeout: 5000 });
+
+    const lines = stdout.trim().split('\n').filter((l: string) => l.trim());
+
+    for (let i = 0; i < nvidiaIndices.length && i < lines.length; i++) {
+      const parts = lines[i].split(',').map((p: string) => p.trim());
+      if (parts.length >= 5) {
+        const gpu = gpus[nvidiaIndices[i]];
+        const temp = parseFloat(parts[0]);
+        const memTotalMb = parseFloat(parts[1]);
+        const memUsedMb = parseFloat(parts[2]);
+        const util = parseInt(parts[3], 10);
+        const power = parseFloat(parts[4]);
+
+        if (!isNaN(temp) && temp > 0) gpu.temperature = Math.round(temp);
+        if (!isNaN(memTotalMb) && memTotalMb > 0) gpu.memTotal = Math.round(memTotalMb / 1024);
+        if (!isNaN(memUsedMb) && memUsedMb > 0) gpu.memUsed = Math.round(memUsedMb / 1024);
+        if (!isNaN(util) && util >= 0 && util <= 100) gpu.utilization = util;
+        if (!isNaN(power) && power > 0) gpu.power = Math.round(power);
+
+        if (gpu.name === 'Unknown GPU' || gpu.name === 'NVIDIA GPU') {
+          gpu.name = 'NVIDIA GPU';
+        }
+      }
+    }
+
+    gpuLog(1, `nvidia-smi enriched ${nvidiaIndices.length} GPU(s)`);
+  } catch (err: any) {
+    gpuLog(1, `nvidia-smi failed: ${err.message}`);
   }
 }
 

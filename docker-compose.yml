@@ -21,10 +21,11 @@ services:
       - SUPPRESS_CONSOLE=${SUPPRESS_CONSOLE}
     volumes:
       - ./backend/data:/app/data
-      # Mount GPU sysfs for hardware monitoring (Linux AMD)
+      # Mount GPU sysfs and DRI for hardware monitoring (all vendors)
       - /sys/class/drm:/sys/class/drm:ro
       - /sys/kernel/debug:/sys/kernel/debug:ro
       - /sys/class/hwmon:/sys/class/hwmon:ro
+      - /dev/dri:/dev/dri:ro
     cap_add:
       - SYS_ADMIN
     networks:
