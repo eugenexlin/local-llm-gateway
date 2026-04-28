@@ -84,8 +84,7 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 try {
   database.init();
   app.listen(PORT, () => {
-    console.log(`LLM Gateway Proxy running on port ${PORT}`);
-    console.log(`Llama CPP URL: ${config.llamaCppUrl}`);
+    console.log(`LLM Gateway Proxy running on port ${PORT} | Llama CPP: ${config.llamaCppUrl}`);
   });
 } catch (err) {
   console.error('Failed to initialize database:', err);

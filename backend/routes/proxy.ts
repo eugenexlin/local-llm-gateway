@@ -26,11 +26,7 @@ router.all('/*', (req: ExtendedRequest, res: Response, next: (err?: any) => void
   const pathWithoutLeadingSlash = req.path.substring(1);
   (req as ExtendedRequest & { proxyPath: string }).proxyPath = pathWithoutLeadingSlash;
   const fullUrl = `${config.llamaCppUrl}/${pathWithoutLeadingSlash}`;
-  console.log('\n=== INCOMING REQUEST ===');
-  console.log('Method:', req.method);
-  console.log('Full URL:', fullUrl);
-  console.log('Headers:', JSON.stringify(req.headers, null, 2));
-  console.log('====================\n');
+  console.log(`${req.method} ${fullUrl} | Headers: ${JSON.stringify(Object.fromEntries(Object.entries(req.headers).filter(([k]) => !['authorization','cookie','x-api-key'].includes(k.toLowerCase()))))}`);
   next();
 }, (req: ExtendedRequest, res: Response) => {
   const keyData = req.keyData;
@@ -41,11 +37,7 @@ router.all('/*', (req: ExtendedRequest, res: Response, next: (err?: any) => void
   const endpoint = `/v1/${pathWithoutLeadingSlash}`;
   const fullUrl = `${config.llamaCppUrl}/${pathWithoutLeadingSlash}`;
 
-  console.log('\n=== FORWARDING REQUEST ===');
-  console.log('API Key ID:', req.apiKeyId);
-  console.log('Full URL:', fullUrl);
-  console.log('Body: [HIDDEN]');
-  console.log('====================\n');
+  console.log(`[KEY:${req.apiKeyId}] ${req.method} ${fullUrl} | Body: [HIDDEN]`);
 
   // Proxy request with streaming
   proxyRequestStreaming(fullUrl, body, req.apiKeyId!, req.method, res, req.headers);
@@ -157,13 +149,7 @@ function proxyRequestStreaming(
         }
       });
 
-      console.log('\n=== PROXY RESPONSE ===');
-      console.log('Status:', metrics.statusCode);
-      console.log('Duration:', duration, 'ms');
-      console.log('Prompt Tokens:', metrics.promptTokens);
-      console.log('Completion Tokens:', metrics.completionTokens);
-      console.log('Total Tokens:', metrics.totalTokens);
-      console.log('====================\n');
+      console.log(`[${metrics.statusCode}] ${duration}ms | Prompt:${metrics.promptTokens} Completion:${metrics.completionTokens} Total:${metrics.totalTokens}`);
     });
   });
 
