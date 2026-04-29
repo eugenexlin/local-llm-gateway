@@ -1,0 +1,1 @@
+export const MAX_SPARKLINE_POINTS = 128;

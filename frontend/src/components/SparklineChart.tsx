@@ -3,8 +3,12 @@ import {
   ResponsiveContainer,
   LineChart,
   Line,
+  XAxis,
+  YAxis,
   CartesianGrid,
+  Tooltip,
 } from "recharts";
+import { MAX_SPARKLINE_POINTS } from "../utils/constants";
 
 interface SparklineChartProps {
   data: { timestamp: number; value: number }[];
@@ -17,52 +21,73 @@ const SparklineChart: React.FC<SparklineChartProps> = ({
   data,
   color,
   width = 160,
-  height = 40,
+  height = 60,
 }) => {
-  if (data.length < 2) {
-    return (
-      <ResponsiveContainer width={width} height={height}>
-        <LineChart data={[]}>
+  // Build chart data with fixed positions (right-aligned)
+  const chartData = data.map((d, i) => ({
+    ...d,
+    index: MAX_SPARKLINE_POINTS - data.length + i,
+  }));
+
+  // Fill empty slots for consistent spacing
+  const fullData: { index: number; value: number | null }[] = [];
+  if (data.length === 0) {
+    fullData.push({ index: 0, value: null });
+  } else {
+    for (let i = 0; i < MAX_SPARKLINE_POINTS; i++) {
+      const point = chartData.find((d) => d.index === i);
+      fullData.push({
+        index: i,
+        value: point ? point.value : null,
+      });
+    }
+  }
+
+  return (
+    <div
+      style={{
+        height,
+        width: "100%",
+        backgroundColor: "transparent",
+      }}
+    >
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart
+          data={fullData}
+        >
+          <XAxis
+            dataKey="index"
+            type="number"
+            domain={[0, MAX_SPARKLINE_POINTS]}
+            tickCount={5}
+            hide
+          />
+          <YAxis
+            domain={[0, 100]}
+            ticks={[0, 100]}
+            tickFormatter={(v) => `${v}%`}
+            axisLine={{ stroke: `${color}66`, strokeWidth: 1 }}
+            tickLine={{ stroke: `${color}66` }}
+            tick={{ fontSize: 9, fill: `${color}88` }}
+          />
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke={`${color}40`}
+            vertical={false}
+          />
           <Line
-            type="bessel"
+            type="monotone"
             dataKey="value"
             stroke={color}
             strokeWidth={1.5}
             dot={false}
+            fill="none"
+            connectNulls={false}
+            isAnimationActive={false}
           />
         </LineChart>
       </ResponsiveContainer>
-    );
-  }
-
-  const values = data.map((d) => d.value);
-  const minVal = Math.min(...values);
-  const maxVal = Math.max(...values);
-  const range = maxVal - minVal || 1;
-  const padding = range * 0.1;
-
-  const chartData = data.map((d, i) => ({
-    ...d,
-    index: i,
-    normalized:
-      ((d.value - (minVal - padding)) / (range + padding * 2)) * 100,
-  }));
-
-  return (
-    <ResponsiveContainer width={width} height={height}>
-      <LineChart data={chartData}>
-        <CartesianGrid strokeDasharray="3 3" stroke="transparent" />
-        <Line
-          type="bessel"
-          dataKey="normalized"
-          stroke={color}
-          strokeWidth={1.5}
-          dot={false}
-          fill="none"
-          connectNulls
-        />
-      </LineChart>
-    </ResponsiveContainer>
+    </div>
   );
 };
 

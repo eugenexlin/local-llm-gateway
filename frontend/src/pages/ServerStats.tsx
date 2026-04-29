@@ -14,6 +14,7 @@ import {
   useMediaQuery,
   keyframes,
 } from "@mui/material";
+import { MAX_SPARKLINE_POINTS } from "../utils/constants";
 
 const spin = keyframes({
   "0%": { transform: "rotate(0deg)" },
@@ -25,8 +26,7 @@ import SpeedIcon from "@mui/icons-material/Speed";
 import StorageIcon from "@mui/icons-material/Storage";
 import NetworkPingIcon from "@mui/icons-material/NetworkPing";
 import PowerSettingsNewIcon from "@mui/icons-material/PowerSettingsNew";
-import DnsIcon from "@mui/icons-material/Dns";
-import SparklineChart from "../components/SparklineChart";
+import LoadGauge from "../components/LoadGauge";
 
 interface CpuCore {
   cpu: number;
@@ -69,16 +69,6 @@ interface ServerStatsData {
     sizeHuman: string;
     lastModified: string | null;
     totalRequests: number;
-  };
-  process: {
-    rss: number;
-    rssHuman: string;
-    heapUsed: number;
-    heapUsedHuman: string;
-    heapTotal: number;
-    heapTotalHuman: string;
-    uptime: number;
-    uptimeHuman: string;
   };
   network: {
     bytesSent: number;
@@ -131,7 +121,7 @@ const StatsCard: React.FC<StatsCardProps> = ({ title, icon, children, sx }) => {
 };
 
 const getTempColor = (temp: number | null): string => {
-  if (temp === null) return "text.secondary";
+  if (temp === null) return "#9e9e9e";
   if (temp >= 85) return "#d32f2f";
   if (temp >= 75) return "#f57c00";
   return "#2e7d32";
@@ -172,8 +162,8 @@ const ServerStats: React.FC = () => {
           timestamp: Date.now(),
           value: data.cpu.usage,
         });
-        if (cpuHistoryRef.current.length > 64) {
-          cpuHistoryRef.current = cpuHistoryRef.current.slice(-64);
+        if (cpuHistoryRef.current.length > MAX_SPARKLINE_POINTS) {
+          cpuHistoryRef.current = cpuHistoryRef.current.slice(-MAX_SPARKLINE_POINTS);
         }
 
         if (!gpuHistoryRef.current[0]) {
@@ -187,8 +177,8 @@ const ServerStats: React.FC = () => {
             timestamp: Date.now(),
             value: data.gpu.gpus[i].utilization || 0,
           });
-          if (gpuHistoryRef.current[i].length > 64) {
-            gpuHistoryRef.current[i] = gpuHistoryRef.current[i].slice(-64);
+          if (gpuHistoryRef.current[i].length > MAX_SPARKLINE_POINTS) {
+            gpuHistoryRef.current[i] = gpuHistoryRef.current[i].slice(-MAX_SPARKLINE_POINTS);
           }
         }
         forceUpdate((n) => n + 1);
@@ -255,7 +245,6 @@ const ServerStats: React.FC = () => {
 
   const cpuUsage = stats.cpu.usage;
   const ramUsage = stats.ram.usedPercent;
-  const uptime = stats.process.uptimeHuman;
   const dbSize = stats.database.sizeHuman;
 
   return (
@@ -312,7 +301,163 @@ const ServerStats: React.FC = () => {
       </Box>
 
       <Grid container spacing={2}>
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+        <Grid size={{ xs: 12 }}>
+          <StatsCard title="GPU" icon={<PowerSettingsNewIcon />}>
+            {stats.gpu.gpuAvailable ? (
+              <Box>
+                {stats.gpu.gpus.map((gpu, idx) => (
+                  <Box
+                    key={idx}
+                    sx={{
+                      mb: idx < stats.gpu.gpus.length - 1 ? 2 : 0,
+                      pb: idx < stats.gpu.gpus.length - 1 ? 2 : 0,
+                      ...(idx < stats.gpu.gpus.length - 1
+                        ? { borderBottom: `1px solid ${theme.palette.divider}` }
+                        : {}),
+                    }}
+                  >
+                    <LoadGauge
+                      title={gpu.name}
+                      value={gpu.utilization}
+                      color={getTempColor(gpu.temperature)}
+                      sparklineData={gpuHistoryRef.current[idx] || []}
+                      extraContent={
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: 2,
+                          }}
+                        >
+                          <Typography variant="caption" color="text.secondary">
+                            {gpu.memUsed !== null
+                              ? `${gpu.memUsed} / ${gpu.memTotal} GB VRAM`
+                              : "VRAM N/A"}
+                          </Typography>
+                          {gpu.power !== null && (
+                            <Typography variant="caption" color="text.secondary">
+                              {gpu.power}W
+                            </Typography>
+                          )}
+                        </Box>
+                      }
+                    />
+                  </Box>
+                ))}
+              </Box>
+            ) : (
+              <Typography
+                variant="body2"
+                sx={{ fontWeight: 500, color: "text.secondary", py: 2 }}
+              >
+                No GPUs detected
+              </Typography>
+            )}
+          </StatsCard>
+        </Grid>
+
+        {stats.cpu.cores.length > 0 && (
+          <Grid size={{ xs: 12 }}>
+            <StatsCard title="CPU" icon={<SpeedIcon />}>
+              <LoadGauge
+                title="CPU"
+                value={cpuUsage}
+                color={
+                  cpuUsage >= 85
+                    ? "#d32f2f"
+                    : cpuUsage >= 70
+                      ? "#f57c00"
+                      : "#2e7d32"
+                }
+                sparklineData={cpuHistoryRef.current}
+                extraContent={
+                  <>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        mb: 1,
+                      }}
+                    >
+                      <Typography variant="caption" color="text.secondary">
+                        Per-Core CPU Load
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {stats.cpu.cores.length} cores
+                      </Typography>
+                    </Box>
+                    <Box
+                sx={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 1,
+                }}
+              >
+                {stats.cpu.cores.map((core, idx) => (
+                  <Box
+                    key={idx}
+                    sx={{
+                      flex: "1 1 calc(25% - 8px)",
+                      minWidth: 120,
+                      [theme.breakpoints.down("sm")]: {
+                        flex: "1 1 calc(50% - 8px)",
+                      },
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        mb: 0.5,
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ fontWeight: 500 }}>
+                        Core {idx}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontWeight: 600,
+                          color:
+                            core.load >= 85
+                              ? "#d32f2f"
+                              : core.load >= 70
+                                ? "#f57c00"
+                                : "#2e7d32",
+                        }}
+                      >
+                        {core.load.toFixed(1)}%
+                      </Typography>
+                    </Box>
+                    <LinearProgress
+                      variant="determinate"
+                      value={core.load}
+                      sx={{
+                        height: 6,
+                        borderRadius: 3,
+                        bgcolor: "rgba(0,0,0,0.06)",
+                        "& .MuiLinearProgress-bar": {
+                          borderRadius: 3,
+                          bgcolor:
+                            core.load >= 85
+                              ? "#d32f2f"
+                              : core.load >= 70
+                                ? "#f57c00"
+                                : "#2e7d32",
+                        },
+                      }}
+                    />
+                  </Box>
+                ))}
+              </Box>
+                  </>
+                }
+              />
+            </StatsCard>
+          </Grid>
+        )}
+
+        <Grid size={{ xs: 12, sm: 6 }}>
           <StatsCard title="Network I/O" icon={<NetworkPingIcon />}>
             <Box sx={{ mb: 2 }}>
               <Box
@@ -384,7 +529,7 @@ const ServerStats: React.FC = () => {
           </StatsCard>
         </Grid>
 
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <StatsCard title="RAM" icon={<MemoryIcon />}>
             <Box sx={{ textAlign: "center", mb: 1 }}>
               <Typography
@@ -435,16 +580,8 @@ const ServerStats: React.FC = () => {
           </StatsCard>
         </Grid>
 
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <StatsCard title="App Uptime" icon={<PowerSettingsNewIcon />}>
-            <Box sx={{ textAlign: "center", mb: 2 }}>
-              <Typography
-                variant="h2"
-                sx={{ fontWeight: 700, color: "primary.main" }}
-              >
-                {uptime}
-              </Typography>
-            </Box>
             <Box>
               <Box
                 sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}
@@ -512,264 +649,7 @@ const ServerStats: React.FC = () => {
           </StatsCard>
         </Grid>
 
-        <Grid size={{ xs: 12 }}>
-          <StatsCard title="GPU" icon={<PowerSettingsNewIcon />}>
-            {stats.gpu.gpuAvailable ? (
-              <Box>
-                {stats.gpu.gpus.map((gpu, idx) => (
-                  <Box
-                    key={idx}
-                    sx={{
-                      mb: idx < stats.gpu.gpus.length - 1 ? 2 : 0,
-                      pb: idx < stats.gpu.gpus.length - 1 ? 2 : 0,
-                      ...(idx < stats.gpu.gpus.length - 1
-                        ? { borderBottom: `1px solid ${theme.palette.divider}` }
-                        : {}),
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        mb: 0.5,
-                      }}
-                    >
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {gpu.name}
-                      </Typography>
-                      <Chip
-                        size="small"
-                        label={`${gpu.temperature !== null ? gpu.temperature + "°C" : "N/A"}`}
-                        sx={{
-                          bgcolor: getTempColor(gpu.temperature),
-                          color: "#fff",
-                          fontWeight: 600,
-                          fontSize: "0.7rem",
-                          height: 24,
-                        }}
-                      />
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        gap: 2,
-                        mb: 0.5,
-                      }}
-                    >
-                      <Box sx={{ flex: 1 }}>
-                        <LinearProgress
-                          variant="determinate"
-                          value={gpu.utilization || 0}
-                          sx={{
-                            height: 8,
-                            borderRadius: 4,
-                            bgcolor: "rgba(0,0,0,0.06)",
-                            "& .MuiLinearProgress-bar": {
-                              borderRadius: 4,
-                              bgcolor: getTempColor(gpu.temperature),
-                            },
-                          }}
-                        />
-                        <Typography
-                          variant="caption"
-                          sx={{ mt: 0.5, display: "block", fontWeight: 600 }}
-                        >
-                          {gpu.utilization !== null
-                            ? gpu.utilization + "%"
-                            : "N/A"}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ flex: 1 }}>
-                        <SparklineChart
-                          data={gpuHistoryRef.current[idx] || []}
-                          color={getTempColor(gpu.temperature)}
-                          width={160}
-                          height={40}
-                        />
-                      </Box>
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        gap: 2,
-                      }}
-                    >
-                      <Typography variant="caption" color="text.secondary">
-                        {gpu.memUsed !== null
-                          ? `${gpu.memUsed} / ${gpu.memTotal} GB VRAM`
-                          : "VRAM N/A"}
-                      </Typography>
-                      {gpu.power !== null && (
-                        <Typography variant="caption" color="text.secondary">
-                          {gpu.power}W
-                        </Typography>
-                      )}
-                    </Box>
-                  </Box>
-                ))}
-              </Box>
-            ) : (
-              <Typography
-                variant="body2"
-                sx={{ fontWeight: 500, color: "text.secondary", py: 2 }}
-              >
-                No GPUs detected
-              </Typography>
-            )}
-          </StatsCard>
-        </Grid>
-
-        {stats.cpu.cores.length > 0 && (
-          <Grid size={{ xs: 12 }}>
-            <StatsCard title="CPU" icon={<SpeedIcon />}>
-              <Box sx={{ textAlign: "center", mb: 2 }}>
-                <Typography
-                  variant="h3"
-                  sx={{
-                    fontWeight: 700,
-                    color:
-                      cpuUsage >= 85
-                        ? "#d32f2f"
-                        : cpuUsage >= 70
-                          ? "#f57c00"
-                          : "#2e7d32",
-                  }}
-                >
-                  {cpuUsage.toFixed(1)}%
-                </Typography>
-              </Box>
-              <Box
-                sx={{
-                  display: "flex",
-                  gap: 2,
-                  mb: 2,
-                }}
-              >
-                <Box sx={{ flex: 1 }}>
-                  <LinearProgress
-                    variant="determinate"
-                    value={cpuUsage}
-                    sx={{
-                      height: 8,
-                      borderRadius: 4,
-                      bgcolor: "rgba(0,0,0,0.06)",
-                      "& .MuiLinearProgress-bar": {
-                        borderRadius: 4,
-                        bgcolor:
-                          cpuUsage >= 85
-                            ? "#d32f2f"
-                            : cpuUsage >= 70
-                              ? "#f57c00"
-                              : "#2e7d32",
-                      },
-                    }}
-                  />
-                  <Typography
-                    variant="caption"
-                    sx={{ mt: 0.5, display: "block", fontWeight: 600 }}
-                  >
-                    {cpuUsage.toFixed(1)}%
-                  </Typography>
-                </Box>
-                <Box sx={{ flex: 1 }}>
-                  <SparklineChart
-                    data={cpuHistoryRef.current}
-                    color={
-                      cpuUsage >= 85
-                        ? "#d32f2f"
-                        : cpuUsage >= 70
-                          ? "#f57c00"
-                          : "#2e7d32"
-                    }
-                    width={160}
-                    height={40}
-                  />
-                </Box>
-              </Box>
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  mb: 1,
-                }}
-              >
-                <Typography variant="caption" color="text.secondary">
-                  Per-Core CPU Load
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {stats.cpu.cores.length} cores
-                </Typography>
-              </Box>
-              <Box
-                sx={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 1,
-                }}
-              >
-                {stats.cpu.cores.map((core, idx) => (
-                  <Box
-                    key={idx}
-                    sx={{
-                      flex: "1 1 calc(25% - 8px)",
-                      minWidth: 120,
-                      [theme.breakpoints.down("sm")]: {
-                        flex: "1 1 calc(50% - 8px)",
-                      },
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        mb: 0.5,
-                      }}
-                    >
-                      <Typography variant="caption" sx={{ fontWeight: 500 }}>
-                        Core {idx}
-                      </Typography>
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          fontWeight: 600,
-                          color:
-                            core.load >= 85
-                              ? "#d32f2f"
-                              : core.load >= 70
-                                ? "#f57c00"
-                                : "#2e7d32",
-                        }}
-                      >
-                        {core.load.toFixed(1)}%
-                      </Typography>
-                    </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={core.load}
-                      sx={{
-                        height: 6,
-                        borderRadius: 3,
-                        bgcolor: "rgba(0,0,0,0.06)",
-                        "& .MuiLinearProgress-bar": {
-                          borderRadius: 3,
-                          bgcolor:
-                            core.load >= 85
-                              ? "#d32f2f"
-                              : core.load >= 70
-                                ? "#f57c00"
-                                : "#2e7d32",
-                        },
-                      }}
-                    />
-                  </Box>
-                ))}
-              </Box>
-            </StatsCard>
-          </Grid>
-        )}
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <StatsCard title="Database" icon={<StorageIcon />}>
             <Box sx={{ textAlign: "center", mb: 1 }}>
               <Typography
@@ -800,74 +680,6 @@ const ServerStats: React.FC = () => {
             />
           </StatsCard>
         </Grid>
-
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-          <StatsCard title="Process Memory" icon={<DnsIcon />}>
-            <Box sx={{ mb: 2 }}>
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  mb: 0.5,
-                }}
-              >
-                <Typography variant="body2" color="text.secondary">
-                  RSS
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {stats.process.rssHuman}
-                </Typography>
-              </Box>
-              <LinearProgress
-                variant="determinate"
-                value={Math.min(100, (stats.process.rss / 4096) * 100)}
-                sx={{
-                  height: 6,
-                  borderRadius: 3,
-                  bgcolor: "rgba(0,0,0,0.06)",
-                  mb: 1.5,
-                }}
-              />
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  mb: 0.5,
-                }}
-              >
-                <Typography variant="body2" color="text.secondary">
-                  Heap Used
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {stats.process.heapUsedHuman}
-                </Typography>
-              </Box>
-              <LinearProgress
-                variant="determinate"
-                value={
-                  stats.process.heapTotal > 0
-                    ? (stats.process.heapUsed / stats.process.heapTotal) * 100
-                    : 0
-                }
-                sx={{
-                  height: 6,
-                  borderRadius: 3,
-                  bgcolor: "rgba(0,0,0,0.06)",
-                  mb: 1.5,
-                }}
-              />
-              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                <Typography variant="body2" color="text.secondary">
-                  Heap Total
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {stats.process.heapTotalHuman}
-                </Typography>
-              </Box>
-            </Box>
-          </StatsCard>
-        </Grid>
-
       </Grid>
     </>
   );

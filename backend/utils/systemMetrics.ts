@@ -54,17 +54,6 @@ interface DatabaseInfo {
   totalRequests: number;
 }
 
-interface ProcessInfo {
-  rss: number;
-  rssHuman: string;
-  heapUsed: number;
-  heapUsedHuman: string;
-  heapTotal: number;
-  heapTotalHuman: string;
-  uptime: number;
-  uptimeHuman: string;
-}
-
 interface NetworkInfo {
   bytesSent: number;
   bytesReceived: number;
@@ -77,7 +66,6 @@ interface ServerStats {
   ram: RamInfo;
   gpu: GpuInfo;
   database: DatabaseInfo;
-  process: ProcessInfo;
   network: NetworkInfo;
   platform: string;
   timestamp: string;
@@ -100,15 +88,6 @@ function formatBytes(bytes: number): string {
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-}
-
-function formatUptime(seconds: number): string {
-  const days = Math.floor(seconds / 86400);
-  const hours = Math.floor((seconds % 86400) / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  if (days > 0) return `${days}d ${hours}h ${minutes}m`;
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
 }
 
 async function detectGpusFromSysfs(): Promise<Array<{ name: string; vendorId: string; vram?: number }>> {
@@ -495,22 +474,6 @@ function getDatabaseInfo(): DatabaseInfo {
   }
 }
 
-function getProcessInfo(): ProcessInfo {
-  const mem = process.memoryUsage();
-  const uptime = process.uptime();
-
-  return {
-    rss: Math.round(mem.rss / (1024 * 1024)),
-    rssHuman: formatBytes(mem.rss),
-    heapUsed: Math.round(mem.heapUsed / (1024 * 1024)),
-    heapUsedHuman: formatBytes(mem.heapUsed),
-    heapTotal: Math.round(mem.heapTotal / (1024 * 1024)),
-    heapTotalHuman: formatBytes(mem.heapTotal),
-    uptime: Math.round(uptime),
-    uptimeHuman: formatUptime(uptime),
-  };
-}
-
 async function getNetworkInfo(): Promise<NetworkInfo> {
   let bytesSent = 0;
   let bytesReceived = 0;
@@ -546,12 +509,11 @@ export async function getServerStats(): Promise<ServerStats> {
     return cache.stats;
   }
 
-  const [cpu, ram, gpu, databaseInfo, processInfo, network] = await Promise.all([
+  const [cpu, ram, gpu, databaseInfo, network] = await Promise.all([
     getCpuInfo(),
     getRamInfo(),
     getGpuInfo(),
     getDatabaseInfo(),
-    getProcessInfo(),
     getNetworkInfo(),
   ]);
 
@@ -560,7 +522,6 @@ export async function getServerStats(): Promise<ServerStats> {
     ram,
     gpu,
     database: databaseInfo,
-    process: processInfo,
     network,
     platform: process.platform,
     timestamp: new Date().toISOString(),
