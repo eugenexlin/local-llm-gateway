@@ -70,13 +70,14 @@ function APIKeys() {
 
     try {
       const response = await fetch(
-        `/api/api-keys?user_id=${user.id}&show_revoked=true`,
+        `/api/api-keys?show_revoked=true`,
+        { credentials: 'include' },
       );
       if (response.ok) {
         const data = await response.json();
-        setApiKeys(data.filter((key: ApiKey) => key.user_id === user.id));
-      } else if (response.status === 403) {
-        setApiKeys([]);
+        setApiKeys(data);
+      } else if (response.status === 401) {
+        window.location.href = '/login';
       }
     } catch (error) {
       console.error("Failed to fetch API keys:", error);
@@ -96,10 +97,10 @@ function APIKeys() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: 'include',
         body: JSON.stringify({
           name: newKeyName,
           description: newKeyDescription || null,
-          user_id: user.id,
         }),
       });
 
@@ -127,6 +128,7 @@ function APIKeys() {
     try {
       const response = await fetch(`/api/api-keys/${keyId}`, {
         method: "DELETE",
+        credentials: 'include',
       });
 
       if (response.ok) {
@@ -209,6 +211,7 @@ function APIKeys() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: 'include',
         body: JSON.stringify({
           name: editingName,
           description: editingDescription || null,

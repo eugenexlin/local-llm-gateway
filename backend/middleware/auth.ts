@@ -10,6 +10,7 @@ export interface ExtendedRequest extends Request {
 }
 
 export interface SessionRequest extends Request {
+  session: any;
   user?: any;
 }
 
@@ -59,7 +60,7 @@ function validateApiKey(req: ExtendedRequest, res: Response, next: NextFunction)
 
 // Middleware to ensure request is authenticated via session
 function requireAuth(req: SessionRequest, res: Response, next: NextFunction): void {
-  if (!req.user) {
+  if (!req.user || !req.session) {
     res.status(401).json({
       error: 'Authentication required',
       message: 'Please log in to access this resource'

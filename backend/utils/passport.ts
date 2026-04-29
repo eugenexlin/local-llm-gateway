@@ -1,5 +1,6 @@
 import passport from "passport";
 import { Strategy as GoogleStrategy, Profile } from "passport-google-oauth20";
+import * as crypto from "crypto";
 import * as db from "../database";
 
 passport.use(
@@ -27,7 +28,7 @@ passport.use(
         if (user) {
           db.updateUserOauth(user.id, profile.id, "google");
         } else {
-          const userId = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          const userId = `user-${crypto.randomUUID()}`;
           user = db.createUser({
             id: userId,
             email,
@@ -46,13 +47,26 @@ passport.use(
 );
 
 passport.serializeUser((user: any, done) => {
-  done(null, user.id);
+  done(null, user);
 });
 
-passport.deserializeUser(async (id: string, done) => {
+passport.deserializeUser(async (user: any, done) => {
   try {
-    const user = db.findUserById(id);
-    done(null, user || null);
+    if (user && user.id) {
+      const dbUser = db.findUserById(user.id);
+      if (dbUser) {
+        done(null, {
+          id: dbUser.id,
+          email: dbUser.email,
+          name: dbUser.name,
+          oauthProvider: dbUser.oauth_provider || user.oauthProvider || 'test',
+        });
+      } else {
+        done(null, null);
+      }
+    } else {
+      done(null, null);
+    }
   } catch (error) {
     done(error as Error);
   }

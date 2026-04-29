@@ -1,30 +1,31 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 function AuthCallback() {
   const [searchParams] = useSearchParams();
-  const { handleOAuthLogin } = useAuth();
-  const hasNavigated = useRef(false);
-
+  const { checkAuth } = useAuth();
+  
   useEffect(() => {
-    if (hasNavigated.current) return;
-    
-    const provider = searchParams.get('provider');
-    const email = searchParams.get('email');
-    const name = searchParams.get('name');
-    const oauthId = searchParams.get('oauthId');
-    const userId = searchParams.get('userId');
+    const handleCallback = async () => {
+      const error = searchParams.get('error');
+      
+      if (error) {
+        window.location.href = `/login?error=${error}`;
+        return;
+      }
 
-    if (provider && email && name) {
-      handleOAuthLogin(provider, email, name, oauthId || null, userId);
-      hasNavigated.current = true;
-      window.location.href = '/';
-    } else {
-      hasNavigated.current = true;
-      window.location.href = '/login?error=authentication_failed';
-    }
-  }, []);
+      const authenticated = searchParams.get('authenticated');
+      if (authenticated === 'true') {
+        await checkAuth();
+        window.location.href = '/';
+      } else {
+        window.location.href = '/login?error=authentication_failed';
+      }
+    };
+
+    handleCallback();
+  }, [searchParams, checkAuth]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">

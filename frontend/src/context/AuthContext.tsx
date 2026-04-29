@@ -13,8 +13,7 @@ interface AuthContextType {
   logout: () => void;
   loading: boolean;
   testLogin: () => void;
-  handleOAuthLogin: (provider: string, email: string, name: string, oauthId: string | null, userId?: string | null) => void;
-  getSessionToken: () => string | null;
+  checkAuth: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -23,96 +22,78 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-export const generateSessionToken = (email: string): string => {
-  return btoa(email);
-};
-
-export const validateSessionToken = (token: string): string | null => {
-  try {
-    const email = atob(token);
-    if (email && email.includes('@')) {
-      return email;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-};
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const checkAuth = async () => {
     try {
-      const sessionToken = document.cookie.match(/session_token=([^;]+)/)?.[1];
+      const response = await fetch(`${API_BASE}/auth/session`, {
+        credentials: 'include',
+      });
       
-      if (sessionToken) {
-        const email = validateSessionToken(sessionToken);
-        if (email) {
-          const storedUser = localStorage.getItem('user');
-          if (storedUser) {
-            const parsedUser = JSON.parse(storedUser);
-            if (parsedUser.email === email) {
-              setUser(parsedUser);
-            }
-          }
-        }
-      }
-      
-      if (!user) {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          setUser(JSON.parse(storedUser));
-        }
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data.user);
+      } else {
+        setUser(null);
       }
     } catch (e) {
-      console.error('Failed to parse stored user:', e);
-      localStorage.removeItem('user');
+      console.error('Failed to check auth:', e);
+      setUser(null);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
+  };
+
+  useEffect(() => {
+    checkAuth();
   }, []);
 
   const login = (userData: User) => {
     setUser(userData);
-    localStorage.setItem('user', JSON.stringify(userData));
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('user');
-    document.cookie = 'session_token=; path=/; max-age=0';
+  const logout = async () => {
+    try {
+      await fetch(`${API_BASE}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch (e) {
+      console.error('Failed to logout:', e);
+    } finally {
+      setUser(null);
+    }
   };
 
-  const getSessionToken = (): string | null => {
-    const match = document.cookie.match(/session_token=([^;]+)/);
-    return match ? match[1] : null;
-  };
-
-  const testLogin = () => {
-    const testUser: User = {
-      id: 'test-user-001',
-      name: 'Test User',
-      email: 'test@test.com',
-      oauthProvider: 'test',
-    };
-    login(testUser);
-  };
-
-  const handleOAuthLogin = (provider: string, email: string, name: string, oauthId: string | null, userId?: string | null) => {
-    const oauthUser: User = {
-      id: userId || oauthId || `oauth-${Date.now()}`,
-      name,
-      email,
-      oauthProvider: provider,
-    };
-    login(oauthUser);
-    const token = generateSessionToken(email);
-    document.cookie = `session_token=${token}; path=/; max-age=86400`;
+  const testLogin = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/auth/test-login`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: 'test@test.com',
+          name: 'Test User',
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        login(data.user);
+      }
+    } catch (e) {
+      console.error('Test login failed:', e);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, testLogin, handleOAuthLogin, getSessionToken }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, testLogin, checkAuth }}>
       {children}
     </AuthContext.Provider>
   );

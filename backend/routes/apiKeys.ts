@@ -7,16 +7,25 @@ const router = express.Router();
 interface CreateApiKeyBody {
   name: string;
   description?: string;
-  user_id?: string;
+}
+
+interface SessionRequest extends Request {
+  session: any;
+  user?: any;
 }
 
 // Create API key
-router.post("/", (req: Request<{}, {}, CreateApiKeyBody>, res: Response) => {
+router.post("/", (req: any, res: Response) => {
   try {
-    const { name, description, user_id } = req.body;
+    const { name, description } = req.body;
+    const userId = req.user?.id;
 
     if (!name) {
       return res.status(400).json({ error: "Name is required" });
+    }
+
+    if (!userId) {
+      return res.status(401).json({ error: "Authentication required" });
     }
 
     const id = crypto.randomUUID();
@@ -28,7 +37,7 @@ router.post("/", (req: Request<{}, {}, CreateApiKeyBody>, res: Response) => {
       name,
       key_hash: hashedKey,
       description: description || null,
-      user_id: user_id || null,
+      user_id: userId,
     });
 
     res.status(201).json({
@@ -37,7 +46,7 @@ router.post("/", (req: Request<{}, {}, CreateApiKeyBody>, res: Response) => {
       description: description || null,
       api_key: rawApiKey,
       created_at: new Date().toISOString(),
-      user_id: user_id || null,
+      user_id: userId,
       is_active: 1,
     });
   } catch (error) {
@@ -47,17 +56,16 @@ router.post("/", (req: Request<{}, {}, CreateApiKeyBody>, res: Response) => {
 });
 
 // List API keys
-router.get("/", (req: Request, res: Response) => {
+router.get("/", (req: SessionRequest, res: Response) => {
   try {
-    const { user_id, show_revoked } = req.query;
-    let apiKeys: any[];
+    const userId = req.user?.id;
+    const { show_revoked } = req.query;
     
-    if (user_id) {
-      apiKeys = database.getApiKeysByUserId(user_id as string, show_revoked === 'true');
-      apiKeys = apiKeys.filter((key: any) => key.user_id === user_id);
-    } else {
-      apiKeys = [];
+    if (!userId) {
+      return res.status(401).json({ error: "Authentication required" });
     }
+
+    const apiKeys = database.getApiKeysByUserId(userId as string, show_revoked === 'true');
     
     const keysWithMetrics = apiKeys.map((key: any) => {
       const hasMetrics = database.checkApiKeyHasMetrics(key.id);

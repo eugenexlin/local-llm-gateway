@@ -26,11 +26,16 @@ function Login() {
     window.location.href = '/auth/google';
   };
 
-  const handleTestLogin = () => {
+  const handleTestLogin = async () => {
     setLoading(true);
-    testLogin();
-    navigate("/");
-    setLoading(false);
+    try {
+      await testLogin();
+      navigate("/");
+    } catch (error) {
+      console.error('Test login failed:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

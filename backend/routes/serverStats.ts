@@ -5,6 +5,7 @@ const router = express.Router();
 
 router.get("/", async (req: Request, res: Response) => {
   try {
+    res.setHeader("Cache-Control", "no-store");
     const stats = await getServerStats();
     res.json(stats);
   } catch (error) {

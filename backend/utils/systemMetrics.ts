@@ -117,7 +117,7 @@ async function detectGpusFromSysfs(): Promise<Array<{ name: string; vendorId: st
 
   try {
     const entries = fs.readdirSync(drmBase);
-    const cards = entries.filter((f: string) => f.startsWith('card'));
+    const cards = entries.filter((f: string) => f.startsWith('card') && !f.includes('-'));
 
     for (const card of cards) {
       const devicePath = path.join(drmBase, card, 'device');
@@ -219,7 +219,7 @@ function enrichGpuWithSysfs(gpu: GpuDetail): void {
 
   try {
     const entries = fs.readdirSync(drmBase);
-    const cards = entries.filter((f: string) => f.startsWith('card'));
+    const cards = entries.filter((f: string) => f.startsWith('card') && !f.includes('-'));
 
     for (const card of cards) {
       const devicePath = path.join(drmBase, card, 'device');

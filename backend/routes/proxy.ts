@@ -26,7 +26,7 @@ router.all('/*', (req: ExtendedRequest, res: Response, next: (err?: any) => void
   const pathWithoutLeadingSlash = req.path.substring(1);
   (req as ExtendedRequest & { proxyPath: string }).proxyPath = pathWithoutLeadingSlash;
   const fullUrl = `${config.llamaCppUrl}/${pathWithoutLeadingSlash}`;
-  console.log(`${req.method} ${fullUrl} | Headers: ${JSON.stringify(Object.fromEntries(Object.entries(req.headers).filter(([k]) => !['authorization','cookie','x-api-key'].includes(k.toLowerCase()))))}`);
+  console.log(`${req.method} ${fullUrl}`);
   next();
 }, (req: ExtendedRequest, res: Response) => {
   const keyData = req.keyData;
