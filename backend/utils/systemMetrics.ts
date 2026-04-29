@@ -39,7 +39,7 @@ interface GpuInfo {
 
 interface GpuDetail {
   name: string;
-  temperature: number | null;
+  temperatures: number[];
   fanSpeed: number | null;
   power: number | null;
   memUsed: number | null;
@@ -170,7 +170,7 @@ async function getGpuInfo(): Promise<GpuInfo> {
   for (const source of detectedGpus) {
     const gpu: GpuDetail = {
       name: source.name,
-      temperature: null,
+      temperatures: [],
       fanSpeed: null,
       power: null,
       memUsed: null,
@@ -224,13 +224,13 @@ function enrichGpuWithSysfs(gpu: GpuDetail): void {
           if (hwmonDir) {
             const hwmonPath = path.join(devicePath, 'hwmon', hwmonDir);
 
-            // Prefer temp1_input specifically
-            const temp1Path = path.join(hwmonPath, 'temp1_input');
-            if (fs.existsSync(temp1Path)) {
-              const tempVal = fs.readFileSync(temp1Path, 'utf8').trim();
+            // Read all temp*_input files
+            const tempFiles = fs.readdirSync(hwmonPath).filter((f: string) => f.startsWith('temp') && f.endsWith('_input'));
+            for (const tempFile of tempFiles) {
+              const tempVal = fs.readFileSync(path.join(hwmonPath, tempFile), 'utf8').trim();
               const tempC = parseInt(tempVal, 10) / 1000;
               if (!isNaN(tempC) && tempC > 0) {
-                gpu.temperature = Math.round(tempC);
+                gpu.temperatures.push(Math.round(tempC));
               }
             }
 
@@ -239,7 +239,7 @@ function enrichGpuWithSysfs(gpu: GpuDetail): void {
             if (fs.existsSync(fan1Path)) {
               const fanVal = fs.readFileSync(fan1Path, 'utf8').trim();
               const fanRpm = parseInt(fanVal, 10);
-              if (!isNaN(fanRpm) && fanRpm > 0) {
+              if (!isNaN(fanRpm) && fanRpm >= 0) {
                 gpu.fanSpeed = fanRpm;
               }
             }
@@ -308,7 +308,7 @@ async function enrichGpuWindows(_controller: any, gpu: GpuDetail): Promise<void>
     if (tempStr !== 'N/A' && !tempStr.toLowerCase().includes('error')) {
       const tempVal = parseFloat(tempStr);
       if (!isNaN(tempVal) && tempVal > 0 && tempVal < 150) {
-        gpu.temperature = Math.round(tempVal);
+        gpu.temperatures[0] = Math.round(tempVal);
       }
     }
   } catch {
@@ -371,7 +371,7 @@ async function enrichGpusWithNvidiaSmi(gpus: GpuDetail[], detectedGpus: Array<{ 
         const util = parseInt(parts[3], 10);
         const power = parseFloat(parts[4]);
 
-        if (!isNaN(temp) && temp > 0) gpu.temperature = Math.round(temp);
+        if (!isNaN(temp) && temp > 0) gpu.temperatures[0] = Math.round(temp);
         if (!isNaN(memTotalMb) && memTotalMb > 0) gpu.memTotal = Math.round(memTotalMb / 1024);
         if (!isNaN(memUsedMb) && memUsedMb > 0) gpu.memUsed = Math.round(memUsedMb / 1024);
         if (!isNaN(util) && util >= 0 && util <= 100) gpu.utilization = util;

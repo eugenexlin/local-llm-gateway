@@ -15,6 +15,7 @@ interface SparklineChartProps {
   color: string;
   width?: number;
   height?: number;
+  yDomain?: [number, number];
 }
 
 const SparklineChart: React.FC<SparklineChartProps> = ({
@@ -22,6 +23,7 @@ const SparklineChart: React.FC<SparklineChartProps> = ({
   color,
   width = 160,
   height = 60,
+  yDomain,
 }) => {
   // Build chart data with fixed positions (right-aligned)
   const chartData = data.map((d, i) => ({
@@ -62,12 +64,13 @@ const SparklineChart: React.FC<SparklineChartProps> = ({
           />
           <YAxis
             width={24}
-            domain={[0, 100]}
-            ticks={[0, 100]}
+            domain={yDomain ?? [0, 100]}
+            ticks={yDomain ? [yDomain[0], yDomain[1]] : [0, 100]}
             axisLine={{ stroke: `${color}66`, strokeWidth: 1 }}
             tickLine={{ stroke: `${color}66` }}
             tick={{ fontSize: 9, fill: `${color}88` }}
             interval={0}
+            tickFormatter={(v: number) => yDomain ? Math.round(v).toString() : `${v}%`}
           />
           <CartesianGrid
             strokeDasharray="3 3"

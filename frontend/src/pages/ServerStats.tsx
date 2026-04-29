@@ -27,6 +27,7 @@ import StorageIcon from "@mui/icons-material/Storage";
 import NetworkPingIcon from "@mui/icons-material/NetworkPing";
 import PowerSettingsNewIcon from "@mui/icons-material/PowerSettingsNew";
 import LoadGauge from "../components/LoadGauge";
+import TempGauge from "../components/TempGauge";
 
 interface CpuCore {
   cpu: number;
@@ -37,7 +38,7 @@ interface CpuCore {
 
 interface GpuDetail {
   name: string;
-  temperature: number | null;
+  temperatures: number[];
   fanSpeed: number | null;
   power: number | null;
   memUsed: number | null;
@@ -144,6 +145,8 @@ const ServerStats: React.FC = () => {
 
   const cpuHistoryRef = useRef<{ timestamp: number; value: number }[]>([]);
   const gpuHistoryRef = useRef<Record<number, { timestamp: number; value: number }[]>>({});
+  const tempRangeRef = useRef<Record<number, { min: number; max: number }>>({});
+  const tempHistoryRef = useRef<Record<number, Record<number, { timestamp: number; value: number }[]>>>({});
   const [, forceUpdate] = useState(0);
 
   const fetchStats = useCallback(async () => {
@@ -180,6 +183,41 @@ const ServerStats: React.FC = () => {
           });
           if (gpuHistoryRef.current[i].length > MAX_SPARKLINE_POINTS) {
             gpuHistoryRef.current[i] = gpuHistoryRef.current[i].slice(-MAX_SPARKLINE_POINTS);
+          }
+
+          // Track temp range (unified across all sensors per GPU)
+          if (!tempRangeRef.current[i]) {
+            if (data.gpu.gpus[i].temperatures.length > 0) {
+              tempRangeRef.current[i] = {
+                min: data.gpu.gpus[i].temperatures[0] - 1,
+                max: data.gpu.gpus[i].temperatures[0] + 1,
+              };
+            } else {
+              tempRangeRef.current[i] = { min: 0, max: 100 };
+            }
+          }
+
+          // Update global min/max from all sensors
+          for (const temp of data.gpu.gpus[i].temperatures) {
+            if (temp !== null && temp !== undefined) {
+              tempRangeRef.current[i].min = Math.min(tempRangeRef.current[i].min, temp);
+              tempRangeRef.current[i].max = Math.max(tempRangeRef.current[i].max, temp);
+            }
+          }
+
+          // Track per-sensor history
+          if (!tempHistoryRef.current[i]) {
+            tempHistoryRef.current[i] = {};
+          }
+          for (let j = 0; j < data.gpu.gpus[i].temperatures.length; j++) {
+            if (!tempHistoryRef.current[i][j]) {
+              tempHistoryRef.current[i][j] = [];
+            }
+            const tempVal = data.gpu.gpus[i].temperatures[j] ?? 0;
+            tempHistoryRef.current[i][j].push({ timestamp: Date.now(), value: tempVal });
+            if (tempHistoryRef.current[i][j].length > MAX_SPARKLINE_POINTS) {
+              tempHistoryRef.current[i][j] = tempHistoryRef.current[i][j].slice(-MAX_SPARKLINE_POINTS);
+            }
           }
         }
         forceUpdate((n) => n + 1);
@@ -320,61 +358,98 @@ const ServerStats: React.FC = () => {
                     <LoadGauge
                       title={gpu.name}
                       value={gpu.utilization}
-                      color={getTempColor(gpu.temperature)}
+                      color={getTempColor(gpu.temperatures[0] ?? null)}
                       sparklineData={gpuHistoryRef.current[idx] || []}
                       extraContent={
-                        <Box
-                          sx={{
-                            display: "flex",
-                            flexWrap: "wrap",
-                            gap: 1,
-                          }}
-                        >
-                          {[
-                            {
-                              label: "VRAM",
-                              value: gpu.memUsed !== null
-                                ? `${gpu.memUsed} / ${gpu.memTotal} GB`
-                                : "N/A",
-                            },
-                            {
-                              label: "Power",
-                              value: gpu.power !== null ? `${gpu.power}W` : "N/A",
-                            },
-                            {
-                              label: "Fan",
-                              value: gpu.fanSpeed !== null ? `${gpu.fanSpeed} RPM` : "N/A",
-                            },
-                            {
-                              label: "Temp",
-                              value: gpu.temperature !== null ? `${gpu.temperature}°C` : "N/A",
-                            },
-                          ].map((stat) => (
-                            <Box
-                              key={stat.label}
-                              sx={{
-                                flex: "1 1 calc(25% - 8px)",
-                                minWidth: 120,
-                                textAlign: "center",
-                                [theme.breakpoints.down("sm")]: {
-                                  flex: "1 1 calc(50% - 8px)",
-                                },
-                              }}
-                            >
-                              <Typography
-                                variant="caption"
-                                sx={{ fontWeight: 500, display: "block" }}
+                        <Box>
+                          {gpu.temperatures.length === 0 ? (
+                            <TempGauge
+                              title="Temp 1"
+                              value={null}
+                              history={[]}
+                              globalMin={0}
+                              globalMax={100}
+                              color="#9e9e9e"
+                            />
+                          ) : (
+                            gpu.temperatures.map((temp, j) => {
+                              const range = tempRangeRef.current[idx] ?? { min: 0, max: 100 };
+                              return (
+                                <Box
+                                  key={j}
+                                  sx={{
+                                    mb: j < gpu.temperatures.length - 1 ? 2 : 0,
+                                    pb: j < gpu.temperatures.length - 1 ? 2 : 0,
+                                    ...(j < gpu.temperatures.length - 1
+                                      ? { borderBottom: `1px solid ${theme.palette.divider}` }
+                                      : {}),
+                                  }}
+                                >
+                                  <TempGauge
+                                    title={`Temp ${j + 1}`}
+                                    value={temp}
+                                    history={tempHistoryRef.current[idx]?.[j] || []}
+                                    globalMin={range.min}
+                                    globalMax={range.max}
+                                    color={getTempColor(temp)}
+                                  />
+                                </Box>
+                              );
+                            })
+                          )}
+                          <Box
+                            sx={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: 1,
+                              mt: 2,
+                            }}
+                          >
+                            {[
+                              {
+                                label: "VRAM",
+                                value: gpu.memUsed !== null
+                                  ? `${gpu.memUsed} / ${gpu.memTotal} GB`
+                                  : "N/A",
+                                usagePercent: gpu.memUsed !== null && gpu.memTotal !== null
+                                  ? (gpu.memUsed / gpu.memTotal) * 100
+                                  : 0,
+                              },
+                              {
+                                label: "Power",
+                                value: gpu.power !== null ? `${gpu.power}W` : "N/A",
+                              },
+                              {
+                                label: "Fan",
+                                value: gpu.fanSpeed !== null ? `${gpu.fanSpeed} RPM` : "N/A",
+                              },
+                            ].map((stat) => (
+                              <Box
+                                key={stat.label}
+                                sx={{
+                                  flex: "1 1 calc(33.333% - 8px)",
+                                  minWidth: 120,
+                                  textAlign: "center",
+                                  [theme.breakpoints.down("sm")]: {
+                                    flex: "1 1 calc(50% - 8px)",
+                                  },
+                                }}
                               >
-                                {stat.label}
-                              </Typography>
-                              <Typography
-                                variant="caption"
-                                sx={{ fontWeight: 600, display: "block", mt: 0.5 }}
-                              >
-                                {stat.value}
-                              </Typography>
-                            </Box>
-                          ))}
+                                <Typography
+                                  variant="caption"
+                                  sx={{ fontWeight: 500, display: "block" }}
+                                >
+                                  {stat.label}
+                                </Typography>
+                                <Typography
+                                  variant="caption"
+                                  sx={{ fontWeight: 600, display: "block", mt: 0.5 }}
+                                >
+                                  {stat.value}
+                                </Typography>
+                              </Box>
+                            ))}
+                          </Box>
                         </Box>
                       }
                     />
