@@ -38,6 +38,7 @@ interface CpuCore {
 interface GpuDetail {
   name: string;
   temperature: number | null;
+  fanSpeed: number | null;
   power: number | null;
   memUsed: number | null;
   memTotal: number | null;
@@ -325,20 +326,55 @@ const ServerStats: React.FC = () => {
                         <Box
                           sx={{
                             display: "flex",
-                            justifyContent: "space-between",
-                            gap: 2,
+                            flexWrap: "wrap",
+                            gap: 1,
                           }}
                         >
-                          <Typography variant="caption" color="text.secondary">
-                            {gpu.memUsed !== null
-                              ? `${gpu.memUsed} / ${gpu.memTotal} GB VRAM`
-                              : "VRAM N/A"}
-                          </Typography>
-                          {gpu.power !== null && (
-                            <Typography variant="caption" color="text.secondary">
-                              {gpu.power}W
-                            </Typography>
-                          )}
+                          {[
+                            {
+                              label: "VRAM",
+                              value: gpu.memUsed !== null
+                                ? `${gpu.memUsed} / ${gpu.memTotal} GB`
+                                : "N/A",
+                            },
+                            {
+                              label: "Power",
+                              value: gpu.power !== null ? `${gpu.power}W` : "N/A",
+                            },
+                            {
+                              label: "Fan",
+                              value: gpu.fanSpeed !== null ? `${gpu.fanSpeed} RPM` : "N/A",
+                            },
+                            {
+                              label: "Temp",
+                              value: gpu.temperature !== null ? `${gpu.temperature}°C` : "N/A",
+                            },
+                          ].map((stat) => (
+                            <Box
+                              key={stat.label}
+                              sx={{
+                                flex: "1 1 calc(25% - 8px)",
+                                minWidth: 120,
+                                textAlign: "center",
+                                [theme.breakpoints.down("sm")]: {
+                                  flex: "1 1 calc(50% - 8px)",
+                                },
+                              }}
+                            >
+                              <Typography
+                                variant="caption"
+                                sx={{ fontWeight: 500, display: "block" }}
+                              >
+                                {stat.label}
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                sx={{ fontWeight: 600, display: "block", mt: 0.5 }}
+                              >
+                                {stat.value}
+                              </Typography>
+                            </Box>
+                          ))}
                         </Box>
                       }
                     />

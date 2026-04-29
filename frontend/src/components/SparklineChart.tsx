@@ -52,9 +52,7 @@ const SparklineChart: React.FC<SparklineChartProps> = ({
       }}
     >
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart
-          data={fullData}
-        >
+        <LineChart data={fullData}>
           <XAxis
             dataKey="index"
             type="number"
@@ -63,12 +61,13 @@ const SparklineChart: React.FC<SparklineChartProps> = ({
             hide
           />
           <YAxis
+            width={24}
             domain={[0, 100]}
             ticks={[0, 100]}
-            tickFormatter={(v) => `${v}%`}
             axisLine={{ stroke: `${color}66`, strokeWidth: 1 }}
             tickLine={{ stroke: `${color}66` }}
             tick={{ fontSize: 9, fill: `${color}88` }}
+            interval={0}
           />
           <CartesianGrid
             strokeDasharray="3 3"

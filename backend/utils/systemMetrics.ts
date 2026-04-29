@@ -40,6 +40,7 @@ interface GpuInfo {
 interface GpuDetail {
   name: string;
   temperature: number | null;
+  fanSpeed: number | null;
   power: number | null;
   memUsed: number | null;
   memTotal: number | null;
@@ -170,6 +171,7 @@ async function getGpuInfo(): Promise<GpuInfo> {
     const gpu: GpuDetail = {
       name: source.name,
       temperature: null,
+      fanSpeed: null,
       power: null,
       memUsed: null,
       memTotal: source.vram ? Math.round(source.vram / (1024 * 1024 * 1024)) : null,
@@ -221,13 +223,24 @@ function enrichGpuWithSysfs(gpu: GpuDetail): void {
           const hwmonDir = hwmonEntries.find((d: string) => d.startsWith('hwmon'));
           if (hwmonDir) {
             const hwmonPath = path.join(devicePath, 'hwmon', hwmonDir);
-            const tempFiles = fs.readdirSync(hwmonPath).filter((f: string) => f.startsWith('temp') && f.endsWith('_input'));
-            for (const tempFile of tempFiles) {
-              const tempVal = fs.readFileSync(path.join(hwmonPath, tempFile), 'utf8').trim();
+
+            // Prefer temp1_input specifically
+            const temp1Path = path.join(hwmonPath, 'temp1_input');
+            if (fs.existsSync(temp1Path)) {
+              const tempVal = fs.readFileSync(temp1Path, 'utf8').trim();
               const tempC = parseInt(tempVal, 10) / 1000;
               if (!isNaN(tempC) && tempC > 0) {
                 gpu.temperature = Math.round(tempC);
-                break;
+              }
+            }
+
+            // Read fan1_input (RPM)
+            const fan1Path = path.join(hwmonPath, 'fan1_input');
+            if (fs.existsSync(fan1Path)) {
+              const fanVal = fs.readFileSync(fan1Path, 'utf8').trim();
+              const fanRpm = parseInt(fanVal, 10);
+              if (!isNaN(fanRpm) && fanRpm > 0) {
+                gpu.fanSpeed = fanRpm;
               }
             }
           }
