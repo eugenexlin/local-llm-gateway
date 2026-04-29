@@ -26,6 +26,16 @@ const PORT = process.env.PORT || 3000;
 // Trust proxy
 app.set('trust proxy', 1);
 
+// Determine if secure cookies should be used
+// Checks X-Forwarded-Proto header (set by nginx) or falls back to NODE_ENV
+const shouldUseSecureCookies = (req: express.Request): boolean => {
+  const forwardedProto = req.headers['x-forwarded-proto'];
+  if (forwardedProto) {
+    return forwardedProto === 'https';
+  }
+  return process.env.NODE_ENV === 'production';
+};
+
 // Middleware
 app.use(cors({
   origin: config.frontendBaseUrl,
@@ -34,18 +44,28 @@ app.use(cors({
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// Session middleware - secure flag is set dynamically per-request below
 app.use(session({
   secret: config.secretKey,
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     sameSite: 'lax',
     maxAge: config.sessionExpiryHours * 60 * 60 * 1000,
   },
-  proxy: process.env.NODE_ENV === 'production'
+  proxy: true
 }));
+
+// Set secure cookie flag based on X-Forwarded-Proto before response is sent
+app.use((req, res, next) => {
+  if (req.session && req.session.cookie) {
+    req.session.cookie.secure = shouldUseSecureCookies(req);
+  }
+  next();
+});
+
 app.use(passport.initialize());
 app.use(passport.session());
 
