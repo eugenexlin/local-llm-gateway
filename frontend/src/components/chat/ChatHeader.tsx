@@ -7,31 +7,40 @@ import {
   MenuItem,
   Chip,
   Divider,
-  Button,
 } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
-import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
+import MenuIcon from "@mui/icons-material/Menu";
 import KeyIcon from "@mui/icons-material/Key";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { useChat } from "../../context/ChatContext";
 
 interface ChatHeaderProps {
   onClose: () => void;
+  onToggleSidebar?: () => void;
+  onOpenSidebar?: () => void;
 }
 
-const ChatHeader: React.FC<ChatHeaderProps> = ({ onClose }) => {
+const formatTokenCount = (count: number): string => {
+  if (count >= 1000) {
+    return (count / 1000).toFixed(1).replace(/\.0$/, "") + "k";
+  }
+  return count.toString();
+};
+
+const ChatHeader: React.FC<ChatHeaderProps> = ({ onClose, onToggleSidebar, onOpenSidebar }) => {
   const {
+    conversations,
+    activeConversationId,
     selectedKeyId,
     setSelectedApiKeyId,
     apiKeys,
     apiKeyLoading,
-    clearHistory,
-    error,
+    lastUsage,
   } = useChat();
+
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [confirmClear, setConfirmClear] = useState(false);
 
   const activeKeys = apiKeys.filter((k) => k.is_active);
+  const activeConversation = conversations[activeConversationId];
 
   const handleKeyMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -46,16 +55,42 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ onClose }) => {
     handleKeyMenuClose();
   };
 
-  const handleClearHistory = () => {
-    clearHistory();
-    setConfirmClear(false);
-  };
-
   const getKeyInfoById = (targetId: string) => {
     return apiKeys.find((k) => k.id == targetId);
   };
 
   const selectedKey = getKeyInfoById(selectedKeyId);
+
+  const getTokenChip = (): React.ReactNode => {
+    if (!lastUsage || lastUsage.totalTokens === 0) return null;
+
+    const maxContext = 128000; // Default max context length
+    const usagePercent = Math.round((lastUsage.totalTokens / maxContext) * 100);
+
+    return (
+      <Chip
+        label={`${formatTokenCount(lastUsage.totalTokens)} / ${formatTokenCount(maxContext)}`}
+        size="small"
+        sx={{
+          bgcolor: usagePercent > 90
+            ? "rgba(239, 68, 68, 0.1)"
+            : usagePercent > 70
+            ? "rgba(245, 158, 11, 0.1)"
+            : "rgba(139, 92, 246, 0.1)",
+          color: usagePercent > 90
+            ? "#dc2626"
+            : usagePercent > 70
+            ? "#d97706"
+            : "#8b5cf6",
+          fontSize: "0.625rem",
+          height: 22,
+          fontWeight: 600,
+          letterSpacing: 0.02,
+        }}
+        title={`Prompt: ${lastUsage.promptTokens} | Completion: ${lastUsage.completionTokens} | Total: ${lastUsage.totalTokens}`}
+      />
+    );
+  };
 
   return (
     <Box
@@ -74,15 +109,29 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ onClose }) => {
         sx={{
           display: "flex",
           alignItems: "center",
-          gap: 1.5,
+          gap: 1,
           flex: 1,
           minWidth: 0,
         }}
       >
+        {/* Sidebar toggle */}
+        <IconButton
+          size="small"
+          onClick={() => onToggleSidebar?.() || onOpenSidebar?.()}
+          sx={{
+            color: "#64748b",
+            mr: 0.5,
+          }}
+          title="Open conversations"
+        >
+          <MenuIcon fontSize="small" />
+        </IconButton>
+
+        {/* Chat icon */}
         <Box
           sx={{
-            width: 36,
-            height: 36,
+            width: 32,
+            height: 32,
             borderRadius: 2,
             bgcolor: "rgba(139, 92, 246, 0.1)",
             display: "flex",
@@ -92,8 +141,8 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ onClose }) => {
           }}
         >
           <svg
-            width="20"
-            height="20"
+            width="16"
+            height="16"
             viewBox="0 0 24 24"
             fill="none"
             stroke="#8b5cf6"
@@ -105,26 +154,30 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ onClose }) => {
           </svg>
         </Box>
 
-        <Box sx={{ minWidth: 0 }}>
+        {/* Conversation title */}
+        <Box sx={{ minWidth: 0, flex: 1 }}>
           <Typography
-            variant="h6"
+            variant="body1"
             sx={{
-              fontSize: "1rem",
+              fontSize: "0.875rem",
               fontWeight: 600,
               color: "#1e293b",
-              lineHeight: 1.2,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
             }}
           >
-            Chat
+            {activeConversation?.title || "Chat"}
           </Typography>
 
+          {/* API key selector */}
           <Box
             sx={{
               display: "flex",
               alignItems: "center",
-              gap: 0.75,
+              gap: 0.5,
               cursor: apiKeyLoading ? "default" : "pointer",
-              mt: 0.25,
+              mt: 0.125,
               "&:hover": apiKeyLoading ? undefined : { opacity: 0.8 },
             }}
             onClick={
@@ -134,82 +187,43 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ onClose }) => {
             }
           >
             <KeyIcon
-              sx={{ fontSize: 14, color: selectedKey ? "#8b5cf6" : "#94a3b8" }}
+              sx={{ fontSize: 12, color: selectedKey ? "#8b5cf6" : "#94a3b8" }}
             />
             <Typography
-              variant="body2"
+              variant="caption"
               sx={{
                 color: selectedKey ? "#475569" : "#94a3b8",
-                fontSize: "0.75rem",
+                fontSize: "0.6875rem",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
-                maxWidth: 160,
+                maxWidth: 140,
               }}
             >
               {apiKeyLoading
-                ? "Loading keys..."
+                ? "Loading..."
                 : selectedKey
                   ? selectedKey.name
-                  : "No API key selected"}
+                  : "No key selected"}
             </Typography>
             {activeKeys.length > 0 && !apiKeyLoading && (
-              <KeyboardArrowDownIcon sx={{ fontSize: 16, color: "#94a3b8" }} />
+              <KeyboardArrowDownIcon sx={{ fontSize: 14, color: "#94a3b8" }} />
             )}
           </Box>
         </Box>
+
+        {/* Token usage chip */}
+        {getTokenChip()}
       </Box>
 
-      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-        {error && (
-          <Chip
-            label="Error"
-            size="small"
-            sx={{
-              bgcolor: "rgba(239, 68, 68, 0.1)",
-              color: "#dc2626",
-              fontSize: "0.6875rem",
-              height: 22,
-              mr: 0.5,
-            }}
-          />
-        )}
-
-        {confirmClear ? (
-          <Box
-            sx={{ display: "flex", alignItems: "center", gap: 0.5, mr: 0.5 }}
-          >
-            <Typography variant="caption" sx={{ color: "#64748b" }}>
-              Clear?
-            </Typography>
-            <Button
-              size="small"
-              onClick={handleClearHistory}
-              sx={{ fontSize: "0.6875rem", px: 1, color: "#dc2626" }}
-            >
-              Yes
-            </Button>
-            <Button
-              size="small"
-              onClick={() => setConfirmClear(false)}
-              sx={{ fontSize: "0.6875rem", px: 1, color: "#64748b" }}
-            >
-              No
-            </Button>
-          </Box>
-        ) : (
-          <IconButton
-            size="medium"
-            onClick={() => setConfirmClear(true)}
-            sx={{ color: "#94a3b8", "&:hover": { color: "#dc2626" } }}
-            title="Clear chat history"
-          >
-            <DeleteForeverIcon fontSize="medium" />
-          </IconButton>
-        )}
-
+      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, ml: 1 }}>
         <IconButton size="medium" onClick={onClose} sx={{ color: "#64748b" }}>
-          <CloseIcon fontSize="medium" />
+          <Box sx={{ fontSize: 18 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </Box>
         </IconButton>
       </Box>
 
@@ -269,7 +283,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ onClose }) => {
                   sx={{
                     fontSize: 18,
                     color:
-                      selectedKeyId === key.name ? "primary.main" : "#94a3b8",
+                      selectedKeyId === key.id ? "primary.main" : "#94a3b8",
                     flexShrink: 0,
                   }}
                 />
@@ -293,7 +307,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ onClose }) => {
                     {key.id}
                   </Typography>
                 </Box>
-                {selectedKeyId === key.name && (
+                {selectedKeyId === key.id && (
                   <Box
                     sx={{
                       width: 6,

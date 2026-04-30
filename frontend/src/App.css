@@ -811,6 +811,28 @@ body {
   background: #94a3b8;
 }
 
+/* Conversation Sidebar Scrollbar */
+.conversation-sidebar::-webkit-scrollbar,
+.conversation-sidebar *::-webkit-scrollbar {
+  width: 4px;
+}
+
+.conversation-sidebar::-webkit-scrollbar-track,
+.conversation-sidebar *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.conversation-sidebar::-webkit-scrollbar-thumb,
+.conversation-sidebar *::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 2px;
+}
+
+.conversation-sidebar::-webkit-scrollbar-thumb:hover,
+.conversation-sidebar *::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
 /* Chat FAB hover effect */
 .chat-fab:hover {
   box-shadow: 0 6px 24px rgba(139, 92, 246, 0.45) !important;

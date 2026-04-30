@@ -15,11 +15,9 @@ interface MetricsSectionProps {
 }
 
 const colors = [
-  "#8b5cf6", // violet-500
   "#3b82f6", // blue-500
-  "#10b981", // emerald-500
-  "#f59e0b", // amber-500
-  "#ef4444", // red-500
+  "#aa3bff", // accent purple
+  "#6366f1", // indigo-500
 ];
 
 const MetricsSection: React.FC<MetricsSectionProps> = ({
@@ -35,35 +33,35 @@ const MetricsSection: React.FC<MetricsSectionProps> = ({
     {
       key: "total_tokens" as MetricType,
       value: total_tokens,
-      color: colors[0],
+      color: "",
     },
     {
       key: "input_tokens" as MetricType,
       value: total_input_tokens,
-      color: colors[1],
+      color: "",
     },
     {
       key: "output_tokens" as MetricType,
       value: total_output_tokens,
-      color: colors[2],
+      color: "",
     },
-    {
-      key: "tokens_per_sec" as MetricType,
-      value: tokens_per_sec,
-      color: colors[3],
-    },
+    // {
+    //   key: "tokens_per_sec" as MetricType,
+    //   value: tokens_per_sec,
+    //   color: "",
+    // },
     {
       key: "input_tokens_per_sec" as MetricType,
       value: input_tokens_per_sec,
-      color: colors[4],
+      color: "",
     },
     {
       key: "output_tokens_per_sec" as MetricType,
       value: output_tokens_per_sec,
-      color: colors[0],
+      color: "",
     },
     { key: "requests" as MetricType, value: request_count, color: colors[1] },
-  ];
+  ].map((card, i) => ({ ...card, color: colors[i % colors.length] }));
 
   return (
     <Box sx={{ mb: 3 }}>
@@ -71,7 +69,7 @@ const MetricsSection: React.FC<MetricsSectionProps> = ({
         {cards.map((card) => (
           <Grid
             key={card.key}
-            size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }}
+            size={{ xs: 12, sm: 6, md: 4, lg: 2 }}
             sx={{
               mb: 0.4,
               minWidth: 0,

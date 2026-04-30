@@ -126,12 +126,6 @@ const StatsCard: React.FC<StatsCardProps> = ({ title, icon, children, sx }) => {
   );
 };
 
-const getDbSizeColor = (size: number): string => {
-  if (size < 100 * 1024 * 1024) return "#2e7d32";
-  if (size < 1024 * 1024 * 1024) return "#f57c00";
-  return "#d32f2f";
-};
-
 const ServerStats: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -776,28 +770,12 @@ const ServerStats: React.FC = () => {
                 variant="h3"
                 sx={{
                   fontWeight: 700,
-                  color: getDbSizeColor(stats.database.size),
+                  color: "#2e7d32",
                 }}
               >
                 {dbSize}
               </Typography>
             </Box>
-            <LinearProgress
-              variant="determinate"
-              value={Math.min(
-                100,
-                (stats.database.size / (2 * 1024 * 1024 * 1024)) * 100,
-              )}
-              sx={{
-                height: 8,
-                borderRadius: 4,
-                bgcolor: "rgba(0,0,0,0.06)",
-                "& .MuiLinearProgress-bar": {
-                  borderRadius: 4,
-                  bgcolor: getDbSizeColor(stats.database.size),
-                },
-              }}
-            />
           </StatsCard>
         </Grid>
       </Grid>

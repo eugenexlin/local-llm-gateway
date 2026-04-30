@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { Box, Typography, Avatar } from '@mui/material';
+import { keyframes } from '@emotion/react';
 import { ChatMessage as ChatMessageType } from '../../context/ChatContext';
 import { useAuth } from '../../context/AuthContext';
 
@@ -7,6 +8,17 @@ interface ChatMessageProps {
   message: ChatMessageType;
   isStreaming: boolean;
 }
+
+const waveRipple = keyframes`
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateY(30%) scale(1.1);
+    opacity: 1;
+  }
+`;
 
 const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming }) => {
   const { user } = useAuth();
@@ -131,8 +143,28 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming }) => {
           {renderContent(message.content)}
           
           {isStreamingResponse && (
-            <Box component="span" className="chat-cursor" sx={{ ml: 0.5 }}>
-              |
+            <Box sx={{ ml: 0.5, display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+              <Box sx={{ 
+                width: 7, 
+                height: 7, 
+                borderRadius: '50%', 
+                bgcolor: '#8b5cf6',
+                animation: `${waveRipple} 0.8s ease-in-out infinite`,
+              }} />
+              <Box sx={{ 
+                width: 7, 
+                height: 7, 
+                borderRadius: '50%', 
+                bgcolor: '#8b5cf6',
+                animation: `${waveRipple} 0.8s ease-in-out infinite 0.15s`,
+              }} />
+              <Box sx={{ 
+                width: 7, 
+                height: 7, 
+                borderRadius: '50%', 
+                bgcolor: '#8b5cf6',
+                animation: `${waveRipple} 0.8s ease-in-out infinite 0.3s`,
+              }} />
             </Box>
           )}
         </Box>

@@ -15,61 +15,108 @@ export interface ChatMessage {
   timestamp: number;
 }
 
+export interface Conversation {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface TokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
 interface ChatContextType {
+  conversations: Record<string, Conversation>;
+  activeConversationId: string;
+  activeConversation: Conversation | null;
   messages: ChatMessage[];
   isLoading: boolean;
   error: string | null;
+  lastUsage: TokenUsage | null;
   apiKeys: ApiKey[];
   apiKeyLoading: boolean;
   selectedKeyId: string;
   setSelectedApiKeyId: (id: string) => void;
   sendMessage: (content: string) => Promise<void>;
+  createConversation: () => void;
+  switchConversation: (id: string) => void;
+  deleteConversation: (id: string) => void;
+  renameConversation: (id: string, title: string) => void;
   clearHistory: () => void;
   setError: (error: string | null) => void;
 }
 
 const pubUrl = import.meta.env.PUBLIC_URL || "";
-const STORAGE_MESSAGES_KEY = "llm_chat_history";
+const STORAGE_CONVERSATIONS_KEY = "llm_conversations";
+const STORAGE_ACTIVE_KEY_KEY = "llm_active_conversation_id";
 const STORAGE_API_KEY_ID_KEY = "llm_selected_api_key_id";
 
 const ChatContext = createContext<ChatContextType | null>(null);
 
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
+}
+
+function truncateTitle(title: string, maxLength: number = 40): string {
+  if (title.length <= maxLength) return title;
+  const truncated = title.slice(0, maxLength);
+  const lastSpace = truncated.lastIndexOf(" ");
+  return lastSpace > 20 ? truncated.slice(0, lastSpace) + "..." : truncated + "...";
+}
+
 export function ChatProvider({ children }: { children: ReactNode }) {
   useAuth();
-  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+  
+  const [conversations, setConversations] = useState<Record<string, Conversation>>(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_MESSAGES_KEY);
-      return stored ? JSON.parse(stored) : [];
+      const stored = localStorage.getItem(STORAGE_CONVERSATIONS_KEY);
+      return stored ? JSON.parse(stored) : {};
     } catch {
-      return [];
+      return {};
+    }
+  });
+
+  const [activeConversationId, setActiveConversationIdState] = useState<string>(() => {
+    try {
+      return localStorage.getItem(STORAGE_ACTIVE_KEY_KEY) || "";
+    } catch {
+      return "";
     }
   });
 
   const [selectedKeyId, setSelectedKeyIdState] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastUsage, setLastUsage] = useState<TokenUsage | null>(null);
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [apiKeyLoading, setApiKeyLoading] = useState(true);
 
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_API_KEY_ID_KEY);
-    if (stored) {
-      const found = apiKeys.find((k) => k.id === stored);
-      if (found) {
-        setSelectedKeyIdState(found.id);
-      }
-    }
-  }, [apiKeys]);
+  const activeConversation = conversations[activeConversationId] || null;
+  const messages = activeConversation?.messages || [];
 
   useEffect(() => {
-    if (messages.length > 0) {
+    if (Object.keys(conversations).length > 0) {
       try {
-        localStorage.setItem(STORAGE_MESSAGES_KEY, JSON.stringify(messages));
+        localStorage.setItem(STORAGE_CONVERSATIONS_KEY, JSON.stringify(conversations));
       } catch {
         // Storage full or unavailable
       }
     }
-  }, [messages]);
+  }, [conversations]);
+
+  useEffect(() => {
+    if (activeConversationId) {
+      try {
+        localStorage.setItem(STORAGE_ACTIVE_KEY_KEY, activeConversationId);
+      } catch {
+        // Storage unavailable
+      }
+    }
+  }, [activeConversationId]);
 
   useEffect(() => {
     const fetchApiKeys = async () => {
@@ -118,6 +165,60 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [apiKeys],
   );
 
+  const createConversation = useCallback(() => {
+    const id = generateId();
+    const newConversation: Conversation = {
+      id,
+      title: "New Chat",
+      messages: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    setConversations((prev) => ({
+      ...prev,
+      [id]: newConversation,
+    }));
+    setActiveConversationIdState(id);
+    setLastUsage(null);
+  }, []);
+
+  const switchConversation = useCallback((id: string) => {
+    setActiveConversationIdState(id);
+    setLastUsage(null);
+  }, []);
+
+  const deleteConversation = useCallback((id: string) => {
+    setConversations((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    if (activeConversationId === id) {
+      const remaining = Object.keys(conversations).filter((k) => k !== id);
+      if (remaining.length > 0) {
+        setActiveConversationIdState(remaining[0]);
+      } else {
+        setActiveConversationIdState("");
+      }
+      setLastUsage(null);
+    }
+  }, [activeConversationId, conversations]);
+
+  const renameConversation = useCallback((id: string, title: string) => {
+    setConversations((prev) => {
+      const conv = prev[id];
+      if (!conv) return prev;
+      return {
+        ...prev,
+        [id]: {
+          ...conv,
+          title,
+          updatedAt: Date.now(),
+        },
+      };
+    });
+  }, []);
+
   const sendMessage = useCallback(
     async (content: string) => {
       if (!content.trim() || isLoading || !selectedKeyId) {
@@ -130,11 +231,24 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         timestamp: Date.now(),
       };
 
-      setMessages((prev) => [...prev, userMessage]);
-      setIsLoading(true);
-      setError(null);
-
-      const conversationHistory = [...messages, userMessage];
+      let convId = activeConversationId;
+      
+      // If no active conversation, create one
+      if (!convId || !conversations[convId]) {
+        convId = generateId();
+        const newConversation: Conversation = {
+          id: convId,
+          title: truncateTitle(content.trim(), 35),
+          messages: [],
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        setConversations((prev) => ({
+          ...prev,
+          [convId]: newConversation,
+        }));
+        setActiveConversationIdState(convId);
+      }
 
       const assistantMessage: ChatMessage = {
         role: "assistant",
@@ -142,7 +256,25 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         timestamp: Date.now(),
       };
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      setConversations((prev) => {
+        const conv = prev[convId];
+        if (!conv) return prev;
+        const shouldAutoName = conv.title === "New Chat" && conv.messages.length === 0;
+        return {
+          ...prev,
+          [convId]: {
+            ...conv,
+            title: shouldAutoName ? truncateTitle(content.trim(), 35) : conv.title,
+            messages: [...conv.messages, userMessage, assistantMessage],
+            updatedAt: Date.now(),
+          },
+        };
+      });
+
+      setIsLoading(true);
+      setError(null);
+
+      const conversationHistory = [...(conversations[convId]?.messages || []), userMessage];
 
       try {
         const response = await fetch(`${pubUrl}/api/chat/completions`, {
@@ -177,6 +309,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
         const decoder = new TextDecoder();
         let buffer = "";
+        let usageParsed = false;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -192,18 +325,45 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             const data = trimmed.slice(6);
             if (data === "[DONE]") continue;
 
+            // Parse usage data
+            if (!usageParsed && data.includes('"usage"')) {
+              try {
+                const parsed = JSON.parse(data);
+                const usage = parsed.usage;
+                if (usage) {
+                  setLastUsage({
+                    promptTokens: usage.prompt_tokens || 0,
+                    completionTokens: usage.completion_tokens || 0,
+                    totalTokens: usage.total_tokens || 0,
+                  });
+                  usageParsed = true;
+                }
+              } catch {
+                // Not a usage line, continue
+              }
+            }
+
             try {
               const parsed = JSON.parse(data);
               const delta = parsed.choices?.[0]?.delta?.content;
               if (delta) {
-                setMessages((prev) => {
-                  const updated = [...prev];
-                  const lastIdx = updated.length - 1;
-                  updated[lastIdx] = {
-                    ...updated[lastIdx],
-                    content: updated[lastIdx].content + delta,
+                setConversations((prev) => {
+                  const conv = prev[convId];
+                  if (!conv) return prev;
+                  const updatedMessages = [...conv.messages];
+                  const lastIdx = updatedMessages.length - 1;
+                  updatedMessages[lastIdx] = {
+                    ...updatedMessages[lastIdx],
+                    content: updatedMessages[lastIdx].content + delta,
                   };
-                  return updated;
+                  return {
+                    ...prev,
+                    [convId]: {
+                      ...conv,
+                      messages: updatedMessages,
+                      updatedAt: Date.now(),
+                    },
+                  };
                 });
               }
             } catch {
@@ -213,58 +373,81 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         }
 
         // Finalize the message
-        setMessages((prev) => {
-          const updated = [...prev];
-          const lastIdx = updated.length - 1;
-          updated[lastIdx] = {
-            ...updated[lastIdx],
-            content: updated[lastIdx].content,
+        setConversations((prev) => {
+          const conv = prev[convId];
+          if (!conv) return prev;
+          const updatedMessages = [...conv.messages];
+          const lastIdx = updatedMessages.length - 1;
+          updatedMessages[lastIdx] = {
+            ...updatedMessages[lastIdx],
+            content: updatedMessages[lastIdx].content,
           };
-          return updated;
+          return {
+            ...prev,
+            [convId]: {
+              ...conv,
+              messages: updatedMessages,
+              updatedAt: Date.now(),
+            },
+          };
         });
       } catch (e: any) {
         setError(e.message || "Failed to send message");
-        setMessages((prev) => {
-          const updated = [...prev];
-          const lastIdx = updated.length - 1;
+        setConversations((prev) => {
+          const conv = prev[convId];
+          if (!conv) return prev;
+          const updatedMessages = [...conv.messages];
+          const lastIdx = updatedMessages.length - 1;
           if (
-            updated[lastIdx]?.role === "assistant" &&
-            !updated[lastIdx].content
+            updatedMessages[lastIdx]?.role === "assistant" &&
+            !updatedMessages[lastIdx].content
           ) {
-            updated[lastIdx] = {
-              ...updated[lastIdx],
+            updatedMessages[lastIdx] = {
+              ...updatedMessages[lastIdx],
               content: "Sorry, I encountered an error. Please try again.",
             };
           }
-          return updated;
+          return {
+            ...prev,
+            [convId]: {
+              ...conv,
+              messages: updatedMessages,
+              updatedAt: Date.now(),
+            },
+          };
         });
       } finally {
         setIsLoading(false);
       }
     },
-    [messages, isLoading, selectedKeyId],
+    [messages, isLoading, selectedKeyId, activeConversationId, conversations],
   );
 
   const clearHistory = useCallback(() => {
-    setMessages([]);
-    try {
-      localStorage.removeItem(STORAGE_MESSAGES_KEY);
-    } catch {
-      // Storage unavailable
+    if (activeConversationId) {
+      deleteConversation(activeConversationId);
     }
-  }, []);
+  }, [activeConversationId, deleteConversation]);
 
   return (
     <ChatContext.Provider
       value={{
+        conversations,
+        activeConversationId,
+        activeConversation,
         messages,
         isLoading,
         error,
+        lastUsage,
         apiKeys,
         apiKeyLoading,
         selectedKeyId: selectedKeyId,
         setSelectedApiKeyId,
         sendMessage,
+        createConversation,
+        switchConversation,
+        deleteConversation,
+        renameConversation,
         clearHistory,
         setError,
       }}

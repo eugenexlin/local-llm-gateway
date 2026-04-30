@@ -3,8 +3,12 @@ import { Box, Typography } from '@mui/material';
 import ChatMessage from './ChatMessage';
 import { useChat } from '../../context/ChatContext';
 
-const ChatMessageList: React.FC = () => {
-  const { messages, isLoading } = useChat();
+interface ChatMessageListProps {
+  onMobileClose?: () => void;
+}
+
+const ChatMessageList: React.FC<ChatMessageListProps> = ({ onMobileClose }) => {
+  const { messages, isLoading, activeConversation, createConversation } = useChat();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -12,6 +16,15 @@ const ChatMessageList: React.FC = () => {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isLoading]);
+
+  const handleEmptyStateClick = () => {
+    if (activeConversation && activeConversation.messages.length === 0) {
+      // Already have a conversation, just focus input
+    } else {
+      createConversation();
+    }
+    onMobileClose?.();
+  };
 
   return (
     <Box
@@ -33,7 +46,9 @@ const ChatMessageList: React.FC = () => {
             height: '100%',
             px: 4,
             textAlign: 'center',
+            cursor: 'pointer',
           }}
+          onClick={handleEmptyStateClick}
         >
           <Box
             sx={{

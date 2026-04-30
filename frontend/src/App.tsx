@@ -1,5 +1,4 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
-import { useState } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ChatProvider } from "./context/ChatContext";
 import Dashboard from "./pages/Dashboard";
@@ -8,8 +7,6 @@ import ServerStats from "./pages/ServerStats";
 import Login from "./pages/Login";
 import AuthCallback from "./pages/AuthCallback";
 import MainLayout from "./components/MainLayout";
-import ChatFAB from "./components/chat/ChatFAB";
-import ChatDrawer from "./components/chat/ChatDrawer";
 
 interface PrivateRouteProps {
   children?: React.ReactNode;
@@ -75,30 +72,11 @@ function NotFoundRoute() {
   return user ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />;
 }
 
-function ChatContent() {
-  const [chatOpen, setChatOpen] = useState(false);
-
-  return (
-    <>
-      <ChatFAB
-        open={chatOpen}
-        onClose={() => setChatOpen(false)}
-        onOpen={() => setChatOpen(true)}
-      />
-      <ChatDrawer
-        open={chatOpen}
-        onClose={() => setChatOpen(false)}
-      />
-    </>
-  );
-}
-
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <ChatProvider>
-          <ChatContent />
           <Routes>
           <Route
             path="/login"

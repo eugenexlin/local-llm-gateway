@@ -15,6 +15,8 @@ import KeyIcon from "@mui/icons-material/Key";
 import MonitorHeartIcon from "@mui/icons-material/MonitorHeart";
 import { useNavigate, useLocation } from "react-router-dom";
 import TopNav from "./TopNav";
+import ChatFAB from "./chat/ChatFAB";
+import ChatDrawer from "./chat/ChatDrawer";
 
 const drawerWidth = 240;
 
@@ -26,6 +28,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -118,6 +121,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   return (
     <>
       <TopNav onMenuClick={handleDrawerToggle} />
+      <ChatFAB
+        open={chatOpen}
+        onClose={() => setChatOpen(false)}
+        onOpen={() => setChatOpen(true)}
+      />
+      <ChatDrawer
+        open={chatOpen}
+        onClose={() => setChatOpen(false)}
+      />
       <Box
         sx={{ display: "flex", flex: 1, bgcolor: "#f5f5f5" }}
         id="dashboard-content-wrapper"
