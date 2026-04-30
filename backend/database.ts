@@ -1067,6 +1067,7 @@ export default {
   isReady,
   createApiKey,
   getApiKeys,
+  getApiKeyById,
   getApiKeysByUserId,
   deleteApiKey,
   permanentlyDeleteApiKey,

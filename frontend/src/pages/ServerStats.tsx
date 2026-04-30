@@ -413,7 +413,7 @@ const ServerStats: React.FC = () => {
               <Box>
                 {stats.gpu.gpus.map((gpu, idx) => {
                   return (
-                    <Box  sx={{ mb: 2 }}>
+                    <Box sx={{ mb: 2 }}>
                       <Box key={idx} sx={{ mb: 1 }}>
                         <Typography variant="body2" sx={{ fontWeight: 600 }}>
                           {gpu.name}

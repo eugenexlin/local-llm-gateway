@@ -59,13 +59,12 @@ router.post("/", (req: any, res: Response) => {
 router.get("/", (req: SessionRequest, res: Response) => {
   try {
     const userId = req.user?.id;
-    const { show_revoked } = req.query;
     
     if (!userId) {
       return res.status(401).json({ error: "Authentication required" });
     }
 
-    const apiKeys = database.getApiKeysByUserId(userId as string, show_revoked === 'true');
+    const apiKeys = database.getApiKeysByUserId(userId as string, true);
     
     const keysWithMetrics = apiKeys.map((key: any) => {
       const hasMetrics = database.checkApiKeyHasMetrics(key.id);

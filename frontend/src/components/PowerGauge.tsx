@@ -25,7 +25,7 @@ const PowerGauge: React.FC<PowerGaugeProps> = ({
           gap: 2,
         }}
       >
-        <Box sx={{ flex: 1 }}>
+        <Box sx={{ flex: 1, marginTop: 1}}>
           <Typography
             variant="body2"
             sx={{ fontWeight: 500, display: "block" }}

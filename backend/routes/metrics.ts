@@ -130,7 +130,6 @@ router.get("/users/:userId/api-keys", (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
     const userIdStr = Array.isArray(userId) ? userId[0] : userId;
-    const { show_revoked } = req.query;
 
     // Only allow users to see their own API keys
     const sessionUser = (req as any).user;
@@ -138,10 +137,7 @@ router.get("/users/:userId/api-keys", (req: Request, res: Response) => {
       return res.status(403).json({ error: "Access denied" });
     }
 
-    const apiKeys = database.getApiKeysByUserIdFilter(
-      userIdStr,
-      show_revoked === "true",
-    );
+    const apiKeys = database.getApiKeysByUserIdFilter(userIdStr, true);
     res.json(apiKeys);
   } catch (error) {
     console.error("Error getting API keys for user:", error);
@@ -153,13 +149,17 @@ router.get("/users/:userId/api-keys", (req: Request, res: Response) => {
 router.get("/cache-summary", (_req: Request, res: Response) => {
   try {
     const db = database.getDb();
-    const row = db?.prepare(`
+    const row = db
+      ?.prepare(
+        `
       SELECT 
         SUM(cache_creation_input_tokens) as total_cache_creation,
         SUM(cache_read_input_tokens) as total_cache_read,
         COUNT(DISTINCT CASE WHEN cache_creation_input_tokens > 0 OR cache_read_input_tokens > 0 THEN id END) as cached_requests
       FROM usage_logs
-    `).get() as any;
+    `,
+      )
+      .get() as any;
 
     if (!row) {
       return res.json({
@@ -209,12 +209,10 @@ router.get("/progressive", async (req: Request, res: Response) => {
     }
 
     if (!granularitySeconds) {
-      return res
-        .status(400)
-        .json({
-          error:
-            "valid granularity required (5m, 10m, 15m, 30m, 1h, 2h, 4h, 6h, 12h, 1d, 1w, 1M)",
-        });
+      return res.status(400).json({
+        error:
+          "valid granularity required (5m, 10m, 15m, 30m, 1h, 2h, 4h, 6h, 12h, 1d, 1w, 1M)",
+      });
     }
 
     const validMetrics: MetricType[] = [
@@ -227,12 +225,10 @@ router.get("/progressive", async (req: Request, res: Response) => {
       "output_tokens_per_sec",
     ];
     if (!metric || !validMetrics.includes(metric)) {
-      return res
-        .status(400)
-        .json({
-          error:
-            "valid metric required (total_tokens, input_tokens, output_tokens, requests, tokens_per_sec, input_tokens_per_sec, output_tokens_per_sec)",
-        });
+      return res.status(400).json({
+        error:
+          "valid metric required (total_tokens, input_tokens, output_tokens, requests, tokens_per_sec, input_tokens_per_sec, output_tokens_per_sec)",
+      });
     }
 
     if (isNaN(batchIndex) || batchIndex < 0) {
@@ -292,12 +288,10 @@ router.get("/timestamps", async (req: Request, res: Response) => {
     }
 
     if (!granularitySeconds) {
-      return res
-        .status(400)
-        .json({
-          error:
-            "valid granularity required (5m, 10m, 15m, 30m, 1h, 2h, 4h, 6h, 12h, 1d, 1w, 1M)",
-        });
+      return res.status(400).json({
+        error:
+          "valid granularity required (5m, 10m, 15m, 30m, 1h, 2h, 4h, 6h, 12h, 1d, 1w, 1M)",
+      });
     }
 
     const dataPoints = await database.getTimestampTemplate(
@@ -410,8 +404,9 @@ router.get("/insights/log/:id", (req: Request, res: Response) => {
     const { id } = req.params;
 
     const db = database.getDb();
-    const logRow = db?.prepare(
-      `
+    const logRow = db
+      ?.prepare(
+        `
       SELECT 
         ul.id,
         ul.api_key_id,
@@ -432,7 +427,8 @@ router.get("/insights/log/:id", (req: Request, res: Response) => {
       LEFT JOIN users u ON ak.user_id = u.id
       WHERE ul.id = ?
     `,
-    ).get(id) as any;
+      )
+      .get(id) as any;
 
     if (!logRow) {
       return res.status(404).json({ error: "Log not found" });

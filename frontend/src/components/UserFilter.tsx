@@ -84,7 +84,7 @@ const UserFilter: React.FC<UserFilterProps> = ({
       const fetchApiKeys = async () => {
         try {
           const response = await fetch(
-            `/api/metrics/users/${selectedUserId}/api-keys?show_revoked=${showRevoked}`,
+            `/api/metrics/users/${selectedUserId}/api-keys`,
             { credentials: 'include' },
           );
           if (response.ok) {
@@ -102,7 +102,7 @@ const UserFilter: React.FC<UserFilterProps> = ({
     } else {
       setApiKeys([]);
     }
-  }, [selectedUserId, currentUser?.id, showRevoked]);
+  }, [selectedUserId, currentUser?.id]);
 
   const handleUserChange = (event: any) => {
     const newValues: string[] = event.target.value;

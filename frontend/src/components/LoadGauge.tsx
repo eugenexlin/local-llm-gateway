@@ -3,7 +3,6 @@ import { Box, Typography, LinearProgress } from "@mui/material";
 import SparklineChart from "./SparklineChart";
 
 interface LoadGaugeProps {
-  title: string;
   value: number | null;
   color: string;
   progressColor?: string;
@@ -11,7 +10,6 @@ interface LoadGaugeProps {
 }
 
 const LoadGauge: React.FC<LoadGaugeProps> = ({
-  title,
   value,
   color,
   progressColor,
@@ -22,16 +20,10 @@ const LoadGauge: React.FC<LoadGaugeProps> = ({
 
   return (
     <Box>
-      <Box sx={{ mb: 0.5 }}>
-        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-          {title}
-        </Typography>
-      </Box>
       <Box
         sx={{
           display: "flex",
           gap: 2,
-          mb: 0.5,
         }}
       >
         <Box sx={{ flex: 1 }}>
