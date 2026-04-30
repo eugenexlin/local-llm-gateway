@@ -15,6 +15,7 @@ import {
   keyframes,
 } from "@mui/material";
 import { MAX_SPARKLINE_POINTS } from "../utils/constants";
+import { getGaugeColor } from "../utils/colors";
 
 const spin = keyframes({
   "0%": { transform: "rotate(0deg)" },
@@ -125,13 +126,6 @@ const StatsCard: React.FC<StatsCardProps> = ({ title, icon, children, sx }) => {
   );
 };
 
-const getTempColor = (temp: number | null): string => {
-  if (temp === null) return "#9e9e9e";
-  if (temp >= 85) return "#d32f2f";
-  if (temp >= 75) return "#f57c00";
-  return "#2e7d32";
-};
-
 const getDbSizeColor = (size: number): string => {
   if (size < 100 * 1024 * 1024) return "#2e7d32";
   if (size < 1024 * 1024 * 1024) return "#f57c00";
@@ -162,9 +156,6 @@ const ServerStats: React.FC = () => {
     Record<number, { timestamp: number; value: number }[]>
   >({});
   const fanRangeRef = useRef<Record<number, { min: number; max: number }>>({});
-  const fanHistoryRef = useRef<
-    Record<number, { timestamp: number; value: number }[]>
-  >({});
   const [, forceUpdate] = useState(0);
 
   const fetchStats = useCallback(async () => {
@@ -213,7 +204,7 @@ const ServerStats: React.FC = () => {
                 max: data.gpu.gpus[i].temperatures[0].value + 1,
               };
             } else {
-              tempRangeRef.current[i] = { min: 0, max: 100 };
+              tempRangeRef.current[i] = { min: 0, max: 1 };
             }
           }
 
@@ -282,21 +273,10 @@ const ServerStats: React.FC = () => {
           if (!fanRangeRef.current[i]) {
             fanRangeRef.current[i] = { min: 0, max: 1 };
           }
-          if (!fanHistoryRef.current[i]) {
-            fanHistoryRef.current[i] = [];
-          }
           if (
             data.gpu.gpus[i].fanSpeed !== null &&
             data.gpu.gpus[i].fanSpeed !== undefined
           ) {
-            fanHistoryRef.current[i].push({
-              timestamp: Date.now(),
-              value: data.gpu.gpus[i].fanSpeed!,
-            });
-            if (fanHistoryRef.current[i].length > MAX_SPARKLINE_POINTS) {
-              fanHistoryRef.current[i] =
-                fanHistoryRef.current[i].slice(-MAX_SPARKLINE_POINTS);
-            }
             fanRangeRef.current[i].min = Math.min(
               fanRangeRef.current[i].min,
               data.gpu.gpus[i].fanSpeed!,
@@ -442,97 +422,76 @@ const ServerStats: React.FC = () => {
                     <LoadGauge
                       title={gpu.name}
                       value={gpu.utilization}
-                      color={getTempColor(gpu.temperatures[0]?.value ?? null)}
+                      color={getGaugeColor(gpu.temperatures[0]?.value ?? null)}
                       sparklineData={gpuHistoryRef.current[idx] || []}
-                      extraContent={
-                        <Box>
-                          {gpu.temperatures.length === 0 ? (
-                            <TempGauge
-                              title="temp1"
-                              value={null}
-                              history={[]}
-                              globalMin={0}
-                              globalMax={100}
-                              color="#9e9e9e"
-                            />
-                          ) : (
-                             gpu.temperatures.map((temp, j) => {
-                               const range = tempRangeRef.current[idx] ?? {
-                                 min: 0,
-                                 max: 100,
-                               };
-                               const title = `temp${j + 1} - ${temp.label}`;
-                               return (
-                                 <Box
-                                   key={j}
-                                   sx={{
-                                     mb: j < gpu.temperatures.length - 1 ? 2 : 0,
-                                     pb: j < gpu.temperatures.length - 1 ? 2 : 0,
-                                     ...(j < gpu.temperatures.length - 1
-                                       ? {
-                                           borderBottom: `1px solid ${theme.palette.divider}`,
-                                         }
-                                       : {}),
-                                   }}
-                                 >
-                                   <TempGauge
-                                     title={title}
-                                     value={temp.value}
-                                     history={
-                                       tempHistoryRef.current[idx]?.[j] || []
-                                     }
-                                     globalMin={range.min}
-                                     globalMax={range.max}
-                                     color={getTempColor(temp.value)}
-                                   />
-                                </Box>
-                              );
-                            })
-                          )}
-                          <Box sx={{ mt: 2 }}>
-                            <PowerGauge
-                              value={gpu.power}
-                              history={powerHistoryRef.current[idx] || []}
-                              globalMin={powerRangeRef.current[idx]?.min ?? 0}
-                              globalMax={powerRangeRef.current[idx]?.max ?? 1}
-                            />
-                          </Box>
+                    />
+                    <Box>
+                      {(gpu.temperatures.length >= 1
+                        ? gpu.temperatures
+                        : [{ value: null, label: "N/A" }]
+                      ).map((temp, j) => {
+                        const range = tempRangeRef.current[idx] ?? {
+                          min: 0,
+                          max: 1,
+                        };
+                        const title = `temp${j + 1} - ${temp.label}`;
+                        return (
                           <Box
+                            key={j}
                             sx={{
-                              display: "flex",
-                              flexWrap: "wrap",
-                              gap: 2,
-                              mt: 2,
+                              mb: j < gpu.temperatures.length - 1 ? 2 : 0,
+                              pb: j < gpu.temperatures.length - 1 ? 2 : 0,
                             }}
                           >
-                            <Box
-                              sx={{
-                                flex: "1 1 calc(50% - 8px)",
-                                minWidth: 140,
-                              }}
-                            >
-                              <VramGauge
-                                value={gpu.memUsed}
-                                total={gpu.memTotal}
-                              />
-                            </Box>
-                            <Box
-                              sx={{
-                                flex: "1 1 calc(50% - 8px)",
-                                minWidth: 160,
-                              }}
-                            >
-                              <FanGauge
-                                value={gpu.fanSpeed}
-                                history={fanHistoryRef.current[idx] || []}
-                                globalMin={fanRangeRef.current[idx]?.min ?? 0}
-                                globalMax={fanRangeRef.current[idx]?.max ?? 1}
-                              />
-                            </Box>
+                            <TempGauge
+                              title={title}
+                              value={temp.value}
+                              history={tempHistoryRef.current[idx]?.[j] || []}
+                              globalMin={range.min}
+                              globalMax={range.max}
+                              color={getGaugeColor(temp.value)}
+                            />
                           </Box>
+                        );
+                      })}
+                      <Box sx={{ mt: 2 }}>
+                        <PowerGauge
+                          value={gpu.power}
+                          history={powerHistoryRef.current[idx] || []}
+                          globalMin={powerRangeRef.current[idx]?.min ?? 0}
+                          globalMax={powerRangeRef.current[idx]?.max ?? 1}
+                        />
+                      </Box>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: 2,
+                          mt: 2,
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            flex: "1 1 calc(50% - 8px)",
+                            minWidth: 140,
+                          }}
+                        >
+                          <VramGauge value={gpu.memUsed} total={gpu.memTotal} />
                         </Box>
-                      }
-                    />
+                        <Box
+                          sx={{
+                            flex: "1 1 calc(50% - 8px)",
+                            minWidth: 160,
+                          }}
+                        >
+                          <FanGauge
+                            value={gpu.fanSpeed}
+                            globalMin={fanRangeRef.current[idx]?.min ?? 0}
+                            globalMax={fanRangeRef.current[idx]?.max ?? 1}
+                          />
+                        </Box>
+                      </Box>
+                    </Box>
                   </Box>
                 ))}
               </Box>
@@ -553,13 +512,7 @@ const ServerStats: React.FC = () => {
               <LoadGauge
                 title="CPU"
                 value={cpuUsage}
-                color={
-                  cpuUsage >= 85
-                    ? "#d32f2f"
-                    : cpuUsage >= 70
-                      ? "#f57c00"
-                      : "#2e7d32"
-                }
+                color={getGaugeColor(cpuUsage)}
                 sparklineData={cpuHistoryRef.current}
                 extraContent={
                   <>
@@ -612,12 +565,7 @@ const ServerStats: React.FC = () => {
                               variant="caption"
                               sx={{
                                 fontWeight: 600,
-                                color:
-                                  core.load >= 85
-                                    ? "#d32f2f"
-                                    : core.load >= 70
-                                      ? "#f57c00"
-                                      : "#2e7d32",
+                                color: getGaugeColor(core.load),
                               }}
                             >
                               {core.load.toFixed(1)}%
@@ -730,12 +678,7 @@ const ServerStats: React.FC = () => {
                 variant="h3"
                 sx={{
                   fontWeight: 700,
-                  color:
-                    ramUsage >= 85
-                      ? "#d32f2f"
-                      : ramUsage >= 70
-                        ? "#f57c00"
-                        : "#2e7d32",
+                  color: getGaugeColor(ramUsage),
                 }}
               >
                 {ramUsage.toFixed(1)}%
@@ -750,12 +693,7 @@ const ServerStats: React.FC = () => {
                 bgcolor: "rgba(0,0,0,0.06)",
                 "& .MuiLinearProgress-bar": {
                   borderRadius: 4,
-                  bgcolor:
-                    ramUsage >= 85
-                      ? "#d32f2f"
-                      : ramUsage >= 70
-                        ? "#f57c00"
-                        : "#2e7d32",
+                  bgcolor: getGaugeColor(ramUsage),
                 },
               }}
             />

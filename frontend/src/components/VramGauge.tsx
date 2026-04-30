@@ -1,4 +1,5 @@
 import { Box, LinearProgress, Typography } from "@mui/material";
+import { getGaugeColor } from "../utils/colors";
 
 interface VramGaugeProps {
   value: number | null;
@@ -7,37 +8,25 @@ interface VramGaugeProps {
 
 const VramGauge: React.FC<VramGaugeProps> = ({ value, total }) => {
   const isActive = value !== null && total !== null && total > 0;
-  const percent = isActive ? (value! / total!) * 100 : 0;
+  const usedValue = value ?? 0;
+  const usedTotal = total ?? 1;
 
-  const getColor = (pct: number): string => {
-    if (pct >= 85) return "#d32f2f";
-    if (pct >= 70) return "#f57c00";
-    return "#2e7d32";
-  };
+  const percent = (usedValue / usedTotal) * 100;
 
-  const color = getColor(percent);
-  const displayValue = isActive ? `${value} / ${total} GB` : "N/A";
-  const displayPercent = isActive ? `${percent.toFixed(0)}%` : "N/A";
+  const color = getGaugeColor(isActive ? percent : null);
+  const displayValue = `${usedValue} / ${usedTotal} GB`;
+  const displayPercent = `${percent.toFixed(0)}%`;
 
   return (
     <Box>
-      <Typography
-        variant="caption"
-        sx={{ fontWeight: 500, display: "block" }}
-      >
+      <Typography variant="body2" sx={{ fontWeight: 500, display: "block" }}>
         VRAM
       </Typography>
       <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-        <Typography
-          variant="caption"
-          sx={{ fontWeight: 600, color }}
-        >
+        <Typography variant="caption" sx={{ fontWeight: 600, color }}>
           {displayValue}
         </Typography>
-        <Typography
-          variant="caption"
-          sx={{ fontWeight: 600, color }}
-        >
+        <Typography variant="caption" sx={{ fontWeight: 600, color }}>
           {displayPercent}
         </Typography>
       </Box>

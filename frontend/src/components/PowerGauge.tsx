@@ -28,23 +28,23 @@ const PowerGauge: React.FC<PowerGaugeProps> = ({
       >
         <Box sx={{ flex: 1 }}>
           <Typography
-            variant="caption"
+            variant="body2"
             sx={{ fontWeight: 500, display: "block" }}
           >
             Power
           </Typography>
           <RangeBar
-            value={isActive ? value : (globalMin + globalMax) / 2}
+            value={value ?? globalMin}
             min={globalMin}
             max={globalMax}
             formatValue={(v) => `${v}W`}
-            color={isActive ? color : "#9e9e9e"}
+            color={color}
           />
         </Box>
         <Box sx={{ flex: 1 }}>
           <SparklineChart
             data={history}
-            color={isActive ? color : "#9e9e9e"}
+            color={color}
             width={160}
             height={72}
             yDomain={[globalMin, globalMax]}
