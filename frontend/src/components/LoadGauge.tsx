@@ -8,7 +8,6 @@ interface LoadGaugeProps {
   color: string;
   progressColor?: string;
   sparklineData: { timestamp: number; value: number }[];
-  extraContent?: React.ReactNode;
 }
 
 const LoadGauge: React.FC<LoadGaugeProps> = ({
@@ -17,7 +16,6 @@ const LoadGauge: React.FC<LoadGaugeProps> = ({
   color,
   progressColor,
   sparklineData,
-  extraContent,
 }) => {
   const displayValue = value !== null ? `${value.toFixed(1)}%` : "0%";
   const progressValue = value ?? 0;
@@ -70,7 +68,6 @@ const LoadGauge: React.FC<LoadGaugeProps> = ({
           />
         </Box>
       </Box>
-      {extraContent}
     </Box>
   );
 };

@@ -408,92 +408,126 @@ const ServerStats: React.FC = () => {
 
       <Grid container spacing={2}>
         <Grid size={{ xs: 12 }}>
-          <StatsCard title="GPU" icon={<PowerSettingsNewIcon />}>
+          <StatsCard title="GPU" icon={<MemoryIcon />}>
             {stats.gpu.gpuAvailable ? (
               <Box>
-                {stats.gpu.gpus.map((gpu, idx) => (
-                  <Box
-                    key={idx}
-                    sx={{
-                      mb: idx < stats.gpu.gpus.length - 1 ? 2 : 0,
-                      pb: idx < stats.gpu.gpus.length - 1 ? 2 : 0,
-                    }}
-                  >
-                    <LoadGauge
-                      title={gpu.name}
-                      value={gpu.utilization}
-                      color={getGaugeColor(gpu.temperatures[0]?.value ?? null)}
-                      sparklineData={gpuHistoryRef.current[idx] || []}
-                    />
-                    <Box>
-                      {(gpu.temperatures.length >= 1
-                        ? gpu.temperatures
-                        : [{ value: null, label: "N/A" }]
-                      ).map((temp, j) => {
-                        const range = tempRangeRef.current[idx] ?? {
-                          min: 0,
-                          max: 1,
-                        };
-                        const title = `temp${j + 1} - ${temp.label}`;
-                        return (
-                          <Box
-                            key={j}
-                            sx={{
-                              mb: j < gpu.temperatures.length - 1 ? 2 : 0,
-                              pb: j < gpu.temperatures.length - 1 ? 2 : 0,
-                            }}
-                          >
-                            <TempGauge
-                              title={title}
-                              value={temp.value}
-                              history={tempHistoryRef.current[idx]?.[j] || []}
-                              globalMin={range.min}
-                              globalMax={range.max}
-                              color={getGaugeColor(temp.value)}
-                            />
-                          </Box>
-                        );
-                      })}
-                      <Box sx={{ mt: 2 }}>
-                        <PowerGauge
-                          value={gpu.power}
-                          history={powerHistoryRef.current[idx] || []}
-                          globalMin={powerRangeRef.current[idx]?.min ?? 0}
-                          globalMax={powerRangeRef.current[idx]?.max ?? 1}
-                        />
-                      </Box>
-                      <Box
-                        sx={{
-                          display: "flex",
-                          flexWrap: "wrap",
-                          gap: 2,
-                          mt: 2,
-                        }}
-                      >
-                        <Box
-                          sx={{
-                            flex: "1 1 calc(50% - 8px)",
-                            minWidth: 140,
-                          }}
-                        >
-                          <VramGauge value={gpu.memUsed} total={gpu.memTotal} />
+                {stats.gpu.gpus.map((gpu, idx) => {
+                  const tempRange = tempRangeRef.current[idx] ?? {
+                    min: 0,
+                    max: 1,
+                  };
+                  const firstTempValue = gpu.temperatures[0]?.value ?? null;
+                  const firstTempPercent =
+                    firstTempValue !== null
+                      ? Math.min(
+                          100,
+                          Math.max(
+                            0,
+                            ((firstTempValue - tempRange.min) /
+                              (tempRange.max - tempRange.min)) *
+                              100,
+                          ),
+                        )
+                      : null;
+                  return (
+                    <Box
+                      key={idx}
+                      sx={{
+                        mb: idx < stats.gpu.gpus.length - 1 ? 2 : 0,
+                        pb: idx < stats.gpu.gpus.length - 1 ? 2 : 0,
+                      }}
+                    >
+                      <LoadGauge
+                        title={gpu.name}
+                        value={gpu.utilization}
+                        color={getGaugeColor(firstTempPercent)}
+                        sparklineData={gpuHistoryRef.current[idx] || []}
+                      />
+                      <Box>
+                        {(gpu.temperatures.length >= 1
+                          ? gpu.temperatures
+                          : [{ value: null, label: "N/A" }]
+                        ).map((temp, j) => {
+                          const range = tempRangeRef.current[idx] ?? {
+                            min: 0,
+                            max: 1,
+                          };
+                          const tempPercent =
+                            temp.value !== null
+                              ? Math.min(
+                                  100,
+                                  Math.max(
+                                    0,
+                                    ((temp.value - range.min) /
+                                      (range.max - range.min)) *
+                                      100,
+                                  ),
+                                )
+                              : null;
+                          const title = `temp${j + 1} - ${temp.label}`;
+                          return (
+                            <Box
+                              key={j}
+                              sx={{
+                                mb: j < gpu.temperatures.length - 1 ? 2 : 0,
+                                pb: j < gpu.temperatures.length - 1 ? 2 : 0,
+                              }}
+                            >
+                              <TempGauge
+                                title={title}
+                                value={temp.value}
+                                history={tempHistoryRef.current[idx]?.[j] || []}
+                                globalMin={range.min}
+                                globalMax={range.max}
+                                color={getGaugeColor(tempPercent)}
+                              />
+                            </Box>
+                          );
+                        })}
+                        <Box sx={{ mt: 2 }}>
+                          <PowerGauge
+                            value={gpu.power}
+                            history={powerHistoryRef.current[idx] || []}
+                            globalMin={powerRangeRef.current[idx]?.min ?? 0}
+                            globalMax={powerRangeRef.current[idx]?.max ?? 1}
+                          />
                         </Box>
                         <Box
                           sx={{
-                            flex: "1 1 calc(50% - 8px)",
-                            minWidth: 160,
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: 2,
+                            mt: 2,
                           }}
                         >
-                          <FanGauge
-                            value={gpu.fanSpeed}
-                            globalMin={fanRangeRef.current[idx]?.min ?? 0}
-                            globalMax={fanRangeRef.current[idx]?.max ?? 1}
-                          />
+                          <Box
+                            sx={{
+                              flex: "1 1 calc(50% - 8px)",
+                              minWidth: 140,
+                            }}
+                          >
+                            <VramGauge
+                              value={gpu.memUsed}
+                              total={gpu.memTotal}
+                            />
+                          </Box>
+                          <Box
+                            sx={{
+                              flex: "1 1 calc(50% - 8px)",
+                              minWidth: 160,
+                            }}
+                          >
+                            <FanGauge
+                              value={gpu.fanSpeed}
+                              globalMin={fanRangeRef.current[idx]?.min ?? 0}
+                              globalMax={fanRangeRef.current[idx]?.max ?? 1}
+                            />
+                          </Box>
                         </Box>
                       </Box>
                     </Box>
-                  </Box>
-                ))}
+                  );
+                })}
               </Box>
             ) : (
               <Typography
@@ -508,93 +542,73 @@ const ServerStats: React.FC = () => {
 
         {stats.cpu.cores.length > 0 && (
           <Grid size={{ xs: 12 }}>
-            <StatsCard title="CPU" icon={<SpeedIcon />}>
+            <StatsCard title="CPU" icon={<MemoryIcon />}>
               <LoadGauge
-                title="CPU"
+                title=""
                 value={cpuUsage}
                 color={getGaugeColor(cpuUsage)}
                 sparklineData={cpuHistoryRef.current}
-                extraContent={
-                  <>
+              />
+              <Box
+                sx={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 1,
+                  marginTop: 2
+                }}
+              >
+                {stats.cpu.cores.map((core, idx) => (
+                  <Box
+                    key={idx}
+                    sx={{
+                      flex: "1 1 calc(25% - 8px)",
+                      minWidth: 120,
+                      [theme.breakpoints.down("sm")]: {
+                        flex: "1 1 calc(50% - 8px)",
+                      },
+                    }}
+                  >
                     <Box
                       sx={{
                         display: "flex",
                         justifyContent: "space-between",
-                        mb: 1,
+                        mb: 0.5,
                       }}
                     >
-                      <Typography variant="caption" color="text.secondary">
-                        Per-Core CPU Load
+                      <Typography variant="caption" sx={{ fontWeight: 500 }}>
+                        Core {idx}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {stats.cpu.cores.length} cores
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontWeight: 600,
+                          color: getGaugeColor(core.load),
+                        }}
+                      >
+                        {core.load.toFixed(1)}%
                       </Typography>
                     </Box>
-                    <Box
+                    <LinearProgress
+                      variant="determinate"
+                      value={core.load}
                       sx={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: 1,
+                        height: 6,
+                        borderRadius: 3,
+                        bgcolor: "rgba(0,0,0,0.06)",
+                        "& .MuiLinearProgress-bar": {
+                          borderRadius: 3,
+                          bgcolor:
+                            core.load >= 85
+                              ? "#d32f2f"
+                              : core.load >= 70
+                                ? "#f57c00"
+                                : "#2e7d32",
+                        },
                       }}
-                    >
-                      {stats.cpu.cores.map((core, idx) => (
-                        <Box
-                          key={idx}
-                          sx={{
-                            flex: "1 1 calc(25% - 8px)",
-                            minWidth: 120,
-                            [theme.breakpoints.down("sm")]: {
-                              flex: "1 1 calc(50% - 8px)",
-                            },
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              mb: 0.5,
-                            }}
-                          >
-                            <Typography
-                              variant="caption"
-                              sx={{ fontWeight: 500 }}
-                            >
-                              Core {idx}
-                            </Typography>
-                            <Typography
-                              variant="caption"
-                              sx={{
-                                fontWeight: 600,
-                                color: getGaugeColor(core.load),
-                              }}
-                            >
-                              {core.load.toFixed(1)}%
-                            </Typography>
-                          </Box>
-                          <LinearProgress
-                            variant="determinate"
-                            value={core.load}
-                            sx={{
-                              height: 6,
-                              borderRadius: 3,
-                              bgcolor: "rgba(0,0,0,0.06)",
-                              "& .MuiLinearProgress-bar": {
-                                borderRadius: 3,
-                                bgcolor:
-                                  core.load >= 85
-                                    ? "#d32f2f"
-                                    : core.load >= 70
-                                      ? "#f57c00"
-                                      : "#2e7d32",
-                              },
-                            }}
-                          />
-                        </Box>
-                      ))}
-                    </Box>
-                  </>
-                }
-              />
+                    />
+                  </Box>
+                ))}
+              </Box>
             </StatsCard>
           </Grid>
         )}
@@ -713,7 +727,7 @@ const ServerStats: React.FC = () => {
         </Grid>
 
         <Grid size={{ xs: 12, sm: 6 }}>
-          <StatsCard title="App Uptime" icon={<PowerSettingsNewIcon />}>
+          <StatsCard title="System Info" icon={<PowerSettingsNewIcon />}>
             <Box>
               <Box
                 sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}
