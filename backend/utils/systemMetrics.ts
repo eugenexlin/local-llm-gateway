@@ -558,3 +558,25 @@ export async function getServerStats(): Promise<ServerStats> {
 export function clearCache() {
   cache = null;
 }
+
+const HISTORY_MAX_POINTS = 256;
+const HISTORY_INTERVAL = 2000;
+let statsHistory: ServerStats[] = [];
+
+export function getStatsHistory(): ServerStats[] {
+  return statsHistory;
+}
+
+export function startStatsHistoryCollector(): void {
+  setInterval(async () => {
+    try {
+      const stats = await getServerStats();
+      statsHistory.push(stats);
+      if (statsHistory.length > HISTORY_MAX_POINTS) {
+        statsHistory = statsHistory.slice(-HISTORY_MAX_POINTS);
+      }
+    } catch (err) {
+      // Silently skip failed collection cycles
+    }
+  }, HISTORY_INTERVAL);
+}

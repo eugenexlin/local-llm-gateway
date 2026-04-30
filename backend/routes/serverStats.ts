@@ -1,5 +1,5 @@
 import express, { Request, Response } from "express";
-import { getServerStats, clearCache } from "../utils/systemMetrics";
+import { getServerStats, clearCache, getStatsHistory } from "../utils/systemMetrics";
 
 const router = express.Router();
 
@@ -17,6 +17,19 @@ router.get("/", async (req: Request, res: Response) => {
 router.post("/cache/clear", (_req: Request, res: Response) => {
   clearCache();
   res.json({ status: "ok" });
+});
+
+router.get("/history", (req: Request, res: Response) => {
+  const history = getStatsHistory();
+  const { since } = req.query;
+  if (since) {
+    const sinceTs = parseInt(since as string, 10);
+    if (!isNaN(sinceTs)) {
+      const filtered = history.filter((h) => new Date(h.timestamp).getTime() > sinceTs);
+      return res.json(filtered);
+    }
+  }
+  res.json(history);
 });
 
 export default router;

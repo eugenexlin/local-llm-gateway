@@ -12,6 +12,7 @@ import apiKeys from './routes/apiKeys';
 import metrics from './routes/metrics';
 import proxy from './routes/proxy';
 import serverStats from './routes/serverStats';
+import { startStatsHistoryCollector } from './utils/systemMetrics';
 import chat from './routes/chat';
 import config from './config';
 import './utils/passport';
@@ -180,6 +181,7 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 // Initialize database and start server
 try {
   database.init();
+  startStatsHistoryCollector();
   app.listen(PORT, () => {
     console.log(`LLM Gateway Proxy running on port ${PORT} | Llama CPP: ${config.llamaCppUrl}`);
   });

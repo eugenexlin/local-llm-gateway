@@ -150,7 +150,128 @@ const ServerStats: React.FC = () => {
     Record<number, { timestamp: number; value: number }[]>
   >({});
   const fanRangeRef = useRef<Record<number, { min: number; max: number }>>({});
+  const lastSyncTimestampRef = useRef<number>(0);
   const [, forceUpdate] = useState(0);
+
+  const seedHistory = useCallback((history: ServerStatsData[]) => {
+    for (const data of history) {
+      cpuHistoryRef.current.push({
+        timestamp: new Date(data.timestamp).getTime(),
+        value: data.cpu.usage,
+      });
+      if (cpuHistoryRef.current.length > MAX_SPARKLINE_POINTS) {
+        cpuHistoryRef.current = cpuHistoryRef.current.slice(-MAX_SPARKLINE_POINTS);
+      }
+
+      for (let i = 0; i < data.gpu.gpus.length; i++) {
+        if (!gpuHistoryRef.current[i]) {
+          gpuHistoryRef.current[i] = [];
+        }
+        gpuHistoryRef.current[i].push({
+          timestamp: new Date(data.timestamp).getTime(),
+          value: data.gpu.gpus[i].utilization || 0,
+        });
+        if (gpuHistoryRef.current[i].length > MAX_SPARKLINE_POINTS) {
+          gpuHistoryRef.current[i] = gpuHistoryRef.current[i].slice(-MAX_SPARKLINE_POINTS);
+        }
+
+        if (!tempRangeRef.current[i]) {
+          if (data.gpu.gpus[i].temperatures.length > 0) {
+            tempRangeRef.current[i] = {
+              min: data.gpu.gpus[i].temperatures[0].value - 1,
+              max: data.gpu.gpus[i].temperatures[0].value + 1,
+            };
+          } else {
+            tempRangeRef.current[i] = { min: 0, max: 1 };
+          }
+        }
+
+        for (const temp of data.gpu.gpus[i].temperatures) {
+          const tempVal = temp.value;
+          tempRangeRef.current[i].min = Math.min(tempRangeRef.current[i].min, tempVal);
+          tempRangeRef.current[i].max = Math.max(tempRangeRef.current[i].max, tempVal);
+        }
+
+        if (!tempHistoryRef.current[i]) {
+          tempHistoryRef.current[i] = {};
+        }
+        for (let j = 0; j < data.gpu.gpus[i].temperatures.length; j++) {
+          if (!tempHistoryRef.current[i][j]) {
+            tempHistoryRef.current[i][j] = [];
+          }
+          const tempVal = data.gpu.gpus[i].temperatures[j]?.value ?? 0;
+          tempHistoryRef.current[i][j].push({
+            timestamp: new Date(data.timestamp).getTime(),
+            value: tempVal,
+          });
+          if (tempHistoryRef.current[i][j].length > MAX_SPARKLINE_POINTS) {
+            tempHistoryRef.current[i][j] = tempHistoryRef.current[i][j].slice(-MAX_SPARKLINE_POINTS);
+          }
+        }
+
+        if (!powerRangeRef.current[i]) {
+          powerRangeRef.current[i] = { min: 0, max: 1 };
+        }
+        if (!powerHistoryRef.current[i]) {
+          powerHistoryRef.current[i] = [];
+        }
+        if (data.gpu.gpus[i].power !== null && data.gpu.gpus[i].power !== undefined) {
+          powerHistoryRef.current[i].push({
+            timestamp: new Date(data.timestamp).getTime(),
+            value: data.gpu.gpus[i].power!,
+          });
+          if (powerHistoryRef.current[i].length > MAX_SPARKLINE_POINTS) {
+            powerHistoryRef.current[i] = powerHistoryRef.current[i].slice(-MAX_SPARKLINE_POINTS);
+          }
+          powerRangeRef.current[i].min = Math.min(powerRangeRef.current[i].min, data.gpu.gpus[i].power!);
+          powerRangeRef.current[i].max = Math.max(powerRangeRef.current[i].max, data.gpu.gpus[i].power!);
+        }
+
+        if (!fanRangeRef.current[i]) {
+          fanRangeRef.current[i] = { min: 0, max: 1 };
+        }
+        if (data.gpu.gpus[i].fanSpeed !== null && data.gpu.gpus[i].fanSpeed !== undefined) {
+          fanRangeRef.current[i].min = Math.min(fanRangeRef.current[i].min, data.gpu.gpus[i].fanSpeed!);
+          fanRangeRef.current[i].max = Math.max(fanRangeRef.current[i].max, data.gpu.gpus[i].fanSpeed!);
+        }
+      }
+    }
+    if (history.length > 0) {
+      lastSyncTimestampRef.current = new Date(history[history.length - 1].timestamp).getTime();
+    }
+    forceUpdate((n) => n + 1);
+  }, []);
+
+  const handleVisibilityChange = useCallback(async () => {
+    if (document.visibilityState !== "visible") return;
+
+    const now = Date.now();
+    const lastSync = lastSyncTimestampRef.current;
+    if (lastSync === 0) return;
+
+    const gapMs = now - lastSync;
+    const POINT_INTERVAL = 2000;
+    const pointsBehind = Math.floor(gapMs / POINT_INTERVAL);
+
+    if (pointsBehind > 2) {
+      try {
+        const response = await fetch(`/api/server-stats/history?since=${lastSync}`, { cache: "no-store" });
+        if (!response.ok) return;
+        const history: ServerStatsData[] = await response.json();
+        if (history && history.length > 0) {
+          seedHistory(history);
+          lastSyncTimestampRef.current = new Date(history[history.length - 1].timestamp).getTime();
+        }
+      } catch {
+        // silently fail
+      }
+    }
+  }, [seedHistory]);
+
+  useEffect(() => {
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [handleVisibilityChange]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -163,6 +284,7 @@ const ServerStats: React.FC = () => {
       setStats(data);
       setLastUpdated(new Date());
       setError(null);
+      lastSyncTimestampRef.current = new Date(data.timestamp).getTime();
 
       if (data) {
         cpuHistoryRef.current.push({
@@ -292,9 +414,18 @@ const ServerStats: React.FC = () => {
 
   useEffect(() => {
     fetchStats();
+    fetch("/api/server-stats/history", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((history: ServerStatsData[]) => {
+        if (history && history.length > 0) {
+          seedHistory(history);
+          lastSyncTimestampRef.current = new Date(history[history.length - 1].timestamp).getTime();
+        }
+      })
+      .catch(() => {});
     const interval = setInterval(fetchStats, 2000);
     return () => clearInterval(interval);
-  }, [fetchStats]);
+  }, [fetchStats, seedHistory]);
 
   const secondsAgo = (): string => {
     if (!lastUpdated) return "";
