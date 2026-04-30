@@ -36,6 +36,7 @@ import type {
   PresetConfig,
 } from "../types/metrics";
 import { formatValue } from "../utils/formatValue";
+import { USER_COLORS } from "../utils/colors";
 
 const MAX_POINTS = 10000;
 
@@ -238,19 +239,6 @@ const HeatMapCell: React.FC<HeatMapCellProps> = ({
     />
   );
 };
-
-const USER_COLORS = [
-  "#1976d2",
-  "#d32f2f",
-  "#388e3c",
-  "#f57c00",
-  "#7b1fa2",
-  "#0097a7",
-  "#c2185b",
-  "#43a047",
-  "#e64a19",
-  "#5e35b1",
-];
 
 function getUserColorIndex(
   userId: string,

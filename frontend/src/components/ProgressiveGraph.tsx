@@ -36,21 +36,9 @@ import type {
 } from "../types/metrics";
 import { formatValue } from "../utils/formatValue";
 import { ChartTooltip } from "./InsightsGraph";
+import { USER_COLORS } from "../utils/colors";
 
 export type UserGraphData = Record<string, ProgressiveDataPoint[]>;
-
-const USER_COLORS = [
-  "#1976d2",
-  "#d32f2f",
-  "#388e3c",
-  "#f57c00",
-  "#7b1fa2",
-  "#0097a7",
-  "#c2185b",
-  "#43a047",
-  "#e64a19",
-  "#5e35b1",
-];
 
 function getUserColor(_userId: string, index: number): string {
   return USER_COLORS[index % USER_COLORS.length];

@@ -440,7 +440,7 @@ const ServerStats: React.FC = () => {
                       <LoadGauge
                         title={gpu.name}
                         value={gpu.utilization}
-                        color={getGaugeColor(firstTempPercent)}
+                        color={getGaugeColor(gpu.utilization)}
                         sparklineData={gpuHistoryRef.current[idx] || []}
                       />
                       <Box>

@@ -6,13 +6,12 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
 } from "recharts";
 import { MAX_SPARKLINE_POINTS } from "../utils/constants";
+import { USER_COLORS } from "../utils/colors";
 
 interface SparklineChartProps {
   data: { timestamp: number; value: number }[];
-  color: string;
   width?: number;
   height?: number;
   yDomain?: [number, number];
@@ -20,7 +19,6 @@ interface SparklineChartProps {
 
 const SparklineChart: React.FC<SparklineChartProps> = ({
   data,
-  color,
   width = 160,
   height = 60,
   yDomain,
@@ -44,6 +42,7 @@ const SparklineChart: React.FC<SparklineChartProps> = ({
       });
     }
   }
+  const color = USER_COLORS[0]
 
   return (
     <div

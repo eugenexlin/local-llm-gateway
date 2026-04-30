@@ -62,7 +62,6 @@ const LoadGauge: React.FC<LoadGaugeProps> = ({
         <Box sx={{ flex: 1 }}>
           <SparklineChart
             data={sparklineData}
-            color={color}
             width={160}
             height={72}
           />

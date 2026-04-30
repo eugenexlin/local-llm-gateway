@@ -40,7 +40,6 @@ const TempGauge: React.FC<TempGaugeProps> = ({
         <Box sx={{ flex: 1 }}>
           <SparklineChart
             data={history}
-            color={color}
             width={160}
             height={72}
             yDomain={[globalMin, globalMax]}

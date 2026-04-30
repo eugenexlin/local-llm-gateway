@@ -1,6 +1,7 @@
 import { Box, Typography } from "@mui/material";
 import SparklineChart from "./SparklineChart";
 import RangeBar from "./RangeBar";
+import { getRangeGuageColor } from "../utils/colors";
 
 interface PowerGaugeProps {
   value: number | null;
@@ -15,9 +16,7 @@ const PowerGauge: React.FC<PowerGaugeProps> = ({
   globalMin,
   globalMax,
 }) => {
-  const isActive = value !== null && value > 0;
-  const color = "#8b5cf6";
-
+  const color = getRangeGuageColor(value, globalMin, globalMax);
   return (
     <Box>
       <Box
@@ -44,7 +43,6 @@ const PowerGauge: React.FC<PowerGaugeProps> = ({
         <Box sx={{ flex: 1 }}>
           <SparklineChart
             data={history}
-            color={color}
             width={160}
             height={72}
             yDomain={[globalMin, globalMax]}
