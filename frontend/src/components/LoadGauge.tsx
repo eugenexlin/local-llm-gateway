@@ -19,7 +19,7 @@ const LoadGauge: React.FC<LoadGaugeProps> = ({
   sparklineData,
   extraContent,
 }) => {
-  const displayValue = value !== null ? `${value.toFixed(1)}%` : "N/A";
+  const displayValue = value !== null ? `${value.toFixed(1)}%` : "0%";
   const progressValue = value ?? 0;
 
   return (

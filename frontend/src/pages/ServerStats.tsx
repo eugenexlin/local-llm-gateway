@@ -28,6 +28,9 @@ import NetworkPingIcon from "@mui/icons-material/NetworkPing";
 import PowerSettingsNewIcon from "@mui/icons-material/PowerSettingsNew";
 import LoadGauge from "../components/LoadGauge";
 import TempGauge from "../components/TempGauge";
+import VramGauge from "../components/VramGauge";
+import PowerGauge from "../components/PowerGauge";
+import FanGauge from "../components/FanGauge";
 
 interface CpuCore {
   cpu: number;
@@ -38,7 +41,7 @@ interface CpuCore {
 
 interface GpuDetail {
   name: string;
-  temperatures: number[];
+  temperatures: Array<{ value: number; label?: string }>;
   fanSpeed: number | null;
   power: number | null;
   memUsed: number | null;
@@ -144,9 +147,24 @@ const ServerStats: React.FC = () => {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const cpuHistoryRef = useRef<{ timestamp: number; value: number }[]>([]);
-  const gpuHistoryRef = useRef<Record<number, { timestamp: number; value: number }[]>>({});
+  const gpuHistoryRef = useRef<
+    Record<number, { timestamp: number; value: number }[]>
+  >({});
   const tempRangeRef = useRef<Record<number, { min: number; max: number }>>({});
-  const tempHistoryRef = useRef<Record<number, Record<number, { timestamp: number; value: number }[]>>>({});
+  const tempHistoryRef = useRef<
+    Record<number, Record<number, { timestamp: number; value: number }[]>>
+  >({});
+
+  const powerRangeRef = useRef<Record<number, { min: number; max: number }>>(
+    {},
+  );
+  const powerHistoryRef = useRef<
+    Record<number, { timestamp: number; value: number }[]>
+  >({});
+  const fanRangeRef = useRef<Record<number, { min: number; max: number }>>({});
+  const fanHistoryRef = useRef<
+    Record<number, { timestamp: number; value: number }[]>
+  >({});
   const [, forceUpdate] = useState(0);
 
   const fetchStats = useCallback(async () => {
@@ -167,7 +185,8 @@ const ServerStats: React.FC = () => {
           value: data.cpu.usage,
         });
         if (cpuHistoryRef.current.length > MAX_SPARKLINE_POINTS) {
-          cpuHistoryRef.current = cpuHistoryRef.current.slice(-MAX_SPARKLINE_POINTS);
+          cpuHistoryRef.current =
+            cpuHistoryRef.current.slice(-MAX_SPARKLINE_POINTS);
         }
 
         if (!gpuHistoryRef.current[0]) {
@@ -182,15 +201,16 @@ const ServerStats: React.FC = () => {
             value: data.gpu.gpus[i].utilization || 0,
           });
           if (gpuHistoryRef.current[i].length > MAX_SPARKLINE_POINTS) {
-            gpuHistoryRef.current[i] = gpuHistoryRef.current[i].slice(-MAX_SPARKLINE_POINTS);
+            gpuHistoryRef.current[i] =
+              gpuHistoryRef.current[i].slice(-MAX_SPARKLINE_POINTS);
           }
 
           // Track temp range (unified across all sensors per GPU)
           if (!tempRangeRef.current[i]) {
             if (data.gpu.gpus[i].temperatures.length > 0) {
               tempRangeRef.current[i] = {
-                min: data.gpu.gpus[i].temperatures[0] - 1,
-                max: data.gpu.gpus[i].temperatures[0] + 1,
+                min: data.gpu.gpus[i].temperatures[0].value - 1,
+                max: data.gpu.gpus[i].temperatures[0].value + 1,
               };
             } else {
               tempRangeRef.current[i] = { min: 0, max: 100 };
@@ -199,10 +219,15 @@ const ServerStats: React.FC = () => {
 
           // Update global min/max from all sensors
           for (const temp of data.gpu.gpus[i].temperatures) {
-            if (temp !== null && temp !== undefined) {
-              tempRangeRef.current[i].min = Math.min(tempRangeRef.current[i].min, temp);
-              tempRangeRef.current[i].max = Math.max(tempRangeRef.current[i].max, temp);
-            }
+            const tempVal = temp.value;
+            tempRangeRef.current[i].min = Math.min(
+              tempRangeRef.current[i].min,
+              tempVal,
+            );
+            tempRangeRef.current[i].max = Math.max(
+              tempRangeRef.current[i].max,
+              tempVal,
+            );
           }
 
           // Track per-sensor history
@@ -213,11 +238,73 @@ const ServerStats: React.FC = () => {
             if (!tempHistoryRef.current[i][j]) {
               tempHistoryRef.current[i][j] = [];
             }
-            const tempVal = data.gpu.gpus[i].temperatures[j] ?? 0;
-            tempHistoryRef.current[i][j].push({ timestamp: Date.now(), value: tempVal });
+            const tempVal = data.gpu.gpus[i].temperatures[j]?.value ?? 0;
+            tempHistoryRef.current[i][j].push({
+              timestamp: Date.now(),
+              value: tempVal,
+            });
             if (tempHistoryRef.current[i][j].length > MAX_SPARKLINE_POINTS) {
-              tempHistoryRef.current[i][j] = tempHistoryRef.current[i][j].slice(-MAX_SPARKLINE_POINTS);
+              tempHistoryRef.current[i][j] =
+                tempHistoryRef.current[i][j].slice(-MAX_SPARKLINE_POINTS);
             }
+          }
+
+          // Track power history and range
+          if (!powerRangeRef.current[i]) {
+            powerRangeRef.current[i] = { min: 0, max: 1 };
+          }
+          if (!powerHistoryRef.current[i]) {
+            powerHistoryRef.current[i] = [];
+          }
+          if (
+            data.gpu.gpus[i].power !== null &&
+            data.gpu.gpus[i].power !== undefined
+          ) {
+            powerHistoryRef.current[i].push({
+              timestamp: Date.now(),
+              value: data.gpu.gpus[i].power!,
+            });
+            if (powerHistoryRef.current[i].length > MAX_SPARKLINE_POINTS) {
+              powerHistoryRef.current[i] =
+                powerHistoryRef.current[i].slice(-MAX_SPARKLINE_POINTS);
+            }
+            powerRangeRef.current[i].min = Math.min(
+              powerRangeRef.current[i].min,
+              data.gpu.gpus[i].power!,
+            );
+            powerRangeRef.current[i].max = Math.max(
+              powerRangeRef.current[i].max,
+              data.gpu.gpus[i].power!,
+            );
+          }
+
+          // Track fan history and range
+          if (!fanRangeRef.current[i]) {
+            fanRangeRef.current[i] = { min: 0, max: 1 };
+          }
+          if (!fanHistoryRef.current[i]) {
+            fanHistoryRef.current[i] = [];
+          }
+          if (
+            data.gpu.gpus[i].fanSpeed !== null &&
+            data.gpu.gpus[i].fanSpeed !== undefined
+          ) {
+            fanHistoryRef.current[i].push({
+              timestamp: Date.now(),
+              value: data.gpu.gpus[i].fanSpeed!,
+            });
+            if (fanHistoryRef.current[i].length > MAX_SPARKLINE_POINTS) {
+              fanHistoryRef.current[i] =
+                fanHistoryRef.current[i].slice(-MAX_SPARKLINE_POINTS);
+            }
+            fanRangeRef.current[i].min = Math.min(
+              fanRangeRef.current[i].min,
+              data.gpu.gpus[i].fanSpeed!,
+            );
+            fanRangeRef.current[i].max = Math.max(
+              fanRangeRef.current[i].max,
+              data.gpu.gpus[i].fanSpeed!,
+            );
           }
         }
         forceUpdate((n) => n + 1);
@@ -350,21 +437,18 @@ const ServerStats: React.FC = () => {
                     sx={{
                       mb: idx < stats.gpu.gpus.length - 1 ? 2 : 0,
                       pb: idx < stats.gpu.gpus.length - 1 ? 2 : 0,
-                      ...(idx < stats.gpu.gpus.length - 1
-                        ? { borderBottom: `1px solid ${theme.palette.divider}` }
-                        : {}),
                     }}
                   >
                     <LoadGauge
                       title={gpu.name}
                       value={gpu.utilization}
-                      color={getTempColor(gpu.temperatures[0] ?? null)}
+                      color={getTempColor(gpu.temperatures[0]?.value ?? null)}
                       sparklineData={gpuHistoryRef.current[idx] || []}
                       extraContent={
                         <Box>
                           {gpu.temperatures.length === 0 ? (
                             <TempGauge
-                              title="Temp 1"
+                              title="temp1"
                               value={null}
                               history={[]}
                               globalMin={0}
@@ -372,83 +456,79 @@ const ServerStats: React.FC = () => {
                               color="#9e9e9e"
                             />
                           ) : (
-                            gpu.temperatures.map((temp, j) => {
-                              const range = tempRangeRef.current[idx] ?? { min: 0, max: 100 };
-                              return (
-                                <Box
-                                  key={j}
-                                  sx={{
-                                    mb: j < gpu.temperatures.length - 1 ? 2 : 0,
-                                    pb: j < gpu.temperatures.length - 1 ? 2 : 0,
-                                    ...(j < gpu.temperatures.length - 1
-                                      ? { borderBottom: `1px solid ${theme.palette.divider}` }
-                                      : {}),
-                                  }}
-                                >
-                                  <TempGauge
-                                    title={`Temp ${j + 1}`}
-                                    value={temp}
-                                    history={tempHistoryRef.current[idx]?.[j] || []}
-                                    globalMin={range.min}
-                                    globalMax={range.max}
-                                    color={getTempColor(temp)}
-                                  />
+                             gpu.temperatures.map((temp, j) => {
+                               const range = tempRangeRef.current[idx] ?? {
+                                 min: 0,
+                                 max: 100,
+                               };
+                               const title = `temp${j + 1} - ${temp.label}`;
+                               return (
+                                 <Box
+                                   key={j}
+                                   sx={{
+                                     mb: j < gpu.temperatures.length - 1 ? 2 : 0,
+                                     pb: j < gpu.temperatures.length - 1 ? 2 : 0,
+                                     ...(j < gpu.temperatures.length - 1
+                                       ? {
+                                           borderBottom: `1px solid ${theme.palette.divider}`,
+                                         }
+                                       : {}),
+                                   }}
+                                 >
+                                   <TempGauge
+                                     title={title}
+                                     value={temp.value}
+                                     history={
+                                       tempHistoryRef.current[idx]?.[j] || []
+                                     }
+                                     globalMin={range.min}
+                                     globalMax={range.max}
+                                     color={getTempColor(temp.value)}
+                                   />
                                 </Box>
                               );
                             })
                           )}
+                          <Box sx={{ mt: 2 }}>
+                            <PowerGauge
+                              value={gpu.power}
+                              history={powerHistoryRef.current[idx] || []}
+                              globalMin={powerRangeRef.current[idx]?.min ?? 0}
+                              globalMax={powerRangeRef.current[idx]?.max ?? 1}
+                            />
+                          </Box>
                           <Box
                             sx={{
                               display: "flex",
                               flexWrap: "wrap",
-                              gap: 1,
+                              gap: 2,
                               mt: 2,
                             }}
                           >
-                            {[
-                              {
-                                label: "VRAM",
-                                value: gpu.memUsed !== null
-                                  ? `${gpu.memUsed} / ${gpu.memTotal} GB`
-                                  : "N/A",
-                                usagePercent: gpu.memUsed !== null && gpu.memTotal !== null
-                                  ? (gpu.memUsed / gpu.memTotal) * 100
-                                  : 0,
-                              },
-                              {
-                                label: "Power",
-                                value: gpu.power !== null ? `${gpu.power}W` : "N/A",
-                              },
-                              {
-                                label: "Fan",
-                                value: gpu.fanSpeed !== null ? `${gpu.fanSpeed} RPM` : "N/A",
-                              },
-                            ].map((stat) => (
-                              <Box
-                                key={stat.label}
-                                sx={{
-                                  flex: "1 1 calc(33.333% - 8px)",
-                                  minWidth: 120,
-                                  textAlign: "center",
-                                  [theme.breakpoints.down("sm")]: {
-                                    flex: "1 1 calc(50% - 8px)",
-                                  },
-                                }}
-                              >
-                                <Typography
-                                  variant="caption"
-                                  sx={{ fontWeight: 500, display: "block" }}
-                                >
-                                  {stat.label}
-                                </Typography>
-                                <Typography
-                                  variant="caption"
-                                  sx={{ fontWeight: 600, display: "block", mt: 0.5 }}
-                                >
-                                  {stat.value}
-                                </Typography>
-                              </Box>
-                            ))}
+                            <Box
+                              sx={{
+                                flex: "1 1 calc(50% - 8px)",
+                                minWidth: 140,
+                              }}
+                            >
+                              <VramGauge
+                                value={gpu.memUsed}
+                                total={gpu.memTotal}
+                              />
+                            </Box>
+                            <Box
+                              sx={{
+                                flex: "1 1 calc(50% - 8px)",
+                                minWidth: 160,
+                              }}
+                            >
+                              <FanGauge
+                                value={gpu.fanSpeed}
+                                history={fanHistoryRef.current[idx] || []}
+                                globalMin={fanRangeRef.current[idx]?.min ?? 0}
+                                globalMax={fanRangeRef.current[idx]?.max ?? 1}
+                              />
+                            </Box>
                           </Box>
                         </Box>
                       }
@@ -498,69 +578,72 @@ const ServerStats: React.FC = () => {
                       </Typography>
                     </Box>
                     <Box
-                sx={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 1,
-                }}
-              >
-                {stats.cpu.cores.map((core, idx) => (
-                  <Box
-                    key={idx}
-                    sx={{
-                      flex: "1 1 calc(25% - 8px)",
-                      minWidth: 120,
-                      [theme.breakpoints.down("sm")]: {
-                        flex: "1 1 calc(50% - 8px)",
-                      },
-                    }}
-                  >
-                    <Box
                       sx={{
                         display: "flex",
-                        justifyContent: "space-between",
-                        mb: 0.5,
+                        flexWrap: "wrap",
+                        gap: 1,
                       }}
                     >
-                      <Typography variant="caption" sx={{ fontWeight: 500 }}>
-                        Core {idx}
-                      </Typography>
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          fontWeight: 600,
-                          color:
-                            core.load >= 85
-                              ? "#d32f2f"
-                              : core.load >= 70
-                                ? "#f57c00"
-                                : "#2e7d32",
-                        }}
-                      >
-                        {core.load.toFixed(1)}%
-                      </Typography>
+                      {stats.cpu.cores.map((core, idx) => (
+                        <Box
+                          key={idx}
+                          sx={{
+                            flex: "1 1 calc(25% - 8px)",
+                            minWidth: 120,
+                            [theme.breakpoints.down("sm")]: {
+                              flex: "1 1 calc(50% - 8px)",
+                            },
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              mb: 0.5,
+                            }}
+                          >
+                            <Typography
+                              variant="caption"
+                              sx={{ fontWeight: 500 }}
+                            >
+                              Core {idx}
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                fontWeight: 600,
+                                color:
+                                  core.load >= 85
+                                    ? "#d32f2f"
+                                    : core.load >= 70
+                                      ? "#f57c00"
+                                      : "#2e7d32",
+                              }}
+                            >
+                              {core.load.toFixed(1)}%
+                            </Typography>
+                          </Box>
+                          <LinearProgress
+                            variant="determinate"
+                            value={core.load}
+                            sx={{
+                              height: 6,
+                              borderRadius: 3,
+                              bgcolor: "rgba(0,0,0,0.06)",
+                              "& .MuiLinearProgress-bar": {
+                                borderRadius: 3,
+                                bgcolor:
+                                  core.load >= 85
+                                    ? "#d32f2f"
+                                    : core.load >= 70
+                                      ? "#f57c00"
+                                      : "#2e7d32",
+                              },
+                            }}
+                          />
+                        </Box>
+                      ))}
                     </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={core.load}
-                      sx={{
-                        height: 6,
-                        borderRadius: 3,
-                        bgcolor: "rgba(0,0,0,0.06)",
-                        "& .MuiLinearProgress-bar": {
-                          borderRadius: 3,
-                          bgcolor:
-                            core.load >= 85
-                              ? "#d32f2f"
-                              : core.load >= 70
-                                ? "#f57c00"
-                                : "#2e7d32",
-                        },
-                      }}
-                    />
-                  </Box>
-                ))}
-              </Box>
                   </>
                 }
               />
