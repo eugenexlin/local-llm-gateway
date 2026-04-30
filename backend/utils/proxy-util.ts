@@ -1,9 +1,9 @@
-import http from 'http';
-import https from 'https';
-import { Response } from 'express';
-import database from '../database';
-import config from '../config';
-import { extractTokensFromStream } from './streaming-token-parser';
+import http from "http";
+import https from "https";
+import { Response } from "express";
+import database from "../database";
+import config from "../config";
+import { extractTokensFromStream } from "./streaming-token-parser";
 
 interface StreamMetrics {
   statusCode: number | null;
@@ -26,8 +26,15 @@ export function proxyRequestToLlama(
   res: Response,
   reqHeaders: any,
 ): void {
-  const idempotencyKey = (reqHeaders['idempotency-key'] ||
-    reqHeaders['x-idempotency-key'] ||
+  if (!body.stream_options) {
+    body.stream_options = {};
+  }
+  if (!body.stream_options.include_usage) {
+    body.stream_options.include_usage = true;
+  }
+
+  const idempotencyKey = (reqHeaders["idempotency-key"] ||
+    reqHeaders["x-idempotency-key"] ||
     null) as string | null;
 
   const metrics: StreamMetrics = {
@@ -44,91 +51,101 @@ export function proxyRequestToLlama(
   };
 
   const url = new URL(fullUrl);
-  const protocol = url.protocol === 'https:' ? https : http;
+  const protocol = url.protocol === "https:" ? https : http;
 
-  const contentType = (reqHeaders['content-type'] as string) || 'application/json';
+  const contentType =
+    (reqHeaders["content-type"] as string) || "application/json";
 
   const options: http.RequestOptions = {
     hostname: url.hostname,
-    port: url.port || (url.protocol === 'https:' ? 443 : 80),
+    port: url.port || (url.protocol === "https:" ? 443 : 80),
     path: url.pathname + url.search,
     method: method,
     headers: {
-      'Content-Type': contentType,
-      'User-Agent': 'LLM-Gateway/1.0',
+      "Content-Type": contentType,
+      "User-Agent": "LLM-Gateway/1.0",
     },
   };
 
-  const upstreamReq = protocol.request(options, (response: http.IncomingMessage) => {
-    metrics.statusCode = response.statusCode ?? null;
-    response.pipe(res);
+  const upstreamReq = protocol.request(
+    options,
+    (response: http.IncomingMessage) => {
+      metrics.statusCode = response.statusCode ?? null;
+      response.pipe(res);
 
-    response.on('data', (chunk: Buffer) => {
-      metrics.chunks.push(chunk);
-    });
-
-    response.on('end', () => {
-      const duration = Date.now() - metrics.startTime;
-
-      if (metrics.idempotencyKey) {
-        const existing = database.getDb()?.prepare(
-          'SELECT 1 FROM usage_logs WHERE idempotency_key = ?'
-        ).get(metrics.idempotencyKey);
-
-        if (existing) {
-          if (process.env.SUPPRESS_CONSOLE !== 'true') {
-            console.log('Duplicate request detected (idempotency key already used), skipping logging');
-          }
-          metrics.hasLogged = true;
-          return;
-        }
-      }
-
-      const tokenResult = extractTokensFromStream(metrics.chunks);
-      if (tokenResult) {
-        metrics.promptTokens = tokenResult.promptTokens;
-        metrics.completionTokens = tokenResult.completionTokens;
-        metrics.totalTokens = tokenResult.totalTokens;
-        metrics.usageFound = true;
-      }
-
-      setImmediate(() => {
-        try {
-          if (!metrics.usageFound || metrics.hasLogged) {
-            return;
-          }
-
-          if (apiKeyId) {
-            database.logUsage({
-              api_key_id: apiKeyId,
-              prompt_tokens: metrics.promptTokens,
-              completion_tokens: metrics.completionTokens,
-              total_tokens: metrics.totalTokens,
-              duration_ms: duration,
-              timestamp: new Date().toISOString(),
-              idempotency_key: metrics.idempotencyKey,
-              cache_creation_input_tokens: tokenResult?.cacheCreationInputTokens || 0,
-              cache_read_input_tokens: tokenResult?.cacheReadInputTokens || 0,
-            });
-
-            database.incrementApiKeyStats(apiKeyId);
-          }
-
-          metrics.hasLogged = true;
-        } catch (logError) {
-          console.error('Error logging response:', logError);
-        }
+      response.on("data", (chunk: Buffer) => {
+        metrics.chunks.push(chunk);
       });
 
-      console.log(`[${metrics.statusCode}] ${duration}ms | Prompt:${metrics.promptTokens} Completion:${metrics.completionTokens} Total:${metrics.totalTokens}`);
-    });
-  });
+      response.on("end", () => {
+        const duration = Date.now() - metrics.startTime;
 
-  upstreamReq.on('error', (error: Error) => {
+        if (metrics.idempotencyKey) {
+          const existing = database
+            .getDb()
+            ?.prepare("SELECT 1 FROM usage_logs WHERE idempotency_key = ?")
+            .get(metrics.idempotencyKey);
+
+          if (existing) {
+            if (process.env.SUPPRESS_CONSOLE !== "true") {
+              console.log(
+                "Duplicate request detected (idempotency key already used), skipping logging",
+              );
+            }
+            metrics.hasLogged = true;
+            return;
+          }
+        }
+
+        const tokenResult = extractTokensFromStream(metrics.chunks);
+        if (tokenResult) {
+          metrics.promptTokens = tokenResult.promptTokens;
+          metrics.completionTokens = tokenResult.completionTokens;
+          metrics.totalTokens = tokenResult.totalTokens;
+          metrics.usageFound = true;
+        }
+
+        setImmediate(() => {
+          try {
+            if (!metrics.usageFound || metrics.hasLogged) {
+              return;
+            }
+
+            if (apiKeyId) {
+              database.logUsage({
+                api_key_id: apiKeyId,
+                prompt_tokens: metrics.promptTokens,
+                completion_tokens: metrics.completionTokens,
+                total_tokens: metrics.totalTokens,
+                duration_ms: duration,
+                timestamp: new Date().toISOString(),
+                idempotency_key: metrics.idempotencyKey,
+                cache_creation_input_tokens:
+                  tokenResult?.cacheCreationInputTokens || 0,
+                cache_read_input_tokens: tokenResult?.cacheReadInputTokens || 0,
+              });
+
+              database.incrementApiKeyStats(apiKeyId);
+            }
+
+            metrics.hasLogged = true;
+          } catch (logError) {
+            console.error("Error logging response:", logError);
+          }
+        });
+
+        console.log(
+          `[${metrics.statusCode}] ${duration}ms | Prompt:${metrics.promptTokens} Completion:${metrics.completionTokens} Total:${metrics.totalTokens}`,
+        );
+      });
+    },
+  );
+
+  upstreamReq.on("error", (error: Error) => {
     metrics.error = error.message;
     const duration = Date.now() - metrics.startTime;
 
-    console.error('Proxy error:', error);
+    console.error("Proxy error:", error);
 
     if (!res.headersSent) {
       res.status(500).json({ error: error.message });
@@ -150,7 +167,7 @@ export function proxyRequestToLlama(
           }
           metrics.hasLogged = true;
         } catch (logError) {
-          console.error('Error logging error:', logError);
+          console.error("Error logging error:", logError);
         }
       });
     }

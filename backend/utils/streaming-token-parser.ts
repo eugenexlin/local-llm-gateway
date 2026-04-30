@@ -24,7 +24,7 @@ export function extractTokensFromStream(chunks: Buffer[]): TokenExtractResult | 
   }
 
   // Find the usage object
-  const usageMatch = combined.match(/"usage"\s*:\s*\{[^}]*\}/);
+  const usageMatch = combined.match(/(?:"usage"|usage)\s*:\s*\{[^}]*\}/);
   if (!usageMatch) {
     return null;
   }

@@ -44,7 +44,7 @@ const ChatDrawer: React.FC<ChatDrawerProps> = ({ open, onClose }) => {
       onClose={onClose}
       sx={{
         '& .MuiDrawer-paper': {
-          width: 420,
+          width: '30vw',
           boxSizing: 'border-box',
           border: 'none',
           boxShadow: '-4px 0 24px rgba(0, 0, 0, 0.1)',

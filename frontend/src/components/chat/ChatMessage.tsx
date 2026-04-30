@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { Box, Typography, Avatar } from '@mui/material';
 import { ChatMessage as ChatMessageType } from '../../context/ChatContext';
+import { useAuth } from '../../context/AuthContext';
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -8,6 +9,7 @@ interface ChatMessageProps {
 }
 
 const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming }) => {
+  const { user } = useAuth();
   const isUser = message.role === 'user';
   const isStreamingResponse = !isUser && isStreaming;
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -160,7 +162,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming }) => {
             flexShrink: 0,
           }}
         >
-          {message.content.charAt(0).toUpperCase()}
+          {user?.name?.charAt(0).toUpperCase()}
         </Avatar>
       )}
       

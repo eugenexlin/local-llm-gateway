@@ -145,5 +145,21 @@ describe('Streaming Token Parser', () => {
       expect(result?.completionTokens).toBe(0);
       expect(result?.totalTokens).toBe(0);
     });
+
+    it('should extract tokens from SSE usage field format (llama.cpp)', () => {
+      const chunks = [
+        Buffer.from('data: {"id":"chat-123","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}]}\n\n'),
+        Buffer.from('data: {"id":"chat-123","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":" world"},"finish_reason":null}]}\n\n'),
+        Buffer.from('data: [DONE]\n\n'),
+        Buffer.from('usage: {"prompt_tokens":10,"completion_tokens":25,"total_tokens":35}\n\n'),
+      ];
+
+      const result = extractTokensFromStream(chunks);
+
+      expect(result).not.toBeNull();
+      expect(result?.promptTokens).toBe(10);
+      expect(result?.completionTokens).toBe(25);
+      expect(result?.totalTokens).toBe(35);
+    });
   });
 });

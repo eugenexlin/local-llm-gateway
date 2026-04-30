@@ -37,6 +37,7 @@ router.post('/completions', requireAuth, (req: SessionRequest, res: Response) =>
       console.log(`[KEY:${key_id}] ${req.method} ${fullUrl}`);
     }
 
+    delete req.body.key_id
     proxyRequestToLlama(fullUrl, req.body, key_id, req.method, res, req.headers);
   } catch (error) {
     console.error('Chat completions error:', error);
