@@ -412,33 +412,14 @@ const ServerStats: React.FC = () => {
             {stats.gpu.gpuAvailable ? (
               <Box>
                 {stats.gpu.gpus.map((gpu, idx) => {
-                  const tempRange = tempRangeRef.current[idx] ?? {
-                    min: 0,
-                    max: 1,
-                  };
-                  const firstTempValue = gpu.temperatures[0]?.value ?? null;
-                  const firstTempPercent =
-                    firstTempValue !== null
-                      ? Math.min(
-                          100,
-                          Math.max(
-                            0,
-                            ((firstTempValue - tempRange.min) /
-                              (tempRange.max - tempRange.min)) *
-                              100,
-                          ),
-                        )
-                      : null;
                   return (
-                    <Box
-                      key={idx}
-                      sx={{
-                        mb: idx < stats.gpu.gpus.length - 1 ? 2 : 0,
-                        pb: idx < stats.gpu.gpus.length - 1 ? 2 : 0,
-                      }}
-                    >
+                    <Box  sx={{ mb: 2 }}>
+                      <Box key={idx} sx={{ mb: 1 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {gpu.name}
+                        </Typography>
+                      </Box>
                       <LoadGauge
-                        title={gpu.name}
                         value={gpu.utilization}
                         color={getGaugeColor(gpu.utilization)}
                         sparklineData={gpuHistoryRef.current[idx] || []}
@@ -466,13 +447,7 @@ const ServerStats: React.FC = () => {
                               : null;
                           const title = `temp${j + 1} - ${temp.label}`;
                           return (
-                            <Box
-                              key={j}
-                              sx={{
-                                mb: j < gpu.temperatures.length - 1 ? 2 : 0,
-                                pb: j < gpu.temperatures.length - 1 ? 2 : 0,
-                              }}
-                            >
+                            <Box key={j} sx={{}}>
                               <TempGauge
                                 title={title}
                                 value={temp.value}
@@ -484,7 +459,7 @@ const ServerStats: React.FC = () => {
                             </Box>
                           );
                         })}
-                        <Box sx={{ mt: 2 }}>
+                        <Box sx={{}}>
                           <PowerGauge
                             value={gpu.power}
                             history={powerHistoryRef.current[idx] || []}
@@ -497,7 +472,8 @@ const ServerStats: React.FC = () => {
                             display: "flex",
                             flexWrap: "wrap",
                             gap: 2,
-                            mt: 2,
+                            mt: 1,
+                            mb: 1,
                           }}
                         >
                           <Box
@@ -544,7 +520,6 @@ const ServerStats: React.FC = () => {
           <Grid size={{ xs: 12 }}>
             <StatsCard title="CPU" icon={<MemoryIcon />}>
               <LoadGauge
-                title=""
                 value={cpuUsage}
                 color={getGaugeColor(cpuUsage)}
                 sparklineData={cpuHistoryRef.current}
@@ -554,7 +529,7 @@ const ServerStats: React.FC = () => {
                   display: "flex",
                   flexWrap: "wrap",
                   gap: 1,
-                  marginTop: 2
+                  marginTop: 2,
                 }}
               >
                 {stats.cpu.cores.map((core, idx) => (
@@ -572,7 +547,6 @@ const ServerStats: React.FC = () => {
                       sx={{
                         display: "flex",
                         justifyContent: "space-between",
-                        mb: 0.5,
                       }}
                     >
                       <Typography variant="caption" sx={{ fontWeight: 500 }}>

@@ -27,18 +27,7 @@ import {
   FormControlLabel,
   TextareaAutosize,
 } from "@mui/material";
-
-interface ApiKey {
-  id: string;
-  name: string;
-  description: string | null;
-  api_key: string | null;
-  created_at: string;
-  user_id: string | null;
-  is_active: number;
-  revoked_at: string | null;
-  has_metrics: boolean;
-}
+import { ApiKey } from "../models/ApiKey";
 
 function APIKeys() {
   const { user } = useAuth();
@@ -69,15 +58,12 @@ function APIKeys() {
     if (!user?.id) return;
 
     try {
-      const response = await fetch(
-        `/api/api-keys?show_revoked=true`,
-        { credentials: 'include' },
-      );
+      const response = await fetch(`/api/api-keys`, { credentials: "include" });
       if (response.ok) {
         const data = await response.json();
         setApiKeys(data);
       } else if (response.status === 401) {
-        window.location.href = '/login';
+        window.location.href = "/login";
       }
     } catch (error) {
       console.error("Failed to fetch API keys:", error);
@@ -97,7 +83,7 @@ function APIKeys() {
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: 'include',
+        credentials: "include",
         body: JSON.stringify({
           name: newKeyName,
           description: newKeyDescription || null,
@@ -128,7 +114,7 @@ function APIKeys() {
     try {
       const response = await fetch(`/api/api-keys/${keyId}`, {
         method: "DELETE",
-        credentials: 'include',
+        credentials: "include",
       });
 
       if (response.ok) {
@@ -211,7 +197,7 @@ function APIKeys() {
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: 'include',
+        credentials: "include",
         body: JSON.stringify({
           name: editingName,
           description: editingDescription || null,
