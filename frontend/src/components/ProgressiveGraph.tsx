@@ -387,11 +387,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                         const key = Object.keys(entry.payload || {}).find(
                           (k) => k !== "timestamp",
                         );
-                        const userIndex = key ? userKeys.indexOf(key) : -1;
-                        const userId =
-                          userIndex >= 0
-                            ? userOptions[userIndex]?.id
-                            : key;
+                        const userId = key ? key.replace("__user_", "") : key;
                         const label = hasMultipleUsers && userId
                           ? getUserLabel(userId, userOptions)
                           : metricLabels[metric];
@@ -416,8 +412,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                 />
                 {hasMultipleUsers ? (
                   userKeys.map((userKey, index) => {
-                    const userId =
-                      userOptions[index]?.id || userKey.replace("__user_", "");
+                    const userId = userKey.replace("__user_", "");
                     const color = getUserColor(userId, index);
                     const label = getUserLabel(userId, userOptions);
                     return (
@@ -508,11 +503,7 @@ tickFormatter={(value, _index) =>
                           const key = Object.keys(entry.payload || {}).find(
                             (k) => k !== "timestamp",
                           );
-                          const userIndex = key ? userKeys.indexOf(key) : -1;
-                          const userId =
-                            userIndex >= 0
-                              ? userOptions[userIndex]?.id
-                              : key;
+                          const userId = key ? key.replace("__user_", "") : key;
                           const label = hasMultipleUsers && userId
                             ? getUserLabel(userId, userOptions)
                             : metricLabels[metric];
@@ -537,9 +528,7 @@ tickFormatter={(value, _index) =>
                   />
                   {hasMultipleUsers ? (
                     userKeys.map((userKey, index) => {
-                      const userId =
-                        userOptions[index]?.id ||
-                        userKey.replace("__user_", "");
+                      const userId = userKey.replace("__user_", "");
                       const color = getUserColor(userId, index);
                       const label = getUserLabel(userId, userOptions);
                       return (

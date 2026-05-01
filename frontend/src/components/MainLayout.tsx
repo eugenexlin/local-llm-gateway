@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Drawer,
@@ -29,6 +29,23 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+
+  useEffect(() => {
+    if (!chatOpen) return;
+
+    window.history.pushState(null, '');
+
+    const handlePopState = () => {
+      setChatOpen(false);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.history.go(-1);
+    };
+  }, [chatOpen]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);

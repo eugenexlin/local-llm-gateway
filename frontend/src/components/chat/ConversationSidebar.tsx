@@ -43,6 +43,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ onBack }) => 
 
   const handleNewChat = () => {
     createConversation();
+    onBack?.();
   };
 
   const handleOpenMenu = (event: React.MouseEvent<HTMLElement>, id: string) => {
@@ -227,7 +228,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ onBack }) => 
                 </Box>
               ) : (
                 <ListItemButton
-                  onClick={() => switchConversation(conv.id)}
+                  onClick={() => { switchConversation(conv.id); onBack?.(); }}
                   sx={{
                     px: 1.5,
                     py: 1,

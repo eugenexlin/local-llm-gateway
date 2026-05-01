@@ -51,7 +51,9 @@ export function lookupCache(
   metric: string,
   userId: string | null = null,
   apiKeyId: string | null = null,
+  shouldRefresh?: (timestamp: string) => boolean,
 ): ProgressiveDataPoint | undefined {
+  if (shouldRefresh?.(timestamp)) return undefined;
   const key = buildCacheKey(timestamp, granularity, metric, userId, apiKeyId);
   return cache.get(key);
 }
@@ -75,8 +77,10 @@ export function mergeCachedData(
   metric: string,
   userId: string | null = null,
   apiKeyId: string | null = null,
+  shouldRefresh?: (timestamp: string) => boolean,
 ): void {
   for (let i = 0; i < allData.length; i++) {
+    if (shouldRefresh?.(allData[i].timestamp)) continue;
     const key = buildCacheKey(allData[i].timestamp, granularity, metric, userId, apiKeyId);
     const cached = cache.get(key);
     if (cached && cached.hasValue) {

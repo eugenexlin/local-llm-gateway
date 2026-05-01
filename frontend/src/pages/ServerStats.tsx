@@ -22,15 +22,12 @@ const spin = keyframes({
   "100%": { transform: "rotate(360deg)" },
 });
 import RefreshIcon from "@mui/icons-material/Refresh";
-import MemoryIcon from "@mui/icons-material/Memory";
 import GpuIcon from "../components/GpuIcon";
 import CpuIcon from "../components/CpuIcon";
 import RamIcon from "../components/RamIcon";
-import SpeedIcon from "@mui/icons-material/Speed";
+import InfoIcon from '@mui/icons-material/Info';
 import StorageIcon from "@mui/icons-material/Storage";
-import NetworkPingIcon from "@mui/icons-material/NetworkPing";
 import NetworkIoIcon from "../components/NetworkIoIcon";
-import PowerSettingsNewIcon from "@mui/icons-material/PowerSettingsNew";
 import LoadGauge from "../components/LoadGauge";
 import TempGauge from "../components/TempGauge";
 import VramGauge from "../components/VramGauge";
@@ -806,7 +803,7 @@ const ServerStats: React.FC = () => {
         </Grid>
 
         <Grid size={{ xs: 12, sm: 6 }}>
-          <StatsCard title="System Info" icon={<PowerSettingsNewIcon />}>
+          <StatsCard title="System Info" icon={<InfoIcon />}>
             <Box>
               <Box
                 sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}

@@ -35,6 +35,8 @@ import type {
   ProgressiveDataPoint,
   BarGrouping,
 } from "../types/metrics";
+import { DATE_PRESETS } from "../utils/dateUtils";
+import { calculateOptimalGranularitySeconds } from "../utils/granularity";
 
 export type UserGraphData = Record<string, ProgressiveDataPoint[]>;
 
@@ -53,12 +55,12 @@ const DashboardStats: React.FC = () => {
   const [lifetimeMetrics, setLifetimeMetrics] = useState<Metrics | null>(null);
   const [rangeMetrics, setRangeMetrics] = useState<Metrics | null>(null);
   const [startDate, setStartDate] = useState<Date | null>(
-    new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+    new Date(Date.now() - 4 * 60 * 60 * 1000),
   );
   const [endDate, setEndDate] = useState<Date | null>(new Date());
-  const [granularity, setGranularity] = useState<GranularitySeconds>(60 * 60);
+  const [granularity, setGranularity] = useState<GranularitySeconds>(15 * 60);
   const [metric, setMetric] = useState<MetricType>("total_tokens");
-  const [displayGranularity, setDisplayGranularity] = useState<string>("1h");
+  const [displayGranularity, setDisplayGranularity] = useState<string>("15m");
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>(
     user?.id ? [user.id] : [],
   );
@@ -76,12 +78,77 @@ const DashboardStats: React.FC = () => {
   const debounceTimerRef = useRef<number | null>(null);
   const [cacheEnabled, setCacheEnabledState] = useState(getCacheEnabled());
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [activePresetIndex, setActivePresetIndex] = useState(1);
+  const [lastFetchTime, setLastFetchTime] = useState<number | null>(null);
 
   const [insightsConfig, setInsightsConfig] = useState<InsightsConfig>({
     xAxis: null,
     yAxis: null,
     viewMode: "scatter",
   });
+
+  const applyPresetToDateRange = (index: number) => {
+    const preset = DATE_PRESETS[index];
+    if (!preset.isRelative) return null;
+
+    const now = new Date();
+    const currentHours = now.getHours();
+    const currentMinutes = now.getMinutes();
+    const roundUpToNearestMinute = (date: Date): Date => {
+      const ms = date.getTime();
+      const roundedMs = Math.ceil(ms / 60000) * 60000;
+      return new Date(roundedMs);
+    };
+
+    let start: Date;
+    let end: Date;
+
+    if (preset.hours !== undefined) {
+      start = new Date(now.getTime() - preset.hours * 60 * 60 * 1000);
+      end = roundUpToNearestMinute(now);
+    } else if (preset.days !== undefined) {
+      start = new Date(now.getTime() - preset.days * 24 * 60 * 60 * 1000);
+      start.setHours(currentHours, currentMinutes, 0, 0);
+      end = roundUpToNearestMinute(now);
+    } else if (preset.months !== undefined) {
+      start = new Date(
+        now.getFullYear(),
+        now.getMonth() - preset.months,
+        now.getDate(),
+      );
+      start.setHours(currentHours, currentMinutes, 0, 0);
+      end = roundUpToNearestMinute(now);
+    } else if (preset.years !== undefined) {
+      start = new Date(now.getFullYear(), 0, 1);
+      start.setHours(currentHours, currentMinutes, 0, 0);
+      end = roundUpToNearestMinute(now);
+    } else {
+      start = new Date(now.getTime());
+      start.setHours(currentHours, currentMinutes, 0, 0);
+      end = roundUpToNearestMinute(now);
+    }
+
+    setStartDate(start);
+    setEndDate(end);
+
+    if (start && end) {
+      const optimalGranularitySeconds = calculateOptimalGranularitySeconds(
+        start,
+        end,
+      );
+      setGranularity(optimalGranularitySeconds)
+    }
+
+    setActivePresetIndex(index);
+  };
+
+  const handlePresetChange = (index: number | undefined) => {
+    if (index === undefined) {
+      return;
+    }
+    setActivePresetIndex(index);
+    applyPresetToDateRange(index);
+  };
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -142,9 +209,12 @@ const DashboardStats: React.FC = () => {
         }
       }
       const cacheBust = `&_t=${Date.now()}`;
-      const response = await fetch(`/api/metrics/range?${params.toString()}${cacheBust}`, {
-        credentials: "include",
-      });
+      const response = await fetch(
+        `/api/metrics/range?${params.toString()}${cacheBust}`,
+        {
+          credentials: "include",
+        },
+      );
       if (response.ok) {
         const data = await response.json();
         setRangeMetrics(data);
@@ -169,6 +239,24 @@ const DashboardStats: React.FC = () => {
     const batchCount = Math.ceil(dataPointCount / batchSize);
     const displayValue =
       secondsToDisplayValue(currentGranularitySeconds) || "1h";
+
+    const startMs = start.getTime();
+    let refreshFromBucket = 0;
+
+    if (lastFetchTime) {
+      const lastFetchBucketIndex = Math.floor(
+        (lastFetchTime - startMs) / 1000 / currentGranularitySeconds,
+      );
+      refreshFromBucket = Math.max(0, lastFetchBucketIndex - 1);
+    }
+
+    const shouldRefresh = (timestamp: string) => {
+      const tsMs = new Date(timestamp).getTime();
+      const bucketIndex = Math.floor(
+        (tsMs - startMs) / 1000 / currentGranularitySeconds,
+      );
+      return bucketIndex >= refreshFromBucket;
+    };
 
     const usersToFetch = selectedUserIds.filter((id) => id !== "all");
 
@@ -204,6 +292,7 @@ const DashboardStats: React.FC = () => {
             metric,
             null,
             selectedApiKeyId,
+            shouldRefresh,
           );
         }
 
@@ -340,6 +429,7 @@ const DashboardStats: React.FC = () => {
           metric,
           userId,
           selectedApiKeyId,
+          shouldRefresh,
         );
       }
 
@@ -506,10 +596,11 @@ const DashboardStats: React.FC = () => {
   };
 
   const handleRefreshRange = async () => {
-    try {
-      await fetchRangeMetrics();
-    } catch (error) {
-      console.error("Error fetching range metrics:", error);
+    // Re-apply preset if in preset mode (not custom)
+    if (activePresetIndex >= 0 && activePresetIndex < DATE_PRESETS.length - 1) {
+      applyPresetToDateRange(activePresetIndex);
+    } else {
+      handleGraphRefresh();
     }
   };
 
@@ -529,6 +620,7 @@ const DashboardStats: React.FC = () => {
 
   const handleScroll = (direction: "left" | "right", step: "full" | "half") => {
     if (!startDate || !endDate) return;
+    setActivePresetIndex(DATE_PRESETS.length - 1);
     const windowMs = endDate.getTime() - startDate.getTime();
     const stepMs = step === "full" ? windowMs : windowMs / 2;
     const shift = direction === "left" ? -stepMs : stepMs;
@@ -570,6 +662,7 @@ const DashboardStats: React.FC = () => {
           if (done) {
             setGraphLoading(false);
             setLoadingProgress(100);
+            setLastFetchTime(Date.now());
             setTimeout(() => setLoadingProgress(0), 500);
             abortControllerRef.current = null;
           }
@@ -581,6 +674,9 @@ const DashboardStats: React.FC = () => {
 
   useEffect(() => {
     fetchLifetimeMetrics();
+  }, [selectedUserIds, selectedApiKeyId]);
+
+  useEffect(() => {
     fetchRangeMetrics();
   }, [selectedUserIds, selectedApiKeyId, startDate, endDate]);
 
@@ -688,9 +784,8 @@ const DashboardStats: React.FC = () => {
           setEndDate(date);
           handleGraphRefresh();
         }}
-        onGranularityChange={(seconds) => {
-          setGranularity(seconds);
-        }}
+        onPresetChange={handlePresetChange}
+        presetIndex={activePresetIndex}
       />
 
       <MetricsSection
