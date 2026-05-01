@@ -24,6 +24,7 @@ const spin = keyframes({
 import RefreshIcon from "@mui/icons-material/Refresh";
 import MemoryIcon from "@mui/icons-material/Memory";
 import GpuIcon from "../components/GpuIcon";
+import CpuIcon from "../components/CpuIcon";
 import RamIcon from "../components/RamIcon";
 import SpeedIcon from "@mui/icons-material/Speed";
 import StorageIcon from "@mui/icons-material/Storage";
@@ -622,7 +623,7 @@ const ServerStats: React.FC = () => {
 
         {stats.cpu.cores.length > 0 && (
           <Grid size={{ xs: 12 }}>
-            <StatsCard title="CPU" icon={<MemoryIcon />}>
+            <StatsCard title="CPU" icon={<CpuIcon />}>
               <LoadGauge
                 value={cpuUsage}
                 color={getGaugeColor(cpuUsage)}

@@ -13,7 +13,7 @@ export default function GpuIcon() {
       <circle
         cx="8"
         cy="12"
-        r="3.6"
+        r="4"
         fill="none"
         stroke="white"
         strokeWidth="1.4"
@@ -22,7 +22,7 @@ export default function GpuIcon() {
       <circle
         cx="17.5"
         cy="12"
-        r="3.6"
+        r="4"
         fill="none"
         stroke="white"
         strokeWidth="1.4"
@@ -31,7 +31,7 @@ export default function GpuIcon() {
       <circle
         cx="27"
         cy="12"
-        r="3.6"
+        r="4"
         fill="none"
         stroke="white"
         strokeWidth="1.4"
