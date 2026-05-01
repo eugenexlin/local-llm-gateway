@@ -56,27 +56,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           setMobileOpen(false);
         }}
       >
-        <Box sx={{ flexShrink: 0, color: "primary.main", pr: "8px" }}>
-          <svg
-            width="40"
-            height="40"
-            viewBox="0 0 32 32"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <polygon
-              points="16,3 27.25,9.5 27.25,22.5 16,29 4.75,22.5 4.75,9.5"
-              stroke="currentColor"
-              strokeWidth="2"
-              fill="none"
-            />
-            <polygon
-              points="16,8 22.93,12 22.93,20 16,24 9.07,20 9.07,12"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              fill="none"
-            />
-          </svg>
+        <Box sx={{ flexShrink: 0, pr: "8px" }}>
+          <img
+            src="/favicon.svg"
+            alt="LLM Gateway"
+            style={{ width: 40, height: 40 }}
+          />
         </Box>
         <Typography
           variant="h6"

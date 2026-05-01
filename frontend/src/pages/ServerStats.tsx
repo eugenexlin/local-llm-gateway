@@ -23,9 +23,12 @@ const spin = keyframes({
 });
 import RefreshIcon from "@mui/icons-material/Refresh";
 import MemoryIcon from "@mui/icons-material/Memory";
+import GpuIcon from "../components/GpuIcon";
+import RamIcon from "../components/RamIcon";
 import SpeedIcon from "@mui/icons-material/Speed";
 import StorageIcon from "@mui/icons-material/Storage";
 import NetworkPingIcon from "@mui/icons-material/NetworkPing";
+import NetworkIoIcon from "../components/NetworkIoIcon";
 import PowerSettingsNewIcon from "@mui/icons-material/PowerSettingsNew";
 import LoadGauge from "../components/LoadGauge";
 import TempGauge from "../components/TempGauge";
@@ -112,7 +115,7 @@ const StatsCard: React.FC<StatsCardProps> = ({ title, icon, children, sx }) => {
             gap: 1,
           }}
         >
-          <Box sx={{ color: "primary.main" }}>{icon}</Box>
+          <Box sx={{ color: "primary.main", width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center" }}>{icon}</Box>
           <Typography
             variant="subtitle1"
             sx={{ fontWeight: 600, letterSpacing: 0.5 }}
@@ -492,30 +495,6 @@ const ServerStats: React.FC = () => {
       >
         <Typography variant="h5">Server Stats</Typography>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <Chip
-            size="small"
-            label={
-              lastUpdated
-                ? `Updated ${secondsAgo()}`
-                : loading
-                  ? "Connecting..."
-                  : "Error"
-            }
-            sx={{
-              bgcolor: lastUpdated
-                ? "success.light"
-                : loading
-                  ? "warning.light"
-                  : "error.light",
-              color: lastUpdated
-                ? "success.contrastText"
-                : loading
-                  ? "warning.contrastText"
-                  : "error.contrastText",
-              fontWeight: 600,
-              fontSize: "0.75rem",
-            }}
-          />
           <Tooltip title="Refresh">
             <IconButton onClick={fetchStats} size="small">
               <RefreshIcon
@@ -533,7 +512,7 @@ const ServerStats: React.FC = () => {
 
       <Grid container spacing={2}>
         <Grid size={{ xs: 12 }}>
-          <StatsCard title="GPU" icon={<MemoryIcon />}>
+          <StatsCard title="GPU" icon={<GpuIcon />}>
             {stats.gpu.gpuAvailable ? (
               <Box>
                 {stats.gpu.gpus.map((gpu, idx) => {
@@ -713,7 +692,7 @@ const ServerStats: React.FC = () => {
         )}
 
         <Grid size={{ xs: 12, sm: 6 }}>
-          <StatsCard title="Network I/O" icon={<NetworkPingIcon />}>
+          <StatsCard title="Network I/O" icon={<NetworkIoIcon />}>
             <Box sx={{ mb: 2 }}>
               <Box
                 sx={{
@@ -785,7 +764,7 @@ const ServerStats: React.FC = () => {
         </Grid>
 
         <Grid size={{ xs: 12, sm: 6 }}>
-          <StatsCard title="RAM" icon={<MemoryIcon />}>
+          <StatsCard title="RAM" icon={<RamIcon />}>
             <Box sx={{ textAlign: "center", mb: 1 }}>
               <Typography
                 variant="h3"

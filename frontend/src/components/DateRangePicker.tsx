@@ -21,6 +21,7 @@ interface DateRangePickerProps {
 
 interface PresetRange {
   label: string;
+  hours?: number;
   days?: number;
   months?: number;
   years?: number;
@@ -43,6 +44,8 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
   const isInternalUpdate = React.useRef(false);
 
   const presetRanges: PresetRange[] = [
+    { label: "Last 1 hour", hours: 1, isRelative: true },
+    { label: "Last 4 hours", hours: 4, isRelative: true },
     { label: "Last 1 day", days: 1, isRelative: true },
     { label: "Last 3 days", days: 3, isRelative: true },
     { label: "Last 7 days", days: 7, isRelative: true },
@@ -90,13 +93,12 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
     let end: Date | null;
 
     if (preset.isRelative) {
-      if (preset.days !== undefined) {
-        start = new Date(now.getTime() - preset.days * 24 * 60 * 60 * 1000);
-        start.setHours(currentHours, currentMinutes, 0, 0);
+      if (preset.hours !== undefined) {
+        start = new Date(now.getTime() - preset.hours * 60 * 60 * 1000);
         end = new Date(now.getTime());
         end.setHours(currentHours, currentMinutes, 0, 0);
-      } else if (preset.months !== undefined) {
-        start = new Date(now.getFullYear(), now.getMonth() - preset.months, now.getDate());
+      } else if (preset.days !== undefined) {
+        start = new Date(now.getFullYear(), now.getMonth() - (preset.months ?? 0), now.getDate());
         start.setHours(currentHours, currentMinutes, 0, 0);
         end = new Date(now);
         end.setHours(currentHours, currentMinutes, 0, 0);
