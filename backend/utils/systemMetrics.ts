@@ -72,16 +72,6 @@ interface ServerStats {
   timestamp: string;
 }
 
-const CACHE_DURATION = 2000;
-let cache: { stats: ServerStats; timestamp: number } | null = null;
-let gpuLogStep = 0;
-
-function gpuLog(step: number, message: string): void {
-  if (gpuLogStep < step) {
-    console.log(`[GPU] ${message}`);
-    gpuLogStep = step;
-  }
-}
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -146,7 +136,6 @@ async function getGpuInfo(): Promise<GpuInfo> {
   try {
     const graphics = await si.graphics();
     if (graphics && graphics.controllers && graphics.controllers.length > 0) {
-      gpuLog(1, `systeminformation detected ${graphics.controllers.length} GPU(s)`);
       detectedGpus = graphics.controllers.map((c: any) => ({
         name: c.model || 'Unknown GPU',
         vendorId: c.vendorId || '',
@@ -154,44 +143,54 @@ async function getGpuInfo(): Promise<GpuInfo> {
       }));
     }
   } catch (err: any) {
-    gpuLog(1, `systeminformation failed: ${err.message}`);
   }
 
   // Step 2: Fallback to pure sysfs detection
   if (detectedGpus.length === 0) {
-    gpuLog(1, 'Falling back to sysfs detection');
     detectedGpus = await detectGpusFromSysfs();
-    if (detectedGpus.length > 0) {
-      gpuLog(1, `sysfs detected ${detectedGpus.length} GPU(s)`);
-    }
   }
 
-  // Step 3: Build GPU detail objects and enrich with sysfs
-  for (const source of detectedGpus) {
-    const gpu: GpuDetail = {
-      name: source.name,
-      temperatures: [],
-      fanSpeed: null,
-      power: null,
-      memUsed: null,
-      memTotal: source.vram ? Math.round(source.vram / (1024 * 1024 * 1024)) : null,
-      utilization: null,
-    };
-
-    if (process.platform === 'linux') {
-      enrichGpuWithSysfs(gpu);
-    } else if (process.platform === 'win32') {
+  // Step 3: Build GPU detail objects and enrich
+  if (process.platform === 'win32') {
+    const enrichPromises = detectedGpus.map(async (source, idx) => {
+      const gpu: GpuDetail = {
+        name: source.name,
+        temperatures: [],
+        fanSpeed: null,
+        power: null,
+        memUsed: null,
+        memTotal: source.vram ? Math.round(source.vram / (1024 * 1024 * 1024)) : null,
+        utilization: null,
+      };
       await enrichGpuWindows({ model: source.name, vendorId: source.vendorId }, gpu);
+      return { idx, gpu };
+    });
+    const results = await Promise.all(enrichPromises);
+    for (const { idx, gpu } of results) {
+      gpus[idx] = gpu;
     }
+  } else {
+    for (const source of detectedGpus) {
+      const gpu: GpuDetail = {
+        name: source.name,
+        temperatures: [],
+        fanSpeed: null,
+        power: null,
+        memUsed: null,
+        memTotal: source.vram ? Math.round(source.vram / (1024 * 1024 * 1024)) : null,
+        utilization: null,
+      };
 
-    gpus.push(gpu);
+      enrichGpuWithSysfs(gpu);
+
+      gpus.push(gpu);
+    }
   }
 
   // Step 4: NVIDIA-specific enrichment via nvidia-smi
   if (process.platform === 'linux') {
     await enrichGpusWithNvidiaSmi(gpus, detectedGpus);
   }
-
   return { gpuAvailable: gpus.length > 0, gpus };
 }
 
@@ -304,53 +303,26 @@ function enrichGpuWithSysfs(gpu: GpuDetail): void {
       }
     }
   } catch (err: any) {
-    gpuLog(8, `Linux sysfs read failed: ${err.message}`);
   }
 }
 
 async function enrichGpuWindows(_controller: any, gpu: GpuDetail): Promise<void> {
   try {
-    const tempResult = await execPromise('powershell.exe', [
+    const result = await execPromise('powershell.exe', [
       '-NoProfile',
       '-Command',
-      'try { $results = @(); $sensors = Get-CimInstance -Namespace "root/WMI" -ClassName "MSAcpi_ThermalZoneTemperature" -ErrorAction SilentlyContinue; if ($sensors) { foreach ($s in $sensors) { $mtf = $s.CurrentRelationshipUnits; if ($mtf -gt 0) { $tempC = [math]::Round(($s.CurrentTemperature / 10.0) - 273.15, 1) } else { $tempC = $s.CurrentTemperature }; $results += $tempC } } else { $results = @() }; $nvidiaSensors = Get-CimInstance -Namespace "root/NV_Indigo" -ClassName "NV_ThermalData" -ErrorAction SilentlyContinue; if ($nvidiaSensors) { foreach ($n in $nvidiaSensors) { if ($n.Temperature -and $n.Temperature -gt 0) { $nvidiaTemp = [math]::Round(($n.Temperature - 32) * 5.0 / 9.0, 1) }; $results += $nvidiaTemp } }; $amdGpus = Get-CimInstance -Namespace "root/WMI" -ClassName "AMDTemperature" -ErrorAction SilentlyContinue; if ($amdGpus) { foreach ($a in $amdGpus) { $results += $a.CurrentTemperature } }; if ($results.Count -gt 0) { $results | Select-Object -First 1 } else { Write-Output "N/A" } } catch { Write-Output "N/A" }',
+      '$temp = "N/A"; $util = "N/A"; $power = "N/A"; try { $sensors = Get-CimInstance -Namespace "root/WMI" -ClassName "MSAcpi_ThermalZoneTemperature" -ErrorAction SilentlyContinue; if ($sensors) { foreach ($s in $sensors) { $mtf = $s.CurrentRelationshipUnits; if ($mtf -gt 0) { $temp = [math]::Round(($s.CurrentTemperature / 10.0) - 273.15, 1) } else { $temp = $s.CurrentTemperature }; break } }; if ($temp -eq "N/A") { $nvidiaSensors = Get-CimInstance -Namespace "root/NV_Indigo" -ClassName "NV_ThermalData" -ErrorAction SilentlyContinue; if ($nvidiaSensors) { foreach ($n in $nvidiaSensors) { if ($n.Temperature -and $n.Temperature -gt 0) { $temp = [math]::Round(($n.Temperature - 32) * 5.0 / 9.0, 1); break } } }; if ($temp -eq "N/A") { $amdGpus = Get-CimInstance -Namespace "root/WMI" -ClassName "AMDTemperature" -ErrorAction SilentlyContinue; if ($amdGpus) { $temp = $amdGpus[0].CurrentTemperature } } } } catch {}; try { $vc = Get-CimInstance -Namespace "root\\CIMV2" -Class "Win32_VideoController" -ErrorAction SilentlyContinue | Select-Object -First 1; if ($vc) { $util = $vc.CurrentRefreshRate } } catch {}; try { $nvidiaPwr = Get-CimInstance -Namespace "root/NV_Indigo" -ClassName "NV_EnergyConsummeData" -ErrorAction SilentlyContinue; if ($nvidiaPwr -and $nvidiaPwr.CurrentPowerConsumption) { $power = $nvidiaPwr.CurrentPowerConsumption } } catch {}; Write-Output "${temp}|${util}|${power}"',
     ]);
-    const tempStr = tempResult.stdout.trim();
-    if (tempStr !== 'N/A' && !tempStr.toLowerCase().includes('error')) {
-      const tempVal = parseFloat(tempStr);
-      if (!isNaN(tempVal) && tempVal > 0 && tempVal < 150) {
-        gpu.temperatures[0] = { value: Math.round(tempVal), label: 'GPU' };
-      }
+    const parts = result.stdout.trim().split('|');
+    const tempVal = parseFloat(parts[0]);
+    if (!isNaN(tempVal) && tempVal > 0 && tempVal < 150) {
+      gpu.temperatures[0] = { value: Math.round(tempVal), label: 'GPU' };
+    }
+    const powerVal = parseFloat(parts[2]);
+    if (!isNaN(powerVal) && powerVal > 0) {
+      gpu.power = Math.round(powerVal);
     }
   } catch {
-    gpuLog(9, 'Failed to read temperature via WMI');
-  }
-
-  try {
-    const utilResult = await execPromise('powershell.exe', [
-      '-NoProfile',
-      '-Command',
-      'try { $gpu = Get-CimInstance -Namespace "root\\CIMV2" -Class "Win32_VideoController" | Select-Object -First 1; if ($gpu) { $gpu.CurrentRefreshRate } else { Write-Output "N/A" } } catch { Write-Output "N/A" }',
-    ]);
-  } catch {
-    gpuLog(10, 'Failed to read utilization via WMI');
-  }
-
-  try {
-    const powerResult = await execPromise('powershell.exe', [
-      '-NoProfile',
-      '-Command',
-      'try { $nvidiaPwr = Get-CimInstance -Namespace "root/NV_Indigo" -ClassName "NV_EnergyConsummeData" -ErrorAction SilentlyContinue; if ($nvidiaPwr -and $nvidiaPwr.CurrentPowerConsumption) { $nvidiaPwr.CurrentPowerConsumption } else { Write-Output "N/A" } } catch { Write-Output "N/A" }',
-    ]);
-    const powerStr = powerResult.stdout.trim();
-    if (powerStr !== 'N/A' && !powerStr.toLowerCase().includes('error')) {
-      const powerVal = parseFloat(powerStr);
-      if (!isNaN(powerVal) && powerVal > 0) {
-        gpu.power = Math.round(powerVal);
-      }
-    }
-  } catch {
-    gpuLog(11, 'Failed to read power via WMI');
   }
 }
 
@@ -394,9 +366,7 @@ async function enrichGpusWithNvidiaSmi(gpus: GpuDetail[], detectedGpus: Array<{ 
       }
     }
 
-    gpuLog(1, `nvidia-smi enriched ${nvidiaIndices.length} GPU(s)`);
   } catch (err: any) {
-    gpuLog(1, `nvidia-smi failed: ${err.message}`);
   }
 }
 
@@ -529,17 +499,13 @@ async function getNetworkInfo(): Promise<NetworkInfo> {
 }
 
 export async function getServerStats(): Promise<ServerStats> {
-  if (cache && Date.now() - cache.timestamp < CACHE_DURATION) {
-    return cache.stats;
-  }
+  const cpuP = getCpuInfo();
+  const gpuP = getGpuInfo();
+  const netP = getNetworkInfo();
+  const ram = getRamInfo();
+  const databaseInfo = getDatabaseInfo();
 
-  const [cpu, ram, gpu, databaseInfo, network] = await Promise.all([
-    getCpuInfo(),
-    getRamInfo(),
-    getGpuInfo(),
-    getDatabaseInfo(),
-    getNetworkInfo(),
-  ]);
+  const [cpu, gpu, network] = await Promise.all([cpuP, gpuP, netP]);
 
   const stats: ServerStats = {
     cpu,
@@ -551,12 +517,7 @@ export async function getServerStats(): Promise<ServerStats> {
     timestamp: new Date().toISOString(),
   };
 
-  cache = { stats, timestamp: Date.now() };
   return stats;
-}
-
-export function clearCache() {
-  cache = null;
 }
 
 const HISTORY_MAX_POINTS = 256;
@@ -568,9 +529,12 @@ export function getStatsHistory(): ServerStats[] {
 }
 
 export function startStatsHistoryCollector(): void {
-  setInterval(async () => {
+  let nextTargetTime = Date.now() + HISTORY_INTERVAL;
+
+  async function collectAndSchedule(): Promise<void> {
     try {
       const stats = await getServerStats();
+
       statsHistory.push(stats);
       if (statsHistory.length > HISTORY_MAX_POINTS) {
         statsHistory = statsHistory.slice(-HISTORY_MAX_POINTS);
@@ -578,5 +542,17 @@ export function startStatsHistoryCollector(): void {
     } catch (err) {
       // Silently skip failed collection cycles
     }
-  }, HISTORY_INTERVAL);
+
+    nextTargetTime += HISTORY_INTERVAL;
+    const delay = Math.max(0, nextTargetTime - Date.now());
+
+    if (delay === 0) {
+      // Already behind — skip this cycle, schedule next
+      setTimeout(collectAndSchedule, HISTORY_INTERVAL);
+    } else {
+      setTimeout(collectAndSchedule, delay);
+    }
+  }
+
+  setTimeout(collectAndSchedule, HISTORY_INTERVAL);
 }

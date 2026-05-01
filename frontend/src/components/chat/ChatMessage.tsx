@@ -11,11 +11,11 @@ interface ChatMessageProps {
 
 const waveRipple = keyframes`
   0%, 100% {
-    transform: translateY(0) scale(1);
+    transform: translateY(0) scale(1.1);
     opacity: 0.6;
   }
   50% {
-    transform: translateY(30%) scale(1.1);
+    transform: translateY(40%) scale(1);
     opacity: 1;
   }
 `;

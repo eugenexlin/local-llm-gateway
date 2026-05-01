@@ -1,5 +1,5 @@
 import express, { Request, Response } from "express";
-import { getServerStats, clearCache, getStatsHistory } from "../utils/systemMetrics";
+import { getServerStats, getStatsHistory } from "../utils/systemMetrics";
 
 const router = express.Router();
 
@@ -12,11 +12,6 @@ router.get("/", async (req: Request, res: Response) => {
     console.error("Error getting server stats:", error);
     res.status(500).json({ error: "Failed to get server stats" });
   }
-});
-
-router.post("/cache/clear", (_req: Request, res: Response) => {
-  clearCache();
-  res.json({ status: "ok" });
 });
 
 router.get("/history", (req: Request, res: Response) => {
