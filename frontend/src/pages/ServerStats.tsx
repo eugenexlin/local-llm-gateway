@@ -867,6 +867,14 @@ const ServerStats: React.FC = () => {
                   {stats.platform === "linux" ? "Linux" : stats.platform}
                 </Typography>
               </Box>
+              <Box sx={{ display: "flex", justifyContent: "space-between", mt: 1 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Server Time
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  {new Date(stats.timestamp).toLocaleString()}
+                </Typography>
+              </Box>
             </Box>
           </StatsCard>
         </Grid>

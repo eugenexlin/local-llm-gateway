@@ -9,6 +9,7 @@ import {
   Close,
 } from "@mui/icons-material";
 import { useAuth } from "../context/AuthContext";
+import { useAPIKeys } from "../context/APIKeyContext";
 import {
   Dialog,
   DialogTitle,
@@ -31,13 +32,12 @@ import { ApiKey } from "../models/ApiKey";
 
 function APIKeys() {
   const { user } = useAuth();
-  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const { apiKeys, apiKeyLoading, fetchApiKeys, createKey, revokeKey, updateKey } = useAPIKeys();
   const [newKeyName, setNewKeyName] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [copiedKeys, setCopiedKeys] = useState<Set<string>>(new Set());
   const [showCreatedKeyDialog, setShowCreatedKeyDialog] = useState(false);
   const [createdKey, setCreatedKey] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [showRevoked, setShowRevoked] = useState(false);
   const [editingKeyId, setEditingKeyId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
@@ -52,55 +52,19 @@ function APIKeys() {
     if (user?.id) {
       fetchApiKeys();
     }
-  }, [user]);
-
-  const fetchApiKeys = async () => {
-    if (!user?.id) return;
-
-    try {
-      const response = await fetch(`/api/api-keys`, { credentials: "include" });
-      if (response.ok) {
-        const data = await response.json();
-        setApiKeys(data);
-      } else if (response.status === 401) {
-        window.location.href = "/login";
-      }
-    } catch (error) {
-      console.error("Failed to fetch API keys:", error);
-      setApiKeys([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [user, fetchApiKeys]);
 
   const handleCreateKey = async (e: FormEvent) => {
     e.preventDefault();
     if (!newKeyName.trim() || !user?.id) return;
 
-    try {
-      const response = await fetch("/api/api-keys", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          name: newKeyName,
-          description: newKeyDescription || null,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setApiKeys([{ ...data, api_key: data.api_key }, ...apiKeys]);
-        setNewKeyName("");
-        setNewKeyDescription("");
-        setShowForm(false);
-        setCreatedKey(data.api_key);
-        setShowCreatedKeyDialog(true);
-      }
-    } catch (error) {
-      console.error("Failed to create API key:", error);
+    const newKey = await createKey(newKeyName, newKeyDescription || undefined);
+    if (newKey) {
+      setNewKeyName("");
+      setNewKeyDescription("");
+      setShowForm(false);
+      setCreatedKey(newKey.api_key);
+      setShowCreatedKeyDialog(true);
     }
   };
 
@@ -111,29 +75,7 @@ function APIKeys() {
 
     if (!confirm(message)) return;
 
-    try {
-      const response = await fetch(`/api/api-keys/${keyId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.action === "deleted") {
-          setApiKeys(apiKeys.filter((key) => key.id !== keyId));
-        } else {
-          setApiKeys(
-            apiKeys.map((key) =>
-              key.id === keyId
-                ? { ...key, is_active: 0, revoked_at: new Date().toISOString() }
-                : key,
-            ),
-          );
-        }
-      }
-    } catch (error) {
-      console.error("Failed to revoke API key:", error);
-    }
+    await revokeKey(keyId);
   };
 
   const copyToClipboard = async (key: string, keyId?: string) => {
@@ -191,35 +133,11 @@ function APIKeys() {
   const handleSaveEdit = async (keyId: string) => {
     if (!editingName.trim()) return;
     setSaving(keyId);
-    try {
-      const response = await fetch(`/api/api-keys/${keyId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          name: editingName,
-          description: editingDescription || null,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setApiKeys((prev) =>
-          prev.map((key) =>
-            key.id === keyId
-              ? { ...key, name: data.name, description: data.description }
-              : key,
-          ),
-        );
-        handleCancelEdit();
-      }
-    } catch (error) {
-      console.error("Failed to save:", error);
-    } finally {
-      setSaving(null);
+    const result = await updateKey(keyId, editingName, editingDescription || undefined);
+    if (result) {
+      handleCancelEdit();
     }
+    setSaving(null);
   };
 
   const handleEditKeyDown = (e: React.KeyboardEvent, keyId: string) => {
@@ -332,7 +250,7 @@ function APIKeys() {
         </form>
       </Dialog>
 
-      {loading ? (
+      {apiKeyLoading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
           <CircularProgress />
         </Box>

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { APIKeyProvider } from "./context/APIKeyContext";
 import { ChatProvider } from "./context/ChatContext";
 import Dashboard from "./pages/Dashboard";
 import APIKeys from "./pages/APIKeys";
@@ -76,7 +77,8 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <ChatProvider>
+        <APIKeyProvider>
+          <ChatProvider>
           <Routes>
           <Route
             path="/login"
@@ -110,7 +112,8 @@ function App() {
           </Route>
           <Route path="*" element={<NotFoundRoute />} />
         </Routes>
-        </ChatProvider>
+          </ChatProvider>
+        </APIKeyProvider>
       </AuthProvider>
     </BrowserRouter>
   );

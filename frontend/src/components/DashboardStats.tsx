@@ -54,11 +54,11 @@ const DashboardStats: React.FC = () => {
   const { user } = useAuth();
   const [lifetimeMetrics, setLifetimeMetrics] = useState<Metrics | null>(null);
   const [rangeMetrics, setRangeMetrics] = useState<Metrics | null>(null);
-  const [startDate, setStartDate] = useState<Date | null>(
-    new Date(Date.now() - 4 * 60 * 60 * 1000),
-  );
-  const [endDate, setEndDate] = useState<Date | null>(new Date());
-  const [granularity, setGranularity] = useState<GranularitySeconds>(15 * 60);
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
+  const [granularity, setGranularity] = useState<GranularitySeconds>();
+  const [isAutocalcGranularity, setIsAutocalcGranularity] =
+    useState<boolean>(true);
   const [metric, setMetric] = useState<MetricType>("total_tokens");
   const [displayGranularity, setDisplayGranularity] = useState<string>("15m");
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>(
@@ -78,7 +78,7 @@ const DashboardStats: React.FC = () => {
   const debounceTimerRef = useRef<number | null>(null);
   const [cacheEnabled, setCacheEnabledState] = useState(getCacheEnabled());
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [activePresetIndex, setActivePresetIndex] = useState(1);
+  const [selectedPresetIndex, setSelectedPresetIndex] = useState(2);
   const [lastFetchTime, setLastFetchTime] = useState<number | null>(null);
 
   const [insightsConfig, setInsightsConfig] = useState<InsightsConfig>({
@@ -87,6 +87,7 @@ const DashboardStats: React.FC = () => {
     viewMode: "scatter",
   });
 
+  // remember to pass in the index as we cant wait for render cycle to get new selectedPresetIndex
   const applyPresetToDateRange = (index: number) => {
     const preset = DATE_PRESETS[index];
     if (!preset.isRelative) return null;
@@ -131,22 +132,21 @@ const DashboardStats: React.FC = () => {
     setStartDate(start);
     setEndDate(end);
 
-    if (start && end) {
+    if (start && end && isAutocalcGranularity) {
       const optimalGranularitySeconds = calculateOptimalGranularitySeconds(
         start,
         end,
       );
-      setGranularity(optimalGranularitySeconds)
+      setGranularity(optimalGranularitySeconds);
     }
-
-    setActivePresetIndex(index);
   };
 
   const handlePresetChange = (index: number | undefined) => {
     if (index === undefined) {
       return;
     }
-    setActivePresetIndex(index);
+    setIsAutocalcGranularity(true);
+    setSelectedPresetIndex(index);
     applyPresetToDateRange(index);
   };
 
@@ -165,6 +165,7 @@ const DashboardStats: React.FC = () => {
       }
     };
     fetchUsers();
+    handlePresetChange(2);
   }, []);
 
   const fetchLifetimeMetrics = async () => {
@@ -597,8 +598,11 @@ const DashboardStats: React.FC = () => {
 
   const handleRefreshRange = async () => {
     // Re-apply preset if in preset mode (not custom)
-    if (activePresetIndex >= 0 && activePresetIndex < DATE_PRESETS.length - 1) {
-      applyPresetToDateRange(activePresetIndex);
+    if (
+      selectedPresetIndex >= 0 &&
+      selectedPresetIndex < DATE_PRESETS.length - 1
+    ) {
+      applyPresetToDateRange(selectedPresetIndex);
     } else {
       handleGraphRefresh();
     }
@@ -614,13 +618,14 @@ const DashboardStats: React.FC = () => {
   const handleGranularityChange = (value: string) => {
     const seconds = displayValueToSeconds(value);
     if (seconds) {
+      setIsAutocalcGranularity(false);
       setGranularity(seconds);
     }
   };
 
   const handleScroll = (direction: "left" | "right", step: "full" | "half") => {
     if (!startDate || !endDate) return;
-    setActivePresetIndex(DATE_PRESETS.length - 1);
+    setSelectedPresetIndex(DATE_PRESETS.length - 1);
     const windowMs = endDate.getTime() - startDate.getTime();
     const stepMs = step === "full" ? windowMs : windowMs / 2;
     const shift = direction === "left" ? -stepMs : stepMs;
@@ -785,7 +790,7 @@ const DashboardStats: React.FC = () => {
           handleGraphRefresh();
         }}
         onPresetChange={handlePresetChange}
-        presetIndex={activePresetIndex}
+        presetIndex={selectedPresetIndex}
       />
 
       <MetricsSection

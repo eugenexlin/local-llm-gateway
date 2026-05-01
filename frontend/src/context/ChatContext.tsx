@@ -7,6 +7,7 @@ import {
   ReactNode,
 } from "react";
 import { useAuth } from "./AuthContext";
+import { useAPIKeys } from "./APIKeyContext";
 import { ApiKey } from "../models/ApiKey";
 
 export interface ChatMessage {
@@ -53,7 +54,6 @@ interface ChatContextType {
 const pubUrl = import.meta.env.PUBLIC_URL || "";
 const STORAGE_CONVERSATIONS_KEY = "llm_conversations";
 const STORAGE_ACTIVE_KEY_KEY = "llm_active_conversation_id";
-const STORAGE_API_KEY_ID_KEY = "llm_selected_api_key_id";
 
 const ChatContext = createContext<ChatContextType | null>(null);
 
@@ -71,6 +71,8 @@ function truncateTitle(title: string, maxLength: number = 40): string {
 export function ChatProvider({ children }: { children: ReactNode }) {
   useAuth();
   
+  const { apiKeys, apiKeyLoading, selectedKeyId, setSelectedApiKeyId } = useAPIKeys();
+
   const [conversations, setConversations] = useState<Record<string, Conversation>>(() => {
     try {
       const stored = localStorage.getItem(STORAGE_CONVERSATIONS_KEY);
@@ -88,12 +90,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }
   });
 
-  const [selectedKeyId, setSelectedKeyIdState] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUsage, setLastUsage] = useState<TokenUsage | null>(null);
-  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
-  const [apiKeyLoading, setApiKeyLoading] = useState(true);
 
   const activeConversation = conversations[activeConversationId] || null;
   const messages = activeConversation?.messages || [];
@@ -117,53 +116,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       }
     }
   }, [activeConversationId]);
-
-  useEffect(() => {
-    const fetchApiKeys = async () => {
-      try {
-        const response = await fetch(`/api/api-keys`, {
-          credentials: "include",
-        });
-        if (response.ok) {
-          const keys = await response.json();
-          setApiKeys(keys);
-
-          const storedKey = localStorage.getItem(STORAGE_API_KEY_ID_KEY);
-          if (storedKey) {
-            const found = keys.find((k: any) => k.id === storedKey);
-            if (found) {
-              setSelectedKeyIdState(found.id);
-            } else if (keys.length > 0) {
-              setSelectedKeyIdState(keys[0].id);
-            }
-          } else if (keys.length > 0) {
-            setSelectedKeyIdState(keys[0].id);
-          }
-        }
-      } catch (e) {
-        console.error("Failed to fetch API keys:", e);
-      } finally {
-        setApiKeyLoading(false);
-      }
-    };
-
-    fetchApiKeys();
-  }, []);
-
-  const setSelectedApiKeyId = useCallback(
-    (id: string) => {
-      const found = apiKeys.find((k) => k.id === id);
-      if (found) {
-        setSelectedKeyIdState(found.id);
-      }
-      try {
-        localStorage.setItem(STORAGE_API_KEY_ID_KEY, id);
-      } catch {
-        // Storage unavailable
-      }
-    },
-    [apiKeys],
-  );
 
   const createConversation = useCallback(() => {
     const id = generateId();
