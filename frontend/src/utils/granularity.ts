@@ -84,37 +84,15 @@ export const getGranularityByValue = (
   value: string,
 ): GranularityOption | undefined => {
   return granularityOptions.find((opt) => opt.value === value);
-}
+};
 
 export const getGranularitySeconds = (value: string): number => {
   const option = getGranularityByValue(value);
   return option?.seconds || 60 * 60; // default to hourly in seconds
-}
+};
 
 export const getRangeSeconds = (startDate: Date, endDate: Date): number => {
   return (endDate.getTime() - startDate.getTime()) / 1000;
-};
-
-export const calculateOptimalGranularity = (
-  startDate: Date,
-  endDate: Date,
-  maxTicks: number = 64,
-): string => {
-  const rangeSeconds = getRangeSeconds(startDate, endDate);
-
-  if (rangeSeconds <= 0) {
-    return "1h";
-  }
-
-  const requiredGranularitySeconds = rangeSeconds / maxTicks;
-
-  for (const option of granularityOptions) {
-    if (option.seconds >= requiredGranularitySeconds) {
-      return option.value;
-    }
-  }
-
-  return "1M";
 };
 
 /**
@@ -139,11 +117,5 @@ export const calculateOptimalGranularitySeconds = (
     }
   }
 
-  return 30 * 24 * 60 * 60;
+  return granularityOptions[granularityOptions.length - 1].seconds;
 };
-
-/**
- * @deprecated Use calculateOptimalGranularitySeconds instead
- */
-export const calculateOptimalGranularity_DEPRECATED = calculateOptimalGranularity;
-

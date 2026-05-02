@@ -12,6 +12,8 @@ import {
   FirstPage,
   LastPage,
   Settings,
+  ZoomIn,
+  ZoomOut,
 } from "@mui/icons-material";
 import DateRangePicker from "./DateRangePicker";
 import ProgressiveGraph from "./ProgressiveGraph";
@@ -36,7 +38,10 @@ import type {
   BarGrouping,
 } from "../types/metrics";
 import { DATE_PRESETS } from "../utils/dateUtils";
-import { calculateOptimalGranularitySeconds } from "../utils/granularity";
+import {
+  calculateOptimalGranularitySeconds,
+  granularityOptions,
+} from "../utils/granularity";
 
 export type UserGraphData = Record<string, ProgressiveDataPoint[]>;
 
@@ -57,7 +62,8 @@ const DashboardStats: React.FC = () => {
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [granularity, setGranularity] = useState<GranularitySeconds>();
-  const [isAutocalcGranularity, setIsAutocalcGranularity] =
+  const [targetTicks, setTargetTicks] = useState<number | undefined>(undefined);
+  const [autoAdjustGranularityOnZoom, setAutoAdjustGranularityOnZoom] =
     useState<boolean>(true);
   const [metric, setMetric] = useState<MetricType>("total_tokens");
   const [displayGranularity, setDisplayGranularity] = useState<string>("15m");
@@ -131,11 +137,13 @@ const DashboardStats: React.FC = () => {
 
     setStartDate(start);
     setEndDate(end);
+    setTargetTicks(undefined);
 
-    if (start && end && isAutocalcGranularity) {
+    if (start && end) {
       const optimalGranularitySeconds = calculateOptimalGranularitySeconds(
         start,
         end,
+        targetTicks,
       );
       setGranularity(optimalGranularitySeconds);
     }
@@ -145,7 +153,6 @@ const DashboardStats: React.FC = () => {
     if (index === undefined) {
       return;
     }
-    setIsAutocalcGranularity(true);
     setSelectedPresetIndex(index);
     applyPresetToDateRange(index);
   };
@@ -617,8 +624,10 @@ const DashboardStats: React.FC = () => {
 
   const handleGranularityChange = (value: string) => {
     const seconds = displayValueToSeconds(value);
-    if (seconds) {
-      setIsAutocalcGranularity(false);
+    if (seconds && startDate && endDate) {
+      const rangeSeconds = getRangeSeconds(startDate, endDate);
+      const currentTicks = rangeSeconds / seconds;
+      setTargetTicks(currentTicks);
       setGranularity(seconds);
     }
   };
@@ -631,6 +640,55 @@ const DashboardStats: React.FC = () => {
     const shift = direction === "left" ? -stepMs : stepMs;
     setStartDate(new Date(startDate.getTime() + shift));
     setEndDate(new Date(endDate.getTime() + shift));
+  };
+
+  const handleZoomIn = () => {
+    if (!startDate || !endDate) return;
+    const minRangeMs = 60 * 1000;
+    const windowMs = endDate.getTime() - startDate.getTime();
+    if (windowMs / 2 < minRangeMs) return;
+    setSelectedPresetIndex(DATE_PRESETS.length - 1);
+    const midpoint = (startDate.getTime() + endDate.getTime()) / 2;
+    const newRange = windowMs / 2;
+    const newStart = new Date(midpoint - newRange / 2);
+    const newEnd = new Date(midpoint + newRange / 2);
+
+    if (autoAdjustGranularityOnZoom) {
+      autoAdjustGranularity(newStart, newEnd);
+    }
+
+    setStartDate(newStart);
+    setEndDate(newEnd);
+  };
+
+  const handleZoomOut = () => {
+    if (!startDate || !endDate) return;
+    const maxRangeMs = 365 * 24 * 60 * 60 * 1000;
+    const windowMs = endDate.getTime() - startDate.getTime();
+    if (windowMs * 2 > maxRangeMs) return;
+    setSelectedPresetIndex(DATE_PRESETS.length - 1);
+    const midpoint = (startDate.getTime() + endDate.getTime()) / 2;
+    const newRange = windowMs * 2;
+    const newStart = new Date(midpoint - newRange / 2);
+    const newEnd = new Date(midpoint + newRange / 2);
+
+    if (autoAdjustGranularityOnZoom) {
+      autoAdjustGranularity(newStart, newEnd);
+    }
+
+    setStartDate(newStart);
+    setEndDate(newEnd);
+  };
+
+  const autoAdjustGranularity = (start: Date, end: Date) => {
+    if (start && end) {
+      const optimalGranularitySeconds = calculateOptimalGranularitySeconds(
+        start,
+        end,
+        targetTicks,
+      );
+      setGranularity(optimalGranularitySeconds);
+    }
   };
 
   const handleToggleCache = (enabled: boolean) => {
@@ -768,13 +826,6 @@ const DashboardStats: React.FC = () => {
           <IconButton size="small" onClick={() => setSettingsOpen(true)}>
             <Settings />
           </IconButton>
-          <Button
-            onClick={handleRefreshRange}
-            size="small"
-            startIcon={<Refresh />}
-          >
-            Refresh
-          </Button>
         </Box>
       </Box>
 
@@ -812,7 +863,25 @@ const DashboardStats: React.FC = () => {
         }}
       >
         <Box />
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+          <Tooltip title="Zoom out (double range)">
+            <IconButton
+              size="small"
+              onClick={handleZoomOut}
+              disabled={!startDate || !endDate}
+            >
+              <ZoomOut />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Zoom in (halve range)">
+            <IconButton
+              size="small"
+              onClick={handleZoomIn}
+              disabled={!startDate || !endDate}
+            >
+              <ZoomIn />
+            </IconButton>
+          </Tooltip>
           {graphData.length > 0 && (
             <>
               <Tooltip title="Jump to start">
@@ -849,6 +918,11 @@ const DashboardStats: React.FC = () => {
               </Tooltip>
             </>
           )}
+          <Tooltip title="Refresh">
+            <IconButton size="small" onClick={handleRefreshRange}>
+              <Refresh />
+            </IconButton>
+          </Tooltip>
         </Box>
       </Box>
       <ProgressiveGraph
@@ -883,6 +957,8 @@ const DashboardStats: React.FC = () => {
         onToggleCache={handleToggleCache}
         cacheSize={getCacheSize()}
         onPurge={handlePurgeCache}
+        autoAdjustGranularityOnZoom={autoAdjustGranularityOnZoom}
+        onToggleAutoAdjustGranularityOnZoom={setAutoAdjustGranularityOnZoom}
       />
     </>
   );

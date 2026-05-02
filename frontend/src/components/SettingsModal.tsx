@@ -20,6 +20,8 @@ interface SettingsModalProps {
   onToggleCache: (enabled: boolean) => void;
   cacheSize: number;
   onPurge: () => void;
+  autoAdjustGranularityOnZoom: boolean;
+  onToggleAutoAdjustGranularityOnZoom: (enabled: boolean) => void;
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -29,6 +31,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   onToggleCache,
   cacheSize,
   onPurge,
+  autoAdjustGranularityOnZoom,
+  onToggleAutoAdjustGranularityOnZoom,
 }) => {
   const [purgeConfirm, setPurgeConfirm] = useState(false);
 
@@ -53,6 +57,25 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
       <DialogTitle>Graph Data Settings</DialogTitle>
       <DialogContent dividers sx={{ minWidth: 320 }}>
+        <Box sx={{ mb: 3 }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={autoAdjustGranularityOnZoom}
+                onChange={(e) => onToggleAutoAdjustGranularityOnZoom(e.target.checked)}
+                size="small"
+              />
+            }
+            label="Auto-adjust granularity when zooming"
+            sx={{ mb: 1 }}
+          />
+          <Typography variant="body2" color="text.secondary" sx={{ ml: 3.5 }}>
+            Preserves data point density when zooming in or out
+          </Typography>
+        </Box>
+
+        <Divider sx={{ my: 2 }} />
+
         <Box sx={{ mb: 3 }}>
           <FormControlLabel
             control={
