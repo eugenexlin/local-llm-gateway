@@ -24,10 +24,6 @@ export interface Metrics {
   output_tokens_per_sec: number;
 }
 
-// Granularity is now represented as seconds (integer) throughout the app
-// Only the UI layer converts to string values for display
-export type GranularitySeconds = number;
-
 // Import display options from utility
 export type GranularityDisplayOption = {
   seconds: number;

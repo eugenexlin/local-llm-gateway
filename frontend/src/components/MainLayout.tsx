@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Box,
   Drawer,
@@ -28,24 +28,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
-
-  useEffect(() => {
-    if (!chatOpen) return;
-
-    window.history.pushState(null, '');
-
-    const handlePopState = () => {
-      setChatOpen(false);
-    };
-
-    window.addEventListener('popstate', handlePopState);
-
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-      window.history.go(-1);
-    };
-  }, [chatOpen]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -120,17 +102,29 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     </Box>
   );
 
+  const handleChatOpen = () => {
+    navigate(".", { state: {...location.state, chatOpen: true }, replace: false });
+  };
+  const handleChatClose = () => {
+    if (window.history.state && window.history.state.idx > 0) {
+      navigate(-1);
+    } else {
+      // If no history exists, go to a logical parent or home page
+      navigate(".", { state: {...location.state,  chatOpen: false }, replace: true });
+    }
+  };
+
   return (
     <>
       <TopNav onMenuClick={handleDrawerToggle} />
       <ChatFAB
-        open={chatOpen}
-        onClose={() => setChatOpen(false)}
-        onOpen={() => setChatOpen(true)}
+        open={location.state?.chatOpen}
+        onClose={() => handleChatClose()}
+        onOpen={() => handleChatOpen()}
       />
       <ChatDrawer
-        open={chatOpen}
-        onClose={() => setChatOpen(false)}
+        open={location.state?.chatOpen}
+        onClose={() => handleChatClose()}
       />
       <Box
         sx={{ display: "flex", flex: 1, bgcolor: "#f5f5f5" }}

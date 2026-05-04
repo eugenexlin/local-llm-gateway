@@ -32,16 +32,12 @@ import {
 import { useAuth } from "../context/AuthContext";
 import type {
   MetricType,
-  GranularitySeconds,
   InsightsConfig,
   ProgressiveDataPoint,
   BarGrouping,
 } from "../types/metrics";
 import { DATE_PRESETS } from "../utils/dateUtils";
-import {
-  calculateOptimalGranularitySeconds,
-  granularityOptions,
-} from "../utils/granularity";
+import { calculateOptimalGranularitySeconds } from "../utils/granularity";
 
 export type UserGraphData = Record<string, ProgressiveDataPoint[]>;
 
@@ -61,7 +57,7 @@ const DashboardStats: React.FC = () => {
   const [rangeMetrics, setRangeMetrics] = useState<Metrics | null>(null);
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
-  const [granularity, setGranularity] = useState<GranularitySeconds>();
+  const [granularity, setGranularity] = useState<number>(1);
   const [targetTicks, setTargetTicks] = useState<number | undefined>(undefined);
   const [autoAdjustGranularityOnZoom, setAutoAdjustGranularityOnZoom] =
     useState<boolean>(true);
@@ -235,7 +231,7 @@ const DashboardStats: React.FC = () => {
   const fetchGraphDataProgressive = async (
     start: Date,
     end: Date,
-    currentGranularitySeconds: GranularitySeconds,
+    currentGranularitySeconds: number,
     metric: string,
     onProgress: (data: ProgressiveDataPoint[], done: boolean) => void,
     signal: AbortSignal,

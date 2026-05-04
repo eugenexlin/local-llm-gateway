@@ -90,7 +90,7 @@ export const granularityDisplayOptions: readonly GranularityDisplayOption[] = [
  * Get granularity option by seconds
  */
 export const getGranularityBySeconds = (
-  seconds: number
+  seconds: number,
 ): GranularityDisplayOption | undefined => {
   return granularityDisplayOptions.find((opt) => opt.seconds === seconds);
 };
@@ -99,7 +99,7 @@ export const getGranularityBySeconds = (
  * Get granularity option by value string (for backward compatibility)
  */
 export const getGranularityByValue = (
-  value: string
+  value: string,
 ): GranularityDisplayOption | undefined => {
   return granularityDisplayOptions.find((opt) => opt.value === value);
 };
@@ -114,9 +114,15 @@ export const getAllGranularityOptions = (): GranularityDisplayOption[] => {
 /**
  * Convert seconds to display value string (for API)
  */
-export const secondsToDisplayValue = (seconds: number): string | undefined => {
+export const secondsToDisplayValue = (seconds?: number): string => {
+  if (seconds === undefined) {
+    return "";
+  }
   const option = getGranularityBySeconds(seconds);
-  return option?.value;
+  if (option === undefined) {
+    return "";
+  }
+  return option.value;
 };
 
 /**
@@ -131,7 +137,7 @@ export const displayValueToSeconds = (value: string): number | undefined => {
  * Convert display label to seconds
  */
 export const displayLabelToSeconds = (label: string): number | undefined => {
-  return granularityDisplayOptions.find(opt => opt.label === label)?.seconds;
+  return granularityDisplayOptions.find((opt) => opt.label === label)?.seconds;
 };
 
 /**
@@ -146,5 +152,5 @@ export const secondsToDisplayLabel = (seconds: number): string | undefined => {
  * Validate if seconds is a valid granularity
  */
 export const isValidGranularitySeconds = (seconds: number): boolean => {
-  return granularityDisplayOptions.some(opt => opt.seconds === seconds);
+  return granularityDisplayOptions.some((opt) => opt.seconds === seconds);
 };
