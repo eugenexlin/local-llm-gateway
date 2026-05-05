@@ -45,6 +45,14 @@ interface GpuDetail {
   memUsed: number | null;
   memTotal: number | null;
   utilization: number | null;
+  ranges?: {
+    tempMin: number;
+    tempMax: number;
+    powerMin: number;
+    powerMax: number;
+    fanMin: number;
+    fanMax: number;
+  };
 }
 
 interface DatabaseInfo {
@@ -523,6 +531,49 @@ export async function getServerStats(): Promise<ServerStats> {
 const HISTORY_MAX_POINTS = 256;
 const HISTORY_INTERVAL = 2000;
 let statsHistory: ServerStats[] = [];
+let gpuRanges: Record<number, { tempMin: number; tempMax: number; powerMin: number; powerMax: number; fanMin: number; fanMax: number }> = {};
+
+export function updateGpuRanges(stats: ServerStats): void {
+  for (let i = 0; i < stats.gpu.gpus.length; i++) {
+    const gpu = stats.gpu.gpus[i];
+    if (!gpuRanges[i]) {
+      const initTemp = gpu.temperatures.length > 0 ? gpu.temperatures[0].value : 0;
+      gpuRanges[i] = {
+        tempMin: initTemp,
+        tempMax: initTemp,
+        powerMin: 0,
+        powerMax: 1,
+        fanMin: 0,
+        fanMax: 1,
+      };
+    }
+
+    const range = gpuRanges[i];
+    for (const temp of gpu.temperatures) {
+      range.tempMin = Math.min(range.tempMin, temp.value);
+      range.tempMax = Math.max(range.tempMax, temp.value);
+    }
+
+    if (gpu.power !== null && gpu.power !== undefined) {
+      range.powerMin = Math.min(range.powerMin, gpu.power);
+      range.powerMax = Math.max(range.powerMax, gpu.power);
+    }
+
+    if (gpu.fanSpeed !== null && gpu.fanSpeed !== undefined) {
+      range.fanMin = Math.min(range.fanMin, gpu.fanSpeed);
+      range.fanMax = Math.max(range.fanMax, gpu.fanSpeed);
+    }
+
+    gpu.ranges = {
+      tempMin: range.tempMin,
+      tempMax: range.tempMax,
+      powerMin: range.powerMin,
+      powerMax: range.powerMax,
+      fanMin: range.fanMin,
+      fanMax: range.fanMax,
+    };
+  }
+}
 
 export function getStatsHistory(): ServerStats[] {
   return statsHistory;
@@ -534,6 +585,7 @@ export function startStatsHistoryCollector(): void {
   async function collectAndSchedule(): Promise<void> {
     try {
       const stats = await getServerStats();
+      updateGpuRanges(stats);
 
       statsHistory.push(stats);
       if (statsHistory.length > HISTORY_MAX_POINTS) {

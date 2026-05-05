@@ -106,6 +106,7 @@ function App() {
               </PrivateRoute>
             }
           >
+            <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/api-keys" element={<APIKeys />} />
             <Route path="/server-stats" element={<ServerStats />} />

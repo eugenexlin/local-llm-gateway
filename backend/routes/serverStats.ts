@@ -1,5 +1,5 @@
 import express, { Request, Response } from "express";
-import { getServerStats, getStatsHistory } from "../utils/systemMetrics";
+import { getServerStats, getStatsHistory, updateGpuRanges } from "../utils/systemMetrics";
 
 const router = express.Router();
 
@@ -7,6 +7,7 @@ router.get("/", async (req: Request, res: Response) => {
   try {
     res.setHeader("Cache-Control", "no-store");
     const stats = await getServerStats();
+    updateGpuRanges(stats);
     res.json(stats);
   } catch (error) {
     console.error("Error getting server stats:", error);
