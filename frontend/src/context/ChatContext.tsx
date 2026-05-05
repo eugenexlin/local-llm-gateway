@@ -37,6 +37,7 @@ interface ChatContextType {
   activeConversation: Conversation | null;
   messages: ChatMessage[];
   isLoading: boolean;
+  streamingConversationId: string | null;
   error: string | null;
   lastUsage: TokenUsage | null;
   apiKeys: ApiKey[];
@@ -94,8 +95,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }
   });
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [streamingConversationId, setStreamingConversationId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const isLoading = streamingConversationId !== null;
   const [lastUsage, setLastUsage] = useState<TokenUsage | null>(null);
   const [includeReasoningInContext, setIncludeReasoningInContextState] = useState<boolean>(() => {
     try {
@@ -247,7 +249,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         };
       });
 
-      setIsLoading(true);
+      setStreamingConversationId(convId);
       setError(null);
 
       const conversationHistory = [...(conversations[convId]?.messages || []), userMessage];
@@ -446,10 +448,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           };
         });
       } finally {
-        setIsLoading(false);
+        setStreamingConversationId(null);
       }
     },
-    [messages, isLoading, selectedKeyId, activeConversationId, conversations],
+    [messages, streamingConversationId, selectedKeyId, activeConversationId, conversations],
   );
 
   const clearHistory = useCallback(() => {
@@ -466,6 +468,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         activeConversation,
         messages,
         isLoading,
+        streamingConversationId,
         error,
         lastUsage,
         apiKeys,

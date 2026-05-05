@@ -15,16 +15,20 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
+import ChatDots from "./ChatDots";
 import { useChat, Conversation } from "../../context/ChatContext";
 
 interface ConversationSidebarProps {
   onBack?: () => void;
 }
 
-const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ onBack }) => {
+const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
+  onBack,
+}) => {
   const {
     conversations,
     activeConversationId,
+    streamingConversationId,
     createConversation,
     switchConversation,
     deleteConversation,
@@ -38,7 +42,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ onBack }) => 
   const editInputRef = useRef<HTMLInputElement>(null);
 
   const sortedConversations = Object.values(conversations).sort(
-    (a, b) => b.updatedAt - a.updatedAt
+    (a, b) => b.updatedAt - a.updatedAt,
   );
 
   const handleNewChat = () => {
@@ -228,7 +232,10 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ onBack }) => 
                 </Box>
               ) : (
                 <ListItemButton
-                  onClick={() => { switchConversation(conv.id); onBack?.(); }}
+                  onClick={() => {
+                    switchConversation(conv.id);
+                    onBack?.();
+                  }}
                   sx={{
                     px: 1.5,
                     py: 1,
@@ -267,15 +274,26 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ onBack }) => 
                       </Typography>
                     }
                     secondary={
-                      <Typography
-                        variant="caption"
+                      <Box
                         sx={{
                           color: "#94a3b8",
-                          fontSize: "0.6875rem",
+                          height: "16px",
+                          justifyContent: "flex-end",
                         }}
                       >
-                        {formatTimeAgo(conv.updatedAt)}
-                      </Typography>
+                        {streamingConversationId === conv.id ? (
+                          <ChatDots />
+                        ) : (
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              fontSize: "0.6875rem",
+                            }}
+                          >
+                            {formatTimeAgo(conv.updatedAt)}
+                          </Typography>
+                        )}
+                      </Box>
                     }
                     primaryTypographyProps={{
                       noWrap: true,
@@ -291,8 +309,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ onBack }) => 
                       ml: "auto",
                       color: "#94a3b8",
                       "&:hover": { color: "#475569" },
-                      opacity:
-                        activeConversationId === conv.id ? 1 : 0,
+                      opacity: activeConversationId === conv.id ? 1 : 0,
                     }}
                   >
                     <MoreVertIcon fontSize="small" />
@@ -316,7 +333,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({ onBack }) => 
         <MenuItem
           onClick={() => {
             const conv = Object.values(conversations).find(
-              (c) => c.id === confirmDeleteId
+              (c) => c.id === confirmDeleteId,
             );
             if (conv) handleStartEdit(conv);
           }}

@@ -1,6 +1,7 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { Box, Typography } from '@mui/material';
 import ChatMessage from './ChatMessage';
+import ChatDots from './ChatDots';
 import { useChat } from '../../context/ChatContext';
 
 interface ChatMessageListProps {
@@ -8,13 +9,43 @@ interface ChatMessageListProps {
 }
 
 const ChatMessageList: React.FC<ChatMessageListProps> = ({ onMobileClose }) => {
-  const { messages, isLoading, activeConversation, createConversation } = useChat();
+  const { messages, isLoading, streamingConversationId, activeConversation, createConversation } = useChat();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isAtBottomRef = useRef(true);
+  const prevMessagesLengthRef = useRef(0);
+
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const threshold = 80;
+    isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+  }, []);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const el = scrollRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', handleScroll, { passive: true });
+    return () => el.removeEventListener('scroll', handleScroll);
+  }, [handleScroll]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const prevLen = prevMessagesLengthRef.current;
+    const currLen = messages.length;
+
+    if (prevLen === 0 && currLen > 0) {
+      el.scrollTop = el.scrollHeight;
+      prevMessagesLengthRef.current = currLen;
+      return;
     }
+
+    if (isAtBottomRef.current) {
+      el.scrollTop = el.scrollHeight;
+    }
+
+    prevMessagesLengthRef.current = currLen;
   }, [messages, isLoading]);
 
   const handleEmptyStateClick = () => {
@@ -79,15 +110,13 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({ onMobileClose }) => {
             <ChatMessage
               key={idx}
               message={msg}
-              isStreaming={isLoading && idx === messages.length - 1 && msg.role === 'assistant'}
+              isStreaming={streamingConversationId === activeConversation?.id && idx === messages.length - 1 && msg.role === 'assistant'}
             />
           ))}
-          {isLoading && messages.length > 0 && messages[messages.length - 1].role === 'user' && (
+          {streamingConversationId === activeConversation?.id && messages.length > 0 && messages[messages.length - 1].role === 'user' && (
             <Box sx={{ px: { xs: 1, sm: 2 }, display: 'flex', justifyContent: 'flex-start', mb: 1.5 }}>
               <Box sx={{ display: 'flex', gap: 0.5, px: 2, py: 1.25, bgcolor: '#f1f5f9', borderRadius: '16px 16px 16px 4px' }}>
-                <Box className="chat-dot" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#94a3b8', mt: 2 }} />
-                <Box className="chat-dot" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#94a3b8', mt: 2 }} />
-                <Box className="chat-dot" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#94a3b8', mt: 2 }} />
+                <ChatDots />
               </Box>
             </Box>
           )}
