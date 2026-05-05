@@ -18,7 +18,7 @@ const ChatInput: React.FC = () => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height =
-        Math.min(textareaRef.current.scrollHeight, 24) + "px";
+        Math.min(textareaRef.current.scrollHeight, window.innerHeight / 3) + "px";
     }
   }, [input]);
 

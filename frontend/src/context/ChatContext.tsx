@@ -13,6 +13,7 @@ import { ApiKey } from "../models/ApiKey";
 export interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
+  thinking?: string;
   timestamp: number;
 }
 
@@ -42,6 +43,8 @@ interface ChatContextType {
   apiKeyLoading: boolean;
   selectedKeyId: string;
   setSelectedApiKeyId: (id: string) => void;
+  includeReasoningInContext: boolean;
+  setIncludeReasoningInContext: (val: boolean) => void;
   sendMessage: (content: string) => Promise<void>;
   createConversation: () => void;
   switchConversation: (id: string) => void;
@@ -54,6 +57,7 @@ interface ChatContextType {
 const pubUrl = import.meta.env.PUBLIC_URL || "";
 const STORAGE_CONVERSATIONS_KEY = "llm_conversations";
 const STORAGE_ACTIVE_KEY_KEY = "llm_active_conversation_id";
+const STORAGE_REASONING_KEY = "llm_include_reasoning_in_context";
 
 const ChatContext = createContext<ChatContextType | null>(null);
 
@@ -93,6 +97,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUsage, setLastUsage] = useState<TokenUsage | null>(null);
+  const [includeReasoningInContext, setIncludeReasoningInContextState] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_REASONING_KEY);
+      return stored === "true";
+    } catch {
+      return false;
+    }
+  });
 
   const activeConversation = conversations[activeConversationId] || null;
   const messages = activeConversation?.messages || [];
@@ -116,6 +128,18 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       }
     }
   }, [activeConversationId]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_REASONING_KEY, String(includeReasoningInContext));
+    } catch {
+      // Storage unavailable
+    }
+  }, [includeReasoningInContext]);
+
+  const setIncludeReasoningInContext = useCallback((val: boolean) => {
+    setIncludeReasoningInContextState(val);
+  }, []);
 
   const createConversation = useCallback(() => {
     const id = generateId();
@@ -229,6 +253,21 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       const conversationHistory = [...(conversations[convId]?.messages || []), userMessage];
 
       try {
+        const formatMessages = (msgs: typeof conversationHistory) => {
+          return msgs.map((m) => {
+            if (m.role === "assistant" && m.thinking && includeReasoningInContext) {
+              return {
+                role: m.role as const,
+                content: `<think>${m.thinking}</think>${m.content}`,
+              };
+            }
+            return {
+              role: m.role as const,
+              content: m.content,
+            };
+          });
+        };
+
         const response = await fetch(`${pubUrl}/api/chat/completions`, {
           method: "POST",
           headers: {
@@ -238,10 +277,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           body: JSON.stringify({
             key_id: selectedKeyId,
             model: "default",
-            messages: conversationHistory.map((m) => ({
-              role: m.role,
-              content: m.content,
-            })),
+            messages: formatMessages(conversationHistory),
             stream: true,
             max_tokens: 4096,
           }),
@@ -297,16 +333,57 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
             try {
               const parsed = JSON.parse(data);
-              const delta = parsed.choices?.[0]?.delta?.content;
-              if (delta) {
+              const delta = parsed.choices?.[0]?.delta;
+              if (!delta) continue;
+
+              const reasoning = delta.reasoning || delta.reasoning_content;
+              const content = delta.content;
+
+              if (reasoning || content) {
                 setConversations((prev) => {
                   const conv = prev[convId];
                   if (!conv) return prev;
                   const updatedMessages = [...conv.messages];
                   const lastIdx = updatedMessages.length - 1;
+                  const msg = updatedMessages[lastIdx];
+
+                  let newContent = msg.content;
+                  let newThinking = msg.thinking || "";
+
+                  if (content) {
+                    const thinkStart = content.indexOf("<think>");
+                    const thinkEnd = content.lastIndexOf("</think>");
+
+                    if (thinkStart !== -1 && thinkEnd !== -1 && thinkEnd > thinkStart) {
+                      const beforeThinking = content.slice(0, thinkStart);
+                      const thinkingContent = content.slice(
+                        thinkStart + 7,
+                        thinkEnd
+                      );
+                      const afterThinking = content.slice(thinkEnd + 8);
+
+                      if (beforeThinking) {
+                        newContent = newContent + beforeThinking;
+                      }
+                      if (thinkingContent) {
+                        newThinking = newThinking + thinkingContent;
+                      }
+                      if (afterThinking) {
+                        newContent = newContent + afterThinking;
+                      }
+                    } else {
+                      newContent = newContent + content;
+                    }
+                  }
+
+                  if (reasoning) {
+                    newThinking = newThinking + reasoning;
+                  }
+
                   updatedMessages[lastIdx] = {
-                    ...updatedMessages[lastIdx],
-                    content: updatedMessages[lastIdx].content + delta,
+                    ...msg,
+                    content: newContent,
+                    thinking: newThinking || undefined,
                   };
                   return {
                     ...prev,
@@ -395,6 +472,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         apiKeyLoading,
         selectedKeyId: selectedKeyId,
         setSelectedApiKeyId,
+        includeReasoningInContext,
+        setIncludeReasoningInContext,
         sendMessage,
         createConversation,
         switchConversation,

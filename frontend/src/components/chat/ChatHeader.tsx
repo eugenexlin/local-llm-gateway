@@ -7,10 +7,12 @@ import {
   MenuItem,
   Chip,
   Divider,
+  Switch,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import KeyIcon from "@mui/icons-material/Key";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import SettingsIcon from "@mui/icons-material/Settings";
 import { useChat } from "../../context/ChatContext";
 
 interface ChatHeaderProps {
@@ -35,9 +37,12 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ onClose, onToggleSidebar, onOpe
     apiKeys,
     apiKeyLoading,
     lastUsage,
+    includeReasoningInContext,
+    setIncludeReasoningInContext,
   } = useChat();
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [settingsAnchorEl, setSettingsAnchorEl] = useState<null | HTMLElement>(null);
 
   const activeKeys = apiKeys.filter((k) => k.is_active);
   const activeConversation = conversations[activeConversationId];
@@ -53,6 +58,18 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ onClose, onToggleSidebar, onOpe
   const handleSelectKey = (id: string) => {
     setSelectedApiKeyId(id);
     handleKeyMenuClose();
+  };
+
+  const handleSettingsOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setSettingsAnchorEl(event.currentTarget);
+  };
+
+  const handleSettingsClose = () => {
+    setSettingsAnchorEl(null);
+  };
+
+  const handleToggleReasoning = (_event: React.ChangeEvent<HTMLInputElement>) => {
+    setIncludeReasoningInContext((event.target as HTMLInputElement).checked);
   };
 
   const getKeyInfoById = (targetId: string) => {
@@ -217,6 +234,9 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ onClose, onToggleSidebar, onOpe
       </Box>
 
       <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, ml: 1 }}>
+        <IconButton size="medium" onClick={handleSettingsOpen} sx={{ color: "#64748b" }}>
+          <SettingsIcon fontSize="small" />
+        </IconButton>
         <IconButton size="medium" onClick={onClose} sx={{ color: "#64748b" }}>
           <Box sx={{ fontSize: 18 }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -226,6 +246,62 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ onClose, onToggleSidebar, onOpe
           </Box>
         </IconButton>
       </Box>
+
+      <Menu
+        anchorEl={settingsAnchorEl}
+        open={Boolean(settingsAnchorEl)}
+        onClose={handleSettingsClose}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        sx={{ "& .MuiPaper-root": { minWidth: 260, maxHeight: 200 } }}
+      >
+        <Box sx={{ px: 2, py: 1.25 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "#1e293b",
+              fontWeight: 600,
+              mb: 0.5,
+            }}
+          >
+            Reasoning
+          </Typography>
+          <Typography
+            variant="caption"
+            sx={{
+              color: "#64748b",
+              display: "block",
+            }}
+          >
+            Include thinking steps in subsequent messages
+          </Typography>
+        </Box>
+        <Divider />
+        <MenuItem
+          onClick={handleSettingsClose}
+          sx={{
+            py: 1.5,
+            justifyContent: "space-between",
+          }}
+        >
+          <Typography variant="body2" sx={{ color: "#475569" }}>
+            Send reasoning to model
+          </Typography>
+          <Switch
+            size="small"
+            checked={includeReasoningInContext}
+            onChange={handleToggleReasoning}
+            sx={{
+              "& .MuiSwitch-thumb": {
+                bgcolor: includeReasoningInContext ? "primary.main" : "#94a3b8",
+              },
+              "& .MuiSwitch-track": {
+                bgcolor: includeReasoningInContext ? "rgba(139, 92, 246, 0.3)" : "#cbd5e1",
+              },
+            }}
+          />
+        </MenuItem>
+      </Menu>
 
       <Menu
         anchorEl={anchorEl}

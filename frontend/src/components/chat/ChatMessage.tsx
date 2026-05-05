@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Box, Typography, Avatar } from '@mui/material';
 import { keyframes } from '@emotion/react';
 import { ChatMessage as ChatMessageType } from '../../context/ChatContext';
@@ -25,6 +25,13 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming }) => {
   const isUser = message.role === 'user';
   const isStreamingResponse = !isUser && isStreaming;
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const thinkingRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isStreaming && message.thinking && thinkingRef.current) {
+      thinkingRef.current.scrollTop = thinkingRef.current.scrollHeight;
+    }
+  }, [message.thinking, isStreaming]);
 
   const renderContent = (content: string) => {
     const parts = content.split(/(```[\s\S]*?```)/g);
@@ -130,6 +137,55 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming }) => {
           minWidth: 40,
         }}
       >
+        {!isUser && message.thinking && (
+          <Box
+            sx={{
+              mb: 1,
+              px: 2,
+              py: 1,
+              borderRadius: { xs: '16px 16px 4px 16px', sm: '16px 16px 16px 4px' },
+              bgcolor: '#f5f3ff',
+              border: '2px solid #8b5cf6',
+            }}
+          >
+            <details open>
+              <summary
+                style={{
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                  color: '#6d28d9',
+                  fontWeight: 600,
+                  listStyle: 'none',
+                  marginBottom: '4px',
+                }}
+              >
+                <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                  <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#8b5cf6', display: 'inline-block' }} />
+                  Thinking
+                </Box>
+              </summary>
+              <Box
+                ref={thinkingRef}
+                sx={{
+                  mt: 0.5,
+                  p: 1.5,
+                  bgcolor: '#ede9fe',
+                  borderRadius: 1,
+                  fontSize: '0.8125rem',
+                  color: '#3b0764',
+                  maxHeight: 300,
+                  overflow: 'auto',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  fontFamily: '"Fira Code", "Cascadia Code", "Consolas", monospace',
+                  lineHeight: 1.5,
+                }}
+              >
+                {message.thinking}
+              </Box>
+            </details>
+          </Box>
+        )}
         <Box
           sx={{
             px: 2,
