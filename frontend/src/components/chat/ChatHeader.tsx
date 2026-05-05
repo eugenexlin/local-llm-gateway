@@ -7,12 +7,12 @@ import {
   MenuItem,
   Chip,
   Divider,
-  Switch,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import KeyIcon from "@mui/icons-material/Key";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import SettingsIcon from "@mui/icons-material/Settings";
+import ChatSettingsModal from "./ChatSettingsModal";
 import { useChat } from "../../context/ChatContext";
 
 interface ChatHeaderProps {
@@ -39,10 +39,12 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ onClose, onToggleSidebar, onOpe
     lastUsage,
     includeReasoningInContext,
     setIncludeReasoningInContext,
+    chatSettings,
+    setChatSettings,
   } = useChat();
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [settingsAnchorEl, setSettingsAnchorEl] = useState<null | HTMLElement>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const activeKeys = apiKeys.filter((k) => k.is_active);
   const activeConversation = conversations[activeConversationId];
@@ -60,16 +62,16 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ onClose, onToggleSidebar, onOpe
     handleKeyMenuClose();
   };
 
-  const handleSettingsOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setSettingsAnchorEl(event.currentTarget);
+  const handleSettingsOpen = () => {
+    setSettingsOpen(true);
   };
 
   const handleSettingsClose = () => {
-    setSettingsAnchorEl(null);
+    setSettingsOpen(false);
   };
 
-  const handleToggleReasoning = (_event: React.ChangeEvent<HTMLInputElement>) => {
-    setIncludeReasoningInContext((event.target as HTMLInputElement).checked);
+  const handleToggleReasoning = (checked: boolean) => {
+    setIncludeReasoningInContext(checked);
   };
 
   const getKeyInfoById = (targetId: string) => {
@@ -247,61 +249,14 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ onClose, onToggleSidebar, onOpe
         </IconButton>
       </Box>
 
-      <Menu
-        anchorEl={settingsAnchorEl}
-        open={Boolean(settingsAnchorEl)}
+      <ChatSettingsModal
+        open={settingsOpen}
         onClose={handleSettingsClose}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        transformOrigin={{ vertical: "top", horizontal: "right" }}
-        sx={{ "& .MuiPaper-root": { minWidth: 260, maxHeight: 200 } }}
-      >
-        <Box sx={{ px: 2, py: 1.25 }}>
-          <Typography
-            variant="body2"
-            sx={{
-              color: "#1e293b",
-              fontWeight: 600,
-              mb: 0.5,
-            }}
-          >
-            Reasoning
-          </Typography>
-          <Typography
-            variant="caption"
-            sx={{
-              color: "#64748b",
-              display: "block",
-            }}
-          >
-            Include thinking steps in subsequent messages
-          </Typography>
-        </Box>
-        <Divider />
-        <MenuItem
-          onClick={handleSettingsClose}
-          sx={{
-            py: 1.5,
-            justifyContent: "space-between",
-          }}
-        >
-          <Typography variant="body2" sx={{ color: "#475569" }}>
-            Send reasoning to model
-          </Typography>
-          <Switch
-            size="small"
-            checked={includeReasoningInContext}
-            onChange={handleToggleReasoning}
-            sx={{
-              "& .MuiSwitch-thumb": {
-                bgcolor: includeReasoningInContext ? "primary.main" : "#94a3b8",
-              },
-              "& .MuiSwitch-track": {
-                bgcolor: includeReasoningInContext ? "rgba(139, 92, 246, 0.3)" : "#cbd5e1",
-              },
-            }}
-          />
-        </MenuItem>
-      </Menu>
+        settings={chatSettings}
+        onChange={setChatSettings}
+        includeReasoningInContext={includeReasoningInContext}
+        onToggleReasoning={handleToggleReasoning}
+      />
 
       <Menu
         anchorEl={anchorEl}

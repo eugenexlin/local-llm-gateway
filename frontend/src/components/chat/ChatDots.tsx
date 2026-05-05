@@ -2,17 +2,27 @@ import { Box, SxProps, Theme } from "@mui/material";
 import styles from "./ChatDots.module.css";
 
 interface ChatDotsProps {
-  size?: number;
+  size?: string;
+  gap?: string;
   mt?: number;
   sx?: SxProps<Theme>;
 }
 
-const ChatDots: React.FC<ChatDotsProps> = ({ size = 8, mt, sx }) => {
+const ChatDots: React.FC<ChatDotsProps> = ({
+  size = "6px",
+  gap = "4px",
+  mt,
+  sx,
+}) => {
   return (
     <Box className={styles.dotsContainer} sx={{ ...sx }}>
-      <Box className={styles.dot} sx={{ "--size": `${size}px`, "--mt": mt ?? 0, ...sx }} />
-      <Box className={styles.dot} sx={{ "--size": `${size}px`, "--mt": mt ?? 0 }} />
-      <Box className={styles.dot} sx={{ "--size": `${size}px`, "--mt": mt ?? 0 }} />
+      {[1, 2, 3].map((x) => {
+        return <Box
+          className={styles.dot}
+          mr={gap}
+          sx={{ "--size": `${size}`, "--mt": mt ?? 0 }}
+        />;
+      })}
     </Box>
   );
 };

@@ -276,13 +276,13 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                     secondary={
                       <Box
                         sx={{
+                          display: "flex",
                           color: "#94a3b8",
                           height: "16px",
-                          justifyContent: "flex-end",
                         }}
                       >
                         {streamingConversationId === conv.id ? (
-                          <ChatDots />
+                          <ChatDots size="6px" />
                         ) : (
                           <Typography
                             variant="caption"

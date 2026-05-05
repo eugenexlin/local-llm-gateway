@@ -10,6 +10,11 @@ import { useAuth } from "./AuthContext";
 import { useAPIKeys } from "./APIKeyContext";
 import { ApiKey } from "../models/ApiKey";
 
+export interface ChatSettings {
+  showThinkingBlocks: boolean;
+  defaultThinkingCollapsed: boolean;
+}
+
 export interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
@@ -35,6 +40,7 @@ interface ChatContextType {
   conversations: Record<string, Conversation>;
   activeConversationId: string;
   activeConversation: Conversation | null;
+  setSelectedApiKeyId: (id: string) => void;
   messages: ChatMessage[];
   isLoading: boolean;
   streamingConversationId: string | null;
@@ -43,10 +49,14 @@ interface ChatContextType {
   apiKeys: ApiKey[];
   apiKeyLoading: boolean;
   selectedKeyId: string;
-  setSelectedApiKeyId: (id: string) => void;
+  inputContent: string;
+  setInputContent: (content: string) => void;
   includeReasoningInContext: boolean;
-  setIncludeReasoningInContext: (val: boolean) => void;
-  sendMessage: (content: string) => Promise<void>;
+  setIncludeReasoningInContext: (b: boolean) => void;
+  chatSettings: ChatSettings;
+  setChatSettings: (settings: Partial<ChatSettings>) => void;
+  sendMessage: (content: string) => void;
+  revertToMessage: (index: number) => void;
   createConversation: () => void;
   switchConversation: (id: string) => void;
   deleteConversation: (id: string) => void;
@@ -59,6 +69,7 @@ const pubUrl = import.meta.env.PUBLIC_URL || "";
 const STORAGE_CONVERSATIONS_KEY = "llm_conversations";
 const STORAGE_ACTIVE_KEY_KEY = "llm_active_conversation_id";
 const STORAGE_REASONING_KEY = "llm_include_reasoning_in_context";
+const STORAGE_SETTINGS_KEY = "llm_chat_settings";
 
 const ChatContext = createContext<ChatContextType | null>(null);
 
@@ -70,15 +81,20 @@ function truncateTitle(title: string, maxLength: number = 40): string {
   if (title.length <= maxLength) return title;
   const truncated = title.slice(0, maxLength);
   const lastSpace = truncated.lastIndexOf(" ");
-  return lastSpace > 20 ? truncated.slice(0, lastSpace) + "..." : truncated + "...";
+  return lastSpace > 20
+    ? truncated.slice(0, lastSpace) + "..."
+    : truncated + "...";
 }
 
 export function ChatProvider({ children }: { children: ReactNode }) {
   useAuth();
-  
-  const { apiKeys, apiKeyLoading, selectedKeyId, setSelectedApiKeyId } = useAPIKeys();
 
-  const [conversations, setConversations] = useState<Record<string, Conversation>>(() => {
+  const { apiKeys, apiKeyLoading, selectedKeyId, setSelectedApiKeyId } =
+    useAPIKeys();
+
+  const [conversations, setConversations] = useState<
+    Record<string, Conversation>
+  >(() => {
     try {
       const stored = localStorage.getItem(STORAGE_CONVERSATIONS_KEY);
       return stored ? JSON.parse(stored) : {};
@@ -87,26 +103,74 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }
   });
 
-  const [activeConversationId, setActiveConversationIdState] = useState<string>(() => {
-    try {
-      return localStorage.getItem(STORAGE_ACTIVE_KEY_KEY) || "";
-    } catch {
-      return "";
-    }
-  });
+  const [activeConversationId, setActiveConversationIdState] = useState<string>(
+    () => {
+      try {
+        return localStorage.getItem(STORAGE_ACTIVE_KEY_KEY) || "";
+      } catch {
+        return "";
+      }
+    },
+  );
 
-  const [streamingConversationId, setStreamingConversationId] = useState<string | null>(null);
+  const [streamingConversationId, setStreamingConversationId] = useState<
+    string | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const isLoading = streamingConversationId !== null;
   const [lastUsage, setLastUsage] = useState<TokenUsage | null>(null);
-  const [includeReasoningInContext, setIncludeReasoningInContextState] = useState<boolean>(() => {
+  const [includeReasoningInContext, setIncludeReasoningInContextState] =
+    useState<boolean>(() => {
+      try {
+        const stored = localStorage.getItem(STORAGE_REASONING_KEY);
+        return stored === "true";
+      } catch {
+        return false;
+      }
+    });
+
+  const [chatSettings, setChatSettingsState] = useState<ChatSettings>(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_REASONING_KEY);
-      return stored === "true";
+      const stored = localStorage.getItem(STORAGE_SETTINGS_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return {
+          showThinkingBlocks: parsed.showThinkingBlocks ?? true,
+          defaultThinkingCollapsed: parsed.defaultThinkingCollapsed ?? false,
+        };
+      }
     } catch {
-      return false;
+      // ignore
     }
+    return {
+      showThinkingBlocks: true,
+      defaultThinkingCollapsed: false,
+    };
   });
+
+  const [inputContent, setInputContentState] = useState("");
+  const setInputContent = useCallback((content: string) => {
+    setInputContentState(content);
+  }, []);
+
+  const revertToMessage = useCallback(
+    (index: number) => {
+      setConversations((prev) => {
+        const conv = prev[activeConversationId];
+        if (!conv) return prev;
+        const updatedMessages = conv.messages.slice(0, index + 1);
+        return {
+          ...prev,
+          [activeConversationId]: {
+            ...conv,
+            messages: updatedMessages,
+            updatedAt: Date.now(),
+          },
+        };
+      });
+    },
+    [activeConversationId, setConversations],
+  );
 
   const activeConversation = conversations[activeConversationId] || null;
   const messages = activeConversation?.messages || [];
@@ -114,7 +178,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (Object.keys(conversations).length > 0) {
       try {
-        localStorage.setItem(STORAGE_CONVERSATIONS_KEY, JSON.stringify(conversations));
+        localStorage.setItem(
+          STORAGE_CONVERSATIONS_KEY,
+          JSON.stringify(conversations),
+        );
       } catch {
         // Storage full or unavailable
       }
@@ -133,14 +200,32 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_REASONING_KEY, String(includeReasoningInContext));
+      localStorage.setItem(
+        STORAGE_REASONING_KEY,
+        String(includeReasoningInContext),
+      );
     } catch {
       // Storage unavailable
     }
   }, [includeReasoningInContext]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        STORAGE_SETTINGS_KEY,
+        JSON.stringify(chatSettings),
+      );
+    } catch {
+      // Storage unavailable
+    }
+  }, [chatSettings]);
+
   const setIncludeReasoningInContext = useCallback((val: boolean) => {
     setIncludeReasoningInContextState(val);
+  }, []);
+
+  const setChatSettings = useCallback((partial: Partial<ChatSettings>) => {
+    setChatSettingsState((prev) => ({ ...prev, ...partial }));
   }, []);
 
   const createConversation = useCallback(() => {
@@ -165,22 +250,25 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     setLastUsage(null);
   }, []);
 
-  const deleteConversation = useCallback((id: string) => {
-    setConversations((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
-    if (activeConversationId === id) {
-      const remaining = Object.keys(conversations).filter((k) => k !== id);
-      if (remaining.length > 0) {
-        setActiveConversationIdState(remaining[0]);
-      } else {
-        setActiveConversationIdState("");
+  const deleteConversation = useCallback(
+    (id: string) => {
+      setConversations((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      if (activeConversationId === id) {
+        const remaining = Object.keys(conversations).filter((k) => k !== id);
+        if (remaining.length > 0) {
+          setActiveConversationIdState(remaining[0]);
+        } else {
+          setActiveConversationIdState("");
+        }
+        setLastUsage(null);
       }
-      setLastUsage(null);
-    }
-  }, [activeConversationId, conversations]);
+    },
+    [activeConversationId, conversations],
+  );
 
   const renameConversation = useCallback((id: string, title: string) => {
     setConversations((prev) => {
@@ -210,7 +298,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       };
 
       let convId = activeConversationId;
-      
+
       // If no active conversation, create one
       if (!convId || !conversations[convId]) {
         convId = generateId();
@@ -237,12 +325,15 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setConversations((prev) => {
         const conv = prev[convId];
         if (!conv) return prev;
-        const shouldAutoName = conv.title === "New Chat" && conv.messages.length === 0;
+        const shouldAutoName =
+          conv.title === "New Chat" && conv.messages.length === 0;
         return {
           ...prev,
           [convId]: {
             ...conv,
-            title: shouldAutoName ? truncateTitle(content.trim(), 35) : conv.title,
+            title: shouldAutoName
+              ? truncateTitle(content.trim(), 35)
+              : conv.title,
             messages: [...conv.messages, userMessage, assistantMessage],
             updatedAt: Date.now(),
           },
@@ -252,19 +343,26 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setStreamingConversationId(convId);
       setError(null);
 
-      const conversationHistory = [...(conversations[convId]?.messages || []), userMessage];
+      const conversationHistory = [
+        ...(conversations[convId]?.messages || []),
+        userMessage,
+      ];
 
       try {
         const formatMessages = (msgs: typeof conversationHistory) => {
           return msgs.map((m) => {
-            if (m.role === "assistant" && m.thinking && includeReasoningInContext) {
+            if (
+              m.role === "assistant" &&
+              m.thinking &&
+              includeReasoningInContext
+            ) {
               return {
-                role: m.role as const,
+                role: m.role,
                 content: `<think>${m.thinking}</think>${m.content}`,
               };
             }
             return {
-              role: m.role as const,
+              role: m.role,
               content: m.content,
             };
           });
@@ -356,11 +454,15 @@ export function ChatProvider({ children }: { children: ReactNode }) {
                     const thinkStart = content.indexOf("<think>");
                     const thinkEnd = content.lastIndexOf("</think>");
 
-                    if (thinkStart !== -1 && thinkEnd !== -1 && thinkEnd > thinkStart) {
+                    if (
+                      thinkStart !== -1 &&
+                      thinkEnd !== -1 &&
+                      thinkEnd > thinkStart
+                    ) {
                       const beforeThinking = content.slice(0, thinkStart);
                       const thinkingContent = content.slice(
                         thinkStart + 7,
-                        thinkEnd
+                        thinkEnd,
                       );
                       const afterThinking = content.slice(thinkEnd + 8);
 
@@ -451,7 +553,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         setStreamingConversationId(null);
       }
     },
-    [messages, streamingConversationId, selectedKeyId, activeConversationId, conversations],
+    [
+      messages,
+      streamingConversationId,
+      selectedKeyId,
+      activeConversationId,
+      conversations,
+    ],
   );
 
   const clearHistory = useCallback(() => {
@@ -477,6 +585,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         setSelectedApiKeyId,
         includeReasoningInContext,
         setIncludeReasoningInContext,
+        chatSettings,
+        setChatSettings,
+        inputContent,
+        setInputContent,
+        revertToMessage,
         sendMessage,
         createConversation,
         switchConversation,

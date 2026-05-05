@@ -10,9 +10,8 @@ import SendIcon from "@mui/icons-material/Send";
 import { useChat } from "../../context/ChatContext";
 
 const ChatInput: React.FC = () => {
-  const [input, setInput] = useState("");
+  const { sendMessage, isLoading, selectedKeyId, inputContent, setInputContent } = useChat();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { sendMessage, isLoading, selectedKeyId } = useChat();
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -20,12 +19,12 @@ const ChatInput: React.FC = () => {
       textareaRef.current.style.height =
         Math.min(textareaRef.current.scrollHeight, window.innerHeight / 3) + "px";
     }
-  }, [input]);
+  }, [inputContent]);
 
   const handleSubmit = async () => {
-    if (!input.trim() || isLoading) return;
-    const message = input.trim();
-    setInput("");
+    if (!inputContent.trim() || isLoading) return;
+    const message = inputContent.trim();
+    setInputContent("");
     await sendMessage(message);
   };
 
@@ -37,7 +36,7 @@ const ChatInput: React.FC = () => {
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
+    setInputContent(e.target.value);
   };
 
   return (
@@ -66,7 +65,7 @@ const ChatInput: React.FC = () => {
         fullWidth
         multiline
         maxRows={6}
-        value={input}
+        value={inputContent}
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
         placeholder={
@@ -97,10 +96,10 @@ const ChatInput: React.FC = () => {
               <InputAdornment position="end">
                 <IconButton
                   onClick={handleSubmit}
-                  disabled={!input.trim() || isLoading}
+                  disabled={!inputContent.trim() || isLoading}
                   sx={{
                     color:
-                      input.trim() && !isLoading ? "primary.main" : "#94a3b8",
+                      inputContent.trim() && !isLoading ? "primary.main" : "#94a3b8",
                   }}
                 >
                   <SendIcon fontSize="small" />

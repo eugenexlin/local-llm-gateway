@@ -90,7 +90,7 @@ const DashboardStats: React.FC = () => {
   });
 
   // remember to pass in the index as we cant wait for render cycle to get new selectedPresetIndex
-  const applyPresetToDateRange = (index: number) => {
+  const applyPresetToDateRange = (index: number, setGranularity: boolean) => {
     const preset = DATE_PRESETS[index];
     if (!preset.isRelative) return null;
 
@@ -135,13 +135,8 @@ const DashboardStats: React.FC = () => {
     setEndDate(end);
     setTargetTicks(undefined);
 
-    if (start && end) {
-      const optimalGranularitySeconds = calculateOptimalGranularitySeconds(
-        start,
-        end,
-        targetTicks,
-      );
-      setGranularity(optimalGranularitySeconds);
+    if (setGranularity && start && end) {
+      autoAdjustGranularity(start, end);
     }
   };
 
@@ -150,7 +145,7 @@ const DashboardStats: React.FC = () => {
       return;
     }
     setSelectedPresetIndex(index);
-    applyPresetToDateRange(index);
+    applyPresetToDateRange(index, true);
   };
 
   useEffect(() => {
@@ -605,7 +600,7 @@ const DashboardStats: React.FC = () => {
       selectedPresetIndex >= 0 &&
       selectedPresetIndex < DATE_PRESETS.length - 1
     ) {
-      applyPresetToDateRange(selectedPresetIndex);
+      applyPresetToDateRange(selectedPresetIndex, false);
     } else {
       handleGraphRefresh();
     }
