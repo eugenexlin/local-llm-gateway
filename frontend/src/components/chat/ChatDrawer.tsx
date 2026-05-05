@@ -107,7 +107,6 @@ const ChatDrawer: React.FC<ChatDrawerProps> = ({ open, onClose }) => {
           border: "none",
           boxShadow: "-4px 0 24px rgba(0, 0, 0, 0.1)",
           zIndex: 1200,
-          transition: "width 0.2s ease",
         },
       }}
     >
