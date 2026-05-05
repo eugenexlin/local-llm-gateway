@@ -246,7 +246,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
   return (
     <Paper
       sx={{
-        p: 2,
+        p: { xs: 1, sm: 2 },
         position: "relative",
       }}
     >

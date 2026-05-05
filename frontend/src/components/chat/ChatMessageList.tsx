@@ -44,7 +44,7 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({ onMobileClose }) => {
             alignItems: 'center',
             justifyContent: 'center',
             height: '100%',
-            px: 4,
+            px: { xs: 2, sm: 4 },
             textAlign: 'center',
             cursor: 'pointer',
           }}
@@ -83,7 +83,7 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({ onMobileClose }) => {
             />
           ))}
           {isLoading && messages.length > 0 && messages[messages.length - 1].role === 'user' && (
-            <Box sx={{ px: 2, display: 'flex', justifyContent: 'flex-start', mb: 1.5 }}>
+            <Box sx={{ px: { xs: 1, sm: 2 }, display: 'flex', justifyContent: 'flex-start', mb: 1.5 }}>
               <Box sx={{ display: 'flex', gap: 0.5, px: 2, py: 1.25, bgcolor: '#f1f5f9', borderRadius: '16px 16px 16px 4px' }}>
                 <Box className="chat-dot" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#94a3b8', mt: 2 }} />
                 <Box className="chat-dot" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#94a3b8', mt: 2 }} />

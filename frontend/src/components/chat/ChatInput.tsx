@@ -43,7 +43,7 @@ const ChatInput: React.FC = () => {
   return (
     <Box
       sx={{
-        p: 2,
+        p: { xs: 1, sm: 2 },
         borderTop: "1px solid #e2e8f0",
         bgcolor: "background.paper",
       }}

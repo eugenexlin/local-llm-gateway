@@ -1,8 +1,7 @@
 import React, { useRef, useEffect } from 'react';
-import { Box, Typography, Avatar } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { keyframes } from '@emotion/react';
 import { ChatMessage as ChatMessageType } from '../../context/ChatContext';
-import { useAuth } from '../../context/AuthContext';
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -21,7 +20,6 @@ const waveRipple = keyframes`
 `;
 
 const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming }) => {
-  const { user } = useAuth();
   const isUser = message.role === 'user';
   const isStreamingResponse = !isUser && isStreaming;
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -112,36 +110,20 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming }) => {
         display: 'flex',
         justifyContent: isUser ? 'flex-end' : 'flex-start',
         mb: 1.5,
-        px: 2,
+        px: { xs: 1, sm: 2 },
       }}
     >
-      {!isUser && (
-        <Avatar
-          sx={{
-            width: 32,
-            height: 32,
-            bgcolor: 'primary.main',
-            fontSize: '0.875rem',
-            mr: 1,
-            mt: 0.5,
-            flexShrink: 0,
-          }}
-        >
-          AI
-        </Avatar>
-      )}
-      
       <Box
         sx={{
-          maxWidth: '80%',
+          maxWidth: '100%',
           minWidth: 40,
         }}
       >
         {!isUser && message.thinking && (
           <Box
             sx={{
-              mb: 1,
-              px: 2,
+            mb: 1,
+               px: { xs: 1, sm: 2 },
               py: 1,
               borderRadius: { xs: '16px 16px 4px 16px', sm: '16px 16px 16px 4px' },
               bgcolor: '#f5f3ff',
@@ -188,8 +170,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming }) => {
         )}
         <Box
           sx={{
-            px: 2,
-            py: 1.25,
+            px: { xs: 1, sm: 2 },
+            py: { xs: 0.75, sm: 1.25 },
             borderRadius: isUser ? { xs: '16px 16px 4px 16px', sm: '16px 16px 4px 16px' } : { xs: '16px 16px 16px 4px', sm: '16px 16px 16px 4px' },
             bgcolor: isUser ? 'primary.main' : '#f1f5f9',
             color: isUser ? 'white' : '#1e293b',
@@ -237,22 +219,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, isStreaming }) => {
           {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </Typography>
       </Box>
-      
-      {isUser && (
-        <Avatar
-          sx={{
-            width: 32,
-            height: 32,
-            bgcolor: '#6366f1',
-            fontSize: '0.875rem',
-            ml: 1,
-            mt: 0.5,
-            flexShrink: 0,
-          }}
-        >
-          {user?.name?.charAt(0).toUpperCase()}
-        </Avatar>
-      )}
       
       <div ref={messagesEndRef} />
     </Box>

@@ -167,7 +167,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           component="main"
           sx={{
             flexGrow: 1,
-            p: { xs: 2, sm: 3 },
+            p: { xs: 1, sm: 2, md: 3 },
             ml: { sm: `${drawerWidth}px` },
           }}
           id="main-content"

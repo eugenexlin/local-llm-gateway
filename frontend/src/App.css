@@ -746,7 +746,7 @@ body {
 /* Responsive */
 @media (max-width: 768px) {
   .page-container {
-    padding: 20px 16px;
+    padding: 16px 12px;
   }
 
   .stats-grid {
@@ -754,7 +754,67 @@ body {
   }
 
   .login-card {
-    padding: 32px 24px;
+    padding: 24px 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-container {
+    padding: 12px 8px;
+  }
+
+  .stat-card {
+    padding: 16px;
+  }
+
+  .chart-container {
+    padding: 16px;
+  }
+
+  .action-card {
+    padding: 14px;
+  }
+
+  .form-card {
+    padding: 16px;
+  }
+
+  .form-input {
+    padding: 10px 12px;
+  }
+
+  .list-item {
+    padding: 14px;
+  }
+
+  .login-container {
+    padding: 12px;
+  }
+
+  .login-card {
+    padding: 20px 12px;
+  }
+
+  .empty-state {
+    padding: 32px 12px;
+  }
+
+  .loading-container {
+    padding: 32px;
+  }
+
+  .modal-content {
+    padding: 20px;
+  }
+
+  .table-header-cell {
+    padding: 10px 8px;
+    font-size: 0.6875rem;
+  }
+
+  .table-cell {
+    padding: 10px 8px;
+    font-size: 0.8125rem;
   }
 }
 
@@ -857,13 +917,4 @@ body {
 .chat-code-block::-webkit-scrollbar-thumb {
   background: #475569;
   border-radius: 2px;
-}
-
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .login-card {
-    padding: 32px 24px;
-  }
 }

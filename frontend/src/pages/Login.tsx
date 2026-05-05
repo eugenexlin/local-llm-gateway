@@ -99,7 +99,7 @@ function Login() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          p: { xs: 3, lg: 6 },
+            p: { xs: 2, lg: 6 },
           bgcolor: "#f9fafb",
         }}
       >
@@ -107,7 +107,7 @@ function Login() {
           <Paper
             elevation={3}
             sx={{
-              p: 4,
+              p: { xs: 3, sm: 4 },
               borderRadius: 4,
               border: "1px solid",
               borderColor: "divider",
