@@ -25,7 +25,7 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 import GpuIcon from "../components/GpuIcon";
 import CpuIcon from "../components/CpuIcon";
 import RamIcon from "../components/RamIcon";
-import InfoIcon from '@mui/icons-material/Info';
+import InfoIcon from "@mui/icons-material/Info";
 import StorageIcon from "@mui/icons-material/Storage";
 import NetworkIoIcon from "../components/NetworkIoIcon";
 import LoadGauge from "../components/LoadGauge";
@@ -49,6 +49,14 @@ interface GpuDetail {
   memUsed: number | null;
   memTotal: number | null;
   utilization: number | null;
+  ranges: {
+    tempMin: number;
+    tempMax: number;
+    powerMin: number;
+    powerMax: number;
+    fanMin: number;
+    fanMax: number;
+  };
 }
 
 interface ServerStatsData {
@@ -84,6 +92,7 @@ interface ServerStatsData {
     bytesReceivedHuman: string;
   };
   platform: string;
+  currentModel?: string;
   timestamp: string;
 }
 
@@ -113,7 +122,18 @@ const StatsCard: React.FC<StatsCardProps> = ({ title, icon, children, sx }) => {
             gap: 1,
           }}
         >
-          <Box sx={{ color: "primary.main", width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center" }}>{icon}</Box>
+          <Box
+            sx={{
+              color: "primary.main",
+              width: 40,
+              height: 40,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {icon}
+          </Box>
           <Typography
             variant="subtitle1"
             sx={{ fontWeight: 600, letterSpacing: 0.5 }}
@@ -145,7 +165,19 @@ const ServerStats: React.FC = () => {
   const powerHistoryRef = useRef<
     Record<number, { timestamp: number; value: number }[]>
   >({});
-  const gpuRangesRef = useRef<Record<number, { tempMin: number; tempMax: number; powerMin: number; powerMax: number; fanMin: number; fanMax: number }>>({});
+  const gpuRangesRef = useRef<
+    Record<
+      number,
+      {
+        tempMin: number;
+        tempMax: number;
+        powerMin: number;
+        powerMax: number;
+        fanMin: number;
+        fanMax: number;
+      }
+    >
+  >({});
   const lastSyncTimestampRef = useRef<number>(0);
   const [, forceUpdate] = useState(0);
 
@@ -156,7 +188,8 @@ const ServerStats: React.FC = () => {
         value: data.cpu.usage,
       });
       if (cpuHistoryRef.current.length > MAX_SPARKLINE_POINTS) {
-        cpuHistoryRef.current = cpuHistoryRef.current.slice(-MAX_SPARKLINE_POINTS);
+        cpuHistoryRef.current =
+          cpuHistoryRef.current.slice(-MAX_SPARKLINE_POINTS);
       }
 
       for (let i = 0; i < data.gpu.gpus.length; i++) {
@@ -168,7 +201,8 @@ const ServerStats: React.FC = () => {
           value: data.gpu.gpus[i].utilization || 0,
         });
         if (gpuHistoryRef.current[i].length > MAX_SPARKLINE_POINTS) {
-          gpuHistoryRef.current[i] = gpuHistoryRef.current[i].slice(-MAX_SPARKLINE_POINTS);
+          gpuHistoryRef.current[i] =
+            gpuHistoryRef.current[i].slice(-MAX_SPARKLINE_POINTS);
         }
 
         if (!tempHistoryRef.current[i]) {
@@ -184,20 +218,25 @@ const ServerStats: React.FC = () => {
             value: tempVal,
           });
           if (tempHistoryRef.current[i][j].length > MAX_SPARKLINE_POINTS) {
-            tempHistoryRef.current[i][j] = tempHistoryRef.current[i][j].slice(-MAX_SPARKLINE_POINTS);
+            tempHistoryRef.current[i][j] =
+              tempHistoryRef.current[i][j].slice(-MAX_SPARKLINE_POINTS);
           }
         }
 
         if (!powerHistoryRef.current[i]) {
           powerHistoryRef.current[i] = [];
         }
-        if (data.gpu.gpus[i].power !== null && data.gpu.gpus[i].power !== undefined) {
+        if (
+          data.gpu.gpus[i].power !== null &&
+          data.gpu.gpus[i].power !== undefined
+        ) {
           powerHistoryRef.current[i].push({
             timestamp: new Date(data.timestamp).getTime(),
             value: data.gpu.gpus[i].power!,
           });
           if (powerHistoryRef.current[i].length > MAX_SPARKLINE_POINTS) {
-            powerHistoryRef.current[i] = powerHistoryRef.current[i].slice(-MAX_SPARKLINE_POINTS);
+            powerHistoryRef.current[i] =
+              powerHistoryRef.current[i].slice(-MAX_SPARKLINE_POINTS);
           }
         }
       }
@@ -211,8 +250,10 @@ const ServerStats: React.FC = () => {
           gpuRangesRef.current[i] = ranges;
         } else {
           gpuRangesRef.current[i] = {
-            tempMin: gpu.temperatures.length > 0 ? gpu.temperatures[0].value : 0,
-            tempMax: gpu.temperatures.length > 0 ? gpu.temperatures[0].value : 1,
+            tempMin:
+              gpu.temperatures.length > 0 ? gpu.temperatures[0].value : 0,
+            tempMax:
+              gpu.temperatures.length > 0 ? gpu.temperatures[0].value : 1,
             powerMin: 0,
             powerMax: 1,
             fanMin: 0,
@@ -222,7 +263,9 @@ const ServerStats: React.FC = () => {
       }
     }
     if (history.length > 0) {
-      lastSyncTimestampRef.current = new Date(history[history.length - 1].timestamp).getTime();
+      lastSyncTimestampRef.current = new Date(
+        history[history.length - 1].timestamp,
+      ).getTime();
     }
     forceUpdate((n) => n + 1);
   }, []);
@@ -240,12 +283,17 @@ const ServerStats: React.FC = () => {
 
     if (pointsBehind > 2) {
       try {
-        const response = await fetch(`/api/server-stats/history?since=${lastSync}`, { cache: "no-store" });
+        const response = await fetch(
+          `/api/server-stats/history?since=${lastSync}`,
+          { cache: "no-store" },
+        );
         if (!response.ok) return;
         const history: ServerStatsData[] = await response.json();
         if (history && history.length > 0) {
           seedHistory(history);
-          lastSyncTimestampRef.current = new Date(history[history.length - 1].timestamp).getTime();
+          lastSyncTimestampRef.current = new Date(
+            history[history.length - 1].timestamp,
+          ).getTime();
         }
       } catch {
         // silently fail
@@ -255,7 +303,8 @@ const ServerStats: React.FC = () => {
 
   useEffect(() => {
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [handleVisibilityChange]);
 
   const fetchStats = useCallback(async () => {
@@ -302,8 +351,14 @@ const ServerStats: React.FC = () => {
             gpuRangesRef.current[i] = ranges;
           } else {
             gpuRangesRef.current[i] = {
-              tempMin: data.gpu.gpus[i].temperatures.length > 0 ? data.gpu.gpus[i].temperatures[0].value : 0,
-              tempMax: data.gpu.gpus[i].temperatures.length > 0 ? data.gpu.gpus[i].temperatures[0].value : 1,
+              tempMin:
+                data.gpu.gpus[i].temperatures.length > 0
+                  ? data.gpu.gpus[i].temperatures[0].value
+                  : 0,
+              tempMax:
+                data.gpu.gpus[i].temperatures.length > 0
+                  ? data.gpu.gpus[i].temperatures[0].value
+                  : 1,
               powerMin: 0,
               powerMax: 1,
               fanMin: 0,
@@ -363,7 +418,9 @@ const ServerStats: React.FC = () => {
       .then((history: ServerStatsData[]) => {
         if (history && history.length > 0) {
           seedHistory(history);
-          lastSyncTimestampRef.current = new Date(history[history.length - 1].timestamp).getTime();
+          lastSyncTimestampRef.current = new Date(
+            history[history.length - 1].timestamp,
+          ).getTime();
         }
       })
       .catch(() => {});
@@ -458,7 +515,7 @@ const ServerStats: React.FC = () => {
               <Box>
                 {stats.gpu.gpus.map((gpu, idx) => {
                   return (
-                    <Box sx={{ mb: 2 }}>
+                    <Box sx={{ mb: 2 }} key={idx}>
                       <Box key={idx} sx={{ mb: 1 }}>
                         <Typography variant="body2" sx={{ fontWeight: 600 }}>
                           {gpu.name}
@@ -814,7 +871,36 @@ const ServerStats: React.FC = () => {
                   {stats.platform === "linux" ? "Linux" : stats.platform}
                 </Typography>
               </Box>
-              <Box sx={{ display: "flex", justifyContent: "space-between", mt: 1 }}>
+              {stats.currentModel && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    mt: 1,
+                  }}
+                >
+                  <Typography variant="body2" color="text.secondary">
+                    Model
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      fontWeight: 500,
+                      textAlign: "right",
+                      maxWidth: "60%",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                    title={stats.currentModel}
+                  >
+                    {stats.currentModel}
+                  </Typography>
+                </Box>
+              )}
+              <Box
+                sx={{ display: "flex", justifyContent: "space-between", mt: 1 }}
+              >
                 <Typography variant="body2" color="text.secondary">
                   Server Time
                 </Typography>

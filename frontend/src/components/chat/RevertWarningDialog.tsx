@@ -40,10 +40,10 @@ const RevertWarningDialog: React.FC<RevertWarningDialogProps> = ({
       <DialogTitle sx={{ fontWeight: 600 }}>Revert Conversation?</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          This will remove all messages after the selected message.
+          This will the selected messages and everything afterwards
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Your current input will be preserved.
+          Choose "Edit" to save to textbox for editing and resending
         </Typography>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>

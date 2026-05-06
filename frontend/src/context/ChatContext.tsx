@@ -15,7 +15,7 @@ export interface ChatSettings {
   defaultThinkingCollapsed: boolean;
 }
 
-export interface ChatMessage {
+export interface ChatMessageItem {
   role: "user" | "assistant" | "system";
   content: string;
   thinking?: string;
@@ -25,7 +25,7 @@ export interface ChatMessage {
 export interface Conversation {
   id: string;
   title: string;
-  messages: ChatMessage[];
+  messages: ChatMessageItem[];
   createdAt: number;
   updatedAt: number;
 }
@@ -41,7 +41,7 @@ interface ChatContextType {
   activeConversationId: string;
   activeConversation: Conversation | null;
   setSelectedApiKeyId: (id: string) => void;
-  messages: ChatMessage[];
+  messages: ChatMessageItem[];
   isLoading: boolean;
   streamingConversationId: string | null;
   error: string | null;
@@ -57,6 +57,7 @@ interface ChatContextType {
   setChatSettings: (settings: Partial<ChatSettings>) => void;
   sendMessage: (content: string) => void;
   revertToMessage: (index: number) => void;
+  forkConversation: (index: number) => string;
   createConversation: () => void;
   switchConversation: (id: string) => void;
   deleteConversation: (id: string) => void;
@@ -187,6 +188,48 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [activeConversationId, setConversations],
   );
 
+  const forkConversation = useCallback(
+    (index: number) => {
+      let forkedId = "";
+      setConversations((prev) => {
+        const conv = prev[activeConversationId];
+        if (!conv) return prev;
+
+        // Find the last assistant message at or before the target index
+        let endIndex = -1;
+        for (let i = index; i >= 0; i--) {
+          if (conv.messages[i]?.role === "assistant") {
+            endIndex = i;
+            break;
+          }
+        }
+
+        if (endIndex === -1) endIndex = index;
+
+        const forkedMessages = conv.messages.slice(0, endIndex + 1);
+        forkedId = generateId();
+
+        const forkedConversation: Conversation = {
+          id: forkedId,
+          title: `Fork of ${conv.title}`,
+          messages: forkedMessages,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+
+        setLastUsage(null);
+
+        return {
+          ...prev,
+          [forkedId]: forkedConversation,
+        };
+      });
+      setActiveConversationIdState(forkedId);
+      return forkedId;
+    },
+    [setConversations],
+  );
+
   const activeConversation = conversations[activeConversationId] || null;
   const messages = activeConversation?.messages || [];
 
@@ -226,10 +269,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem(
-        STORAGE_SETTINGS_KEY,
-        JSON.stringify(chatSettings),
-      );
+      localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(chatSettings));
     } catch {
       // Storage unavailable
     }
@@ -306,7 +346,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const userMessage: ChatMessage = {
+      const userMessage: ChatMessageItem = {
         role: "user",
         content: content.trim(),
         timestamp: Date.now(),
@@ -331,7 +371,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         setActiveConversationIdState(convId);
       }
 
-      const assistantMessage: ChatMessage = {
+      const assistantMessage: ChatMessageItem = {
         role: "assistant",
         content: "",
         timestamp: Date.now(),
@@ -605,6 +645,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         inputContent,
         setInputContent,
         revertToMessage,
+        forkConversation,
         sendMessage,
         createConversation,
         switchConversation,

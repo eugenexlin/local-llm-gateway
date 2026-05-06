@@ -7,32 +7,19 @@ import {
   Menu,
   MenuItem,
 } from "@mui/material";
-import { keyframes } from "@emotion/react";
-import {
-  ChatMessage as ChatMessageType,
-  useChat,
-} from "../../context/ChatContext";
+import { ChatMessageItem, useChat } from "../../context/ChatContext";
 import ChatDots from "./ChatDots";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
+import CallSplitIcon from "@mui/icons-material/CallSplit";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
 import RevertWarningDialog from "./RevertWarningDialog";
 
 interface ChatMessageProps {
-  message: ChatMessageType;
+  message: ChatMessageItem;
   isStreaming: boolean;
   index: number;
 }
-
-const waveRipple = keyframes`
-  0%, 100% {
-    transform: translateY(0) scale(1.1);
-    opacity: 0.6;
-  }
-  50% {
-    transform: translateY(40%) scale(1);
-    opacity: 1;
-  }
-`;
 
 const ChatMessage: React.FC<ChatMessageProps> = ({
   message,
@@ -43,9 +30,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
   const isStreamingResponse = !isUser && isStreaming;
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const thinkingRef = useRef<HTMLDivElement>(null);
-  const { chatSettings } = useChat();
+  const { chatSettings, forkConversation } = useChat();
 
-  const [showActions, setShowActions] = useState(false);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [showRevertDialog, setShowRevertDialog] = useState(false);
 
@@ -71,6 +57,11 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
   const handleRevertClick = () => {
     handleCloseMenu();
     setShowRevertDialog(true);
+  };
+
+  const handleForkClick = () => {
+    handleCloseMenu();
+    forkConversation(index);
   };
 
   const handleRevertDialogClose = () => {
@@ -161,6 +152,88 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
     });
   };
 
+  const vertButton = (
+    <Box
+      sx={{
+        display: { xs: "flex", sm: "none" },
+        alignItems: "center",
+      }}
+    >
+      <Tooltip title="Actions">
+        <IconButton
+          size="small"
+          onClick={handleActionClick}
+          sx={{
+            color: "#94a3b8",
+            p: 0.5,
+            "&:hover": { bgcolor: "rgba(0,0,0,0.04)" },
+          }}
+        >
+          <MoreVertIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+    </Box>
+  );
+
+  const timestampBlock = (timestamp: string) => (
+    <Typography variant="caption">{timestamp}</Typography>
+  );
+  const actionButtons = (
+    <Box
+      sx={{
+        display: { xs: "none", sm: "flex" },
+        alignItems: "center",
+        gap: 0.25,
+      }}
+    >
+      <Tooltip title="Copy">
+        <IconButton
+          size="small"
+          onClick={handleCopy}
+          sx={{
+            color: "#94a3b8",
+            "&:hover": { bgcolor: "rgba(0,0,0,0.04)" },
+          }}
+        >
+          <ContentCopyIcon fontSize="inherit" />
+        </IconButton>
+      </Tooltip>
+      {!isUser && (
+        <Tooltip title="Fork">
+          <IconButton
+            size="small"
+            onClick={handleForkClick}
+            sx={{
+              color: "#94a3b8",
+              "&:hover": { bgcolor: "rgba(0,0,0,0.04)" },
+            }}
+          >
+            <CallSplitIcon fontSize="inherit" />
+          </IconButton>
+        </Tooltip>
+      )}
+      {isUser && (
+        <Tooltip title="Revert">
+          <IconButton
+            size="small"
+            onClick={handleRevertClick}
+            sx={{
+              color: "#94a3b8",
+              "&:hover": { bgcolor: "rgba(0,0,0,0.04)" },
+            }}
+          >
+            <RestartAltIcon fontSize="inherit" />
+          </IconButton>
+        </Tooltip>
+      )}
+    </Box>
+  );
+
+  const timestamp = new Date(message.timestamp).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
   return (
     <Box
       sx={{
@@ -169,10 +242,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
         mb: 1.5,
         px: { xs: 1, sm: 2 },
         position: "relative",
-        "&:hover .message-actions": { opacity: 1 },
       }}
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
     >
       <Box
         sx={{
@@ -181,42 +251,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
           position: "relative",
         }}
       >
-        {/* Subtle Actions Button */}
-        <Box
-          className="message-actions"
-          sx={{
-            position: "absolute",
-            top: -20,
-            right: 0,
-            zIndex: 10,
-            opacity: 0,
-            transition: "opacity 0.2s ease-in-out",
-            display: "flex",
-            gap: 0.5,
-          }}
-        >
-          <Tooltip title="Actions">
-            <IconButton
-              size="small"
-              onClick={handleActionClick}
-              sx={{
-                bgcolor: "background.paper",
-                boxShadow: 1,
-                "&:hover": { bgcolor: "#f1f5f9" },
-              }}
-            >
-              <Box
-                sx={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  bgcolor: "#cbd5e1",
-                }}
-              />
-            </IconButton>
-          </Tooltip>
-        </Box>
-
         {chatSettings.showThinkingBlocks && !isUser && message.thinking && (
           <Box
             sx={{
@@ -298,7 +332,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
             cursor: "pointer",
           }}
           onClick={(e) => {
-            // If it's a user message, we might want to show actions on click for mobile
             if (isUser) {
               setAnchorEl(e.currentTarget as any);
             }
@@ -309,33 +342,55 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
           {isStreamingResponse && <ChatDots />}
         </Box>
 
-        <Typography
-          variant="caption"
+        <Box
           sx={{
-            display: "block",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: isUser ? "right" : "left",
+            gap: 0.5,
             mt: 0.5,
             color: "#94a3b8",
             px: 0.5,
           }}
         >
-          {new Date(message.timestamp).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </Typography>
+          {isUser ? (
+            <>
+              {/* User message: timestamp first, then buttons on the right */}
+              {timestampBlock(timestamp)}
+              {actionButtons}
+              {vertButton}
+            </>
+          ) : (
+            <>
+              {/* Assistant message: buttons on the left, then timestamp */}
+
+              {actionButtons}
+              {vertButton}
+              {timestampBlock(timestamp)}
+            </>
+          )}
+        </Box>
       </Box>
 
       <div ref={messagesEndRef} />
 
+      {/* Mobile menu */}
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
         onClose={handleCloseMenu}
+        onClick={(e) => e.stopPropagation()}
       >
         <MenuItem onClick={handleCopy}>
           <ContentCopyIcon fontSize="small" sx={{ mr: 1 }} />
           Copy
         </MenuItem>
+        {!isUser && (
+          <MenuItem onClick={handleForkClick}>
+            <CallSplitIcon fontSize="small" sx={{ mr: 1 }} />
+            Fork
+          </MenuItem>
+        )}
         {isUser && (
           <MenuItem onClick={handleRevertClick}>
             <RestartAltIcon fontSize="small" sx={{ mr: 1 }} />

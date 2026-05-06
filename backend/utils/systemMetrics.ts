@@ -77,6 +77,7 @@ interface ServerStats {
   database: DatabaseInfo;
   network: NetworkInfo;
   platform: string;
+  currentModel?: string;
   timestamp: string;
 }
 
@@ -87,6 +88,47 @@ function formatBytes(bytes: number): string {
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+interface ModelCache {
+  model: string;
+  expiry: number;
+}
+
+let modelCache: ModelCache | null = null;
+const MODEL_CACHE_TTL = 3600000;
+
+async function getCurrentModel(): Promise<string | undefined> {
+  if (modelCache && Date.now() < modelCache.expiry) {
+    return modelCache.model;
+  }
+
+  try {
+    const url = new URL(config.llamaCppUrl);
+    const modelUrl = `${url.origin}${url.pathname.replace(/\/$/, '')}/models`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(modelUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return undefined;
+    }
+
+    const parsed = await response.json();
+    const data = parsed as { data: Array<{ id: string }> };
+    if (data.data && data.data.length > 0) {
+      const modelId = data.data[0].id;
+      modelCache = { model: modelId, expiry: Date.now() + MODEL_CACHE_TTL };
+      return modelId;
+    }
+  } catch {
+    // Silently fail - model info is optional
+  }
+
+  return undefined;
 }
 
 async function detectGpusFromSysfs(): Promise<Array<{ name: string; vendorId: string; vram?: number }>> {
@@ -512,8 +554,19 @@ export async function getServerStats(): Promise<ServerStats> {
   const netP = getNetworkInfo();
   const ram = getRamInfo();
   const databaseInfo = getDatabaseInfo();
+  const modelP = getCurrentModel();
 
   const [cpu, gpu, network] = await Promise.all([cpuP, gpuP, netP]);
+
+  let currentModel: string | undefined;
+  try {
+    currentModel = await Promise.race([
+      modelP,
+      new Promise<string | undefined>((resolve) => setTimeout(() => resolve(undefined), 3000)),
+    ]);
+  } catch {
+    // Ignore model fetch errors
+  }
 
   const stats: ServerStats = {
     cpu,
@@ -522,6 +575,7 @@ export async function getServerStats(): Promise<ServerStats> {
     database: databaseInfo,
     network,
     platform: process.platform,
+    currentModel,
     timestamp: new Date().toISOString(),
   };
 

@@ -52,7 +52,11 @@ const SparklineChart: React.FC<SparklineChartProps> = ({
         backgroundColor: "transparent",
       }}
     >
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer
+        width="100%"
+        height="100%"
+        initialDimension={{ width: 200, height: 200 }}
+      >
         <LineChart width="100%" height="100%" data={fullData}>
           <XAxis
             dataKey="index"
