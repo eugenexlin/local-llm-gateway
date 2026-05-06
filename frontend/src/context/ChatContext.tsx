@@ -5,6 +5,7 @@ import {
   useEffect,
   useCallback,
   ReactNode,
+  useRef,
 } from "react";
 import { useAuth } from "./AuthContext";
 import { useAPIKeys } from "./APIKeyContext";
@@ -20,6 +21,11 @@ export interface ChatMessageItem {
   content: string;
   thinking?: string;
   timestamp: number;
+  streamStartMs?: number;
+  promptTokens?: number;
+  promptSeconds?: number;
+  completionTokens?: number;
+  completionSeconds?: number;
 }
 
 export interface Conversation {
@@ -119,6 +125,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   >(null);
   const [error, setError] = useState<string | null>(null);
   const isLoading = streamingConversationId !== null;
+  const streamStartTimeRef = useRef<number>(0);
+  const firstTokenTimeRef = useRef<number>(0);
   const [lastUsage, setLastUsage] = useState<TokenUsage | null>(null);
   const [includeReasoningInContext, setIncludeReasoningInContextState] =
     useState<boolean>(() => {
@@ -396,6 +404,17 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       });
 
       setStreamingConversationId(convId);
+      streamStartTimeRef.current = Date.now();
+      setConversations((prev) => {
+        const conv = prev[convId];
+        if (!conv) return prev;
+        const msgs = [...conv.messages];
+        const lastIdx = msgs.length - 1;
+        if (msgs[lastIdx]?.role === "assistant") {
+          msgs[lastIdx] = { ...msgs[lastIdx], streamStartMs: Date.now() };
+        }
+        return { ...prev, [convId]: { ...conv, messages: msgs } };
+      });
       setError(null);
 
       const conversationHistory = [
@@ -453,6 +472,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         const decoder = new TextDecoder();
         let buffer = "";
         let usageParsed = false;
+        let lastUsageData: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null = null;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -474,10 +494,15 @@ export function ChatProvider({ children }: { children: ReactNode }) {
                 const parsed = JSON.parse(data);
                 const usage = parsed.usage;
                 if (usage) {
+                  lastUsageData = {
+                    prompt_tokens: usage.prompt_tokens || 0,
+                    completion_tokens: usage.completion_tokens || 0,
+                    total_tokens: usage.total_tokens || 0,
+                  };
                   setLastUsage({
-                    promptTokens: usage.prompt_tokens || 0,
-                    completionTokens: usage.completion_tokens || 0,
-                    totalTokens: usage.total_tokens || 0,
+                    promptTokens: lastUsageData.prompt_tokens,
+                    completionTokens: lastUsageData.completion_tokens,
+                    totalTokens: lastUsageData.total_tokens,
                   });
                   usageParsed = true;
                 }
@@ -495,6 +520,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
               const content = delta.content;
 
               if (reasoning || content) {
+                if (firstTokenTimeRef.current === 0) {
+                  firstTokenTimeRef.current = Date.now();
+                }
                 setConversations((prev) => {
                   const conv = prev[convId];
                   if (!conv) return prev;
@@ -539,10 +567,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
                     newThinking = newThinking + reasoning;
                   }
 
+                  const estimatedCompletionTokens = Math.max(
+                    0,
+                    Math.round((newContent.length + (newThinking?.length || 0)) / 4)
+                  );
+
                   updatedMessages[lastIdx] = {
                     ...msg,
                     content: newContent,
                     thinking: newThinking || undefined,
+                    completionTokens: estimatedCompletionTokens,
                   };
                   return {
                     ...prev,
@@ -561,14 +595,27 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         }
 
         // Finalize the message
+        const endTime = Date.now();
+        const promptSeconds = firstTokenTimeRef.current > 0
+          ? Math.round(((firstTokenTimeRef.current - streamStartTimeRef.current) / 1000) * 10) / 10
+          : undefined;
+        const completionSeconds = firstTokenTimeRef.current > 0
+          ? Math.round(((endTime - firstTokenTimeRef.current) / 1000) * 10) / 10
+          : undefined;
+
         setConversations((prev) => {
           const conv = prev[convId];
           if (!conv) return prev;
           const updatedMessages = [...conv.messages];
           const lastIdx = updatedMessages.length - 1;
+          const msg = updatedMessages[lastIdx];
           updatedMessages[lastIdx] = {
-            ...updatedMessages[lastIdx],
-            content: updatedMessages[lastIdx].content,
+            ...msg,
+            content: msg.content,
+            promptTokens: lastUsageData?.prompt_tokens || 0,
+            completionTokens: lastUsageData?.completion_tokens || 0,
+            promptSeconds,
+            completionSeconds,
           };
           return {
             ...prev,
@@ -579,6 +626,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             },
           };
         });
+
+        firstTokenTimeRef.current = 0;
+        streamStartTimeRef.current = 0;
       } catch (e: any) {
         setError(e.message || "Failed to send message");
         setConversations((prev) => {
