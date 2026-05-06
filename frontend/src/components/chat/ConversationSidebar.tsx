@@ -4,7 +4,6 @@ import {
   Typography,
   IconButton,
   ListItemButton,
-  ListItemText,
   Menu,
   MenuItem,
   TextField,
@@ -253,52 +252,45 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                     },
                   }}
                 >
-                  <ListItemText
-                    primary={
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          fontSize: "0.8125rem",
-                          color:
-                            activeConversationId === conv.id
-                              ? "#8b5cf6"
-                              : "#334155",
-                          fontWeight:
-                            activeConversationId === conv.id ? 600 : 400,
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {conv.title}
-                      </Typography>
-                    }
-                    secondary={
-                      <Box
-                        sx={{
-                          display: "flex",
-                          color: "#94a3b8",
-                          height: "16px",
-                        }}
-                      >
-                        {streamingConversationId === conv.id ? (
-                          <ChatDots size="6px" />
-                        ) : (
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              fontSize: "0.6875rem",
-                            }}
-                          >
-                            {formatTimeAgo(conv.updatedAt)}
-                          </Typography>
-                        )}
-                      </Box>
-                    }
-                    primaryTypographyProps={{
-                      noWrap: true,
-                    }}
-                  />
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontSize: "0.8125rem",
+                        color:
+                          activeConversationId === conv.id
+                            ? "#8b5cf6"
+                            : "#334155",
+                        fontWeight:
+                          activeConversationId === conv.id ? 600 : 400,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {conv.title}
+                    </Typography>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        color: "#94a3b8",
+                        height: "16px",
+                      }}
+                    >
+                      {streamingConversationId === conv.id ? (
+                        <ChatDots size="6px" />
+                      ) : (
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            fontSize: "0.6875rem",
+                          }}
+                        >
+                          {formatTimeAgo(conv.updatedAt)}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
                   <IconButton
                     size="small"
                     onClick={(e) => {

@@ -37,7 +37,7 @@ const ChatSettingsModal: React.FC<ChatSettingsModalProps> = ({
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
       <DialogTitle>Chat Settings</DialogTitle>
-      <DialogContent dividers sx={{ minWidth: 320 }}>
+      <DialogContent dividers sx={{ minWidth: 300 }}>
         <Box sx={{ mb: 3 }}>
           <FormControlLabel
             control={
@@ -97,7 +97,7 @@ const ChatSettingsModal: React.FC<ChatSettingsModalProps> = ({
           </Typography>
         </Box>
       </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
+      <DialogActions sx={{ px: 2, pb: 2 }}>
         <Button onClick={handleClose} variant="outlined">
           Done
         </Button>

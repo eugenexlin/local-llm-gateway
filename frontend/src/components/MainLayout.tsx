@@ -103,14 +103,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   );
 
   const handleChatOpen = () => {
-    navigate(location.pathname, { state: {...location.state, chatOpen: true }, replace: true });
+    navigate(location.pathname, { state: {...location.state, chatOpen: true }, replace: false });
   };
   const handleChatClose = () => {
     if (window.history.state && window.history.state.idx > 0) {
       navigate(-1);
     } else {
       // If no history exists, go to a logical parent or home page
-      navigate(".", { state: {...location.state,  chatOpen: false }, replace: true });
+      navigate(location.pathname, { state: {...location.state,  chatOpen: false }, replace: true });
     }
   };
 

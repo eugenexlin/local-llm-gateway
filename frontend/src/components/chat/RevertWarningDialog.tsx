@@ -24,13 +24,13 @@ const RevertWarningDialog: React.FC<RevertWarningDialogProps> = ({
 }) => {
   const { revertToMessage, setInputContent } = useChat();
 
-  const handleReplaceAndRevert = () => {
-    setInputContent(messageContent);
+  const handleRevert = () => {
     revertToMessage(messageIndex);
     onClose();
   };
 
-  const handleRevertOnly = () => {
+  const handleRevertAndEdit = () => {
+    setInputContent(messageContent);
     revertToMessage(messageIndex);
     onClose();
   };
@@ -39,19 +39,22 @@ const RevertWarningDialog: React.FC<RevertWarningDialogProps> = ({
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle sx={{ fontWeight: 600 }}>Revert Conversation?</DialogTitle>
       <DialogContent>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          This will remove all messages after the selected message.
+        </Typography>
         <Typography variant="body2" color="text.secondary">
-          The chat box already contains text. How would you like to proceed?
+          Your current input will be preserved.
         </Typography>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose} color="inherit">
           Cancel
         </Button>
-        <Button onClick={handleRevertOnly} color="primary">
-          Revert Only
+        <Button onClick={handleRevert} color="primary" variant="outlined">
+          Revert
         </Button>
-        <Button onClick={handleReplaceAndRevert} color="primary" variant="contained">
-          Replace & Revert
+        <Button onClick={handleRevertAndEdit} color="primary" variant="contained">
+          Revert &amp; Edit
         </Button>
       </DialogActions>
     </Dialog>

@@ -29,7 +29,6 @@ import {
 import { metricLabels } from "../utils/metricsLabels";
 import { getAllGranularityOptions } from "../utils/granularityDisplay";
 import type {
-  GranularitySeconds,
   MetricType,
   ProgressiveDataPoint,
   BarGrouping,
@@ -48,7 +47,9 @@ function getUserLabel(
   userId: string,
   _userOptions: { id: string; name?: string; email?: string }[],
 ): string {
-  const user = _userOptions.find((u: { id: string; name?: string; email?: string }) => u.id === userId);
+  const user = _userOptions.find(
+    (u: { id: string; name?: string; email?: string }) => u.id === userId,
+  );
   return user?.name || user?.email || userId.substring(0, 8);
 }
 
@@ -89,7 +90,7 @@ function transformUserGraphData(
 interface ProgressiveGraphProps {
   data: ProgressiveDataPoint[];
   granularity: string; // Display value (e.g., "1h")
-  granularitySeconds: GranularitySeconds;
+  granularitySeconds: number;
   metric: MetricType;
   loading: boolean;
   loadingProgress: number;
@@ -123,48 +124,6 @@ function calculateTickSpacing(
   }
   return divide / 2;
 }
-
-interface CustomGridProps {
-  tickSpacing: number;
-  dataLength: number;
-}
-
-const CustomVerticalGrid: React.FC<CustomGridProps> = ({
-  tickSpacing: _tickSpacing,
-  dataLength,
-}) => {
-  if (dataLength <= 1) return null;
-
-  const gridLines: React.CSSProperties[] = [];
-
-  for (let i = 0; i < dataLength; i++) {
-    const percentage = (i / (dataLength - 1)) * 100;
-    gridLines.push({
-      left: `${percentage}%`,
-      position: "absolute" as const,
-      width: "1px",
-      height: "100%",
-      background: "rgba(0, 0, 0, 0.1)",
-    });
-  }
-
-  return (
-    <div
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        pointerEvents: "none",
-      }}
-    >
-      {gridLines.map((style, index) => (
-        <div key={index} style={style} />
-      ))}
-    </div>
-  );
-};
 
 const formatXAxisTimestamp = (
   timestamp: string,
@@ -338,7 +297,11 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
               />
             </Box>
           )}
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer
+            width="100%"
+            height="100%"
+            initialDimension={{ width: 400, height: 300 }}
+          >
             {isRateMetric(metric) ? (
               <LineChart data={displayData}>
                 {hasMultipleUsers && (
@@ -388,9 +351,10 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                           (k) => k !== "timestamp",
                         );
                         const userId = key ? key.replace("__user_", "") : key;
-                        const label = hasMultipleUsers && userId
-                          ? getUserLabel(userId, userOptions)
-                          : metricLabels[metric];
+                        const label =
+                          hasMultipleUsers && userId
+                            ? getUserLabel(userId, userOptions)
+                            : metricLabels[metric];
                         return {
                           label,
                           value:
@@ -400,12 +364,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                         };
                       });
 
-                      return (
-                        <ChartTooltip
-                          timestamp={timestamp}
-                          rows={rows}
-                        />
-                      );
+                      return <ChartTooltip timestamp={timestamp} rows={rows} />;
                     }
                     return null;
                   }}
@@ -452,107 +411,95 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                 )}
               </LineChart>
             ) : (
-              <Box sx={{ position: "relative", width: "100%", height: "100%" }}>
-                <CustomVerticalGrid
-                  tickSpacing={calculateTickSpacing(displayLength)}
-                  dataLength={displayLength}
-                />
-                <BarChart data={displayData} barGap={0} barCategoryGap={'10%'}>
-                  {hasMultipleUsers && (
-                    <Legend
-                      formatter={(
-                        value: string,
-                        entry: { color?: string; payload?: { label?: string } },
-                      ) => {
-                        const label = entry.payload?.label || value;
-                        return (
-                          <span style={{ color: entry.color || "#000" }}>
-                            {label}
-                          </span>
-                        );
-                      }}
-                    />
-                  )}
-                  <XAxis
-                    dataKey="timestamp"
-                    tick={{ fontSize: 12 }}
-                    niceTicks="auto"
-                    interval={dataPointsPerTick}
-tickFormatter={(value, _index) =>
-                      formatXAxisTimestamp(value, totalSecondsPerTick)
-                    }
-                    domain={[
-                      displayLength > 0 ? displayData[0].timestamp : "auto",
-                      displayLength > 0
-                        ? displayData[displayLength - 1].timestamp
-                        : "auto",
-                    ]}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 12 }}
-                    tickFormatter={(value) => formatValue(value)}
-                  />
-                  <Tooltip
-                    isAnimationActive={false}
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        const entry = payload[0];
-                        const timestamp = entry.payload?.timestamp;
-
-                        const rows = payload.map((p) => {
-                          const key = Object.keys(entry.payload || {}).find(
-                            (k) => k !== "timestamp",
-                          );
-                          const userId = key ? key.replace("__user_", "") : key;
-                          const label = hasMultipleUsers && userId
-                            ? getUserLabel(userId, userOptions)
-                            : metricLabels[metric];
-                          return {
-                            label,
-                            value:
-                              typeof p.value === "number"
-                                ? Math.round(p.value).toLocaleString()
-                                : "N/A",
-                          };
-                        });
-
-                        return (
-                          <ChartTooltip
-                            timestamp={timestamp}
-                            rows={rows}
-                          />
-                        );
-                      }
-                      return null;
+              <BarChart data={displayData} barGap={0} barCategoryGap={"10%"}>
+                {hasMultipleUsers && (
+                  <Legend
+                    formatter={(
+                      value: string,
+                      entry: { color?: string; payload?: { label?: string } },
+                    ) => {
+                      const label = entry.payload?.label || value;
+                      return (
+                        <span style={{ color: entry.color || "#000" }}>
+                          {label}
+                        </span>
+                      );
                     }}
                   />
-                  {hasMultipleUsers ? (
-                    userKeys.map((userKey, index) => {
-                      const userId = userKey.replace("__user_", "");
-                      const color = getUserColor(userId, index);
-                      const label = getUserLabel(userId, userOptions);
-                      return (
-                        <Bar
-                          key={userKey}
-                          dataKey={userKey}
-                          fill={color}
-                          isAnimationActive={false}
-                          name={label}
-                          stackId={
-                            barGrouping === "stacked" ? "user" : undefined
-                          }
-                        />
-                      );
-                    })
-                  ) : (
-                    <Bar
-                      dataKey="value"
-                      fill="#1976d2"
-                      isAnimationActive={false}
-                    />
-                  )}
-                </BarChart>
-              </Box>
+                )}
+                <XAxis
+                  dataKey="timestamp"
+                  tick={{ fontSize: 12 }}
+                  niceTicks="auto"
+                  interval={dataPointsPerTick}
+                  tickFormatter={(value, _index) =>
+                    formatXAxisTimestamp(value, totalSecondsPerTick)
+                  }
+                  domain={[
+                    displayLength > 0 ? displayData[0].timestamp : "auto",
+                    displayLength > 0
+                      ? displayData[displayLength - 1].timestamp
+                      : "auto",
+                  ]}
+                />
+                <YAxis
+                  tick={{ fontSize: 12 }}
+                  tickFormatter={(value) => formatValue(value)}
+                />
+                <Tooltip
+                  isAnimationActive={false}
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const entry = payload[0];
+                      const timestamp = entry.payload?.timestamp;
+
+                      const rows = payload.map((p) => {
+                        const key = Object.keys(entry.payload || {}).find(
+                          (k) => k !== "timestamp",
+                        );
+                        const userId = key ? key.replace("__user_", "") : key;
+                        const label =
+                          hasMultipleUsers && userId
+                            ? getUserLabel(userId, userOptions)
+                            : metricLabels[metric];
+                        return {
+                          label,
+                          value:
+                            typeof p.value === "number"
+                              ? Math.round(p.value).toLocaleString()
+                              : "N/A",
+                        };
+                      });
+
+                      return <ChartTooltip timestamp={timestamp} rows={rows} />;
+                    }
+                    return null;
+                  }}
+                />
+                {hasMultipleUsers ? (
+                  userKeys.map((userKey, index) => {
+                    const userId = userKey.replace("__user_", "");
+                    const color = getUserColor(userId, index);
+                    const label = getUserLabel(userId, userOptions);
+                    return (
+                      <Bar
+                        key={userKey}
+                        dataKey={userKey}
+                        fill={color}
+                        isAnimationActive={false}
+                        name={label}
+                        stackId={barGrouping === "stacked" ? "user" : undefined}
+                      />
+                    );
+                  })
+                ) : (
+                  <Bar
+                    dataKey="value"
+                    fill="#1976d2"
+                    isAnimationActive={false}
+                  />
+                )}
+              </BarChart>
             )}
           </ResponsiveContainer>
         </Box>

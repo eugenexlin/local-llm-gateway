@@ -43,7 +43,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
   const isStreamingResponse = !isUser && isStreaming;
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const thinkingRef = useRef<HTMLDivElement>(null);
-  const { inputContent, revertToMessage, chatSettings } = useChat();
+  const { chatSettings } = useChat();
 
   const [showActions, setShowActions] = useState(false);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
@@ -70,11 +70,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
 
   const handleRevertClick = () => {
     handleCloseMenu();
-    if (inputContent.trim()) {
-      setShowRevertDialog(true);
-    } else {
-      revertToMessage(index);
-    }
+    setShowRevertDialog(true);
   };
 
   const handleRevertDialogClose = () => {
@@ -225,8 +221,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
           <Box
             sx={{
               mb: 1,
-              borderRadius: "16px",
+              minWidth: "240px",
+              borderRadius: "8px",
               bgcolor: "#f5f3ff",
+              overflow: "hidden",
               border: "2px solid #8b5cf6",
             }}
           >
@@ -268,7 +266,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                 ref={thinkingRef}
                 sx={{
                   p: 1.5,
-                  borderRadius: "0 0 16px 16px",
                   bgcolor: "#ede9fe",
                   fontSize: "0.8125rem",
                   color: "#3b0764",

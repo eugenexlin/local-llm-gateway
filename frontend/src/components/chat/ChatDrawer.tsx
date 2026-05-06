@@ -24,14 +24,14 @@ const ChatDrawer: React.FC<ChatDrawerProps> = ({ open, onClose }) => {
 
 
   const handleSidebarOpen = () => {
-    navigate(".", { state: {...location.state,  mobileSidebarOpen: true }, replace: false });
+    navigate(location.pathname, { state: {...location.state,  mobileSidebarOpen: true }, replace: false });
   };
   const handleSidebarClose = () => {
     if (window.history.state && window.history.state.idx > 0) {
       navigate(-1);
     } else {
       // If no history exists, go to a logical parent or home page
-      navigate(".", { state: {...location.state,  mobileSidebarOpen: false }, replace: true });
+      navigate(location.pathname, { state: {...location.state,  mobileSidebarOpen: false }, replace: true });
     }
   };
 

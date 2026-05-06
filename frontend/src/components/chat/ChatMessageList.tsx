@@ -22,13 +22,47 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({ onMobileClose }) => {
   const isAtBottomRef = useRef(true);
   const prevMessagesLengthRef = useRef(0);
 
+  const targetMessageIndex = useRef<number>(-1);
+
+  // keep track of last programatic scroll position and move again if it didnt change.
+  const lastScrollTopPosition = useRef<number>(-1);
+
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
     const threshold = 80;
     isAtBottomRef.current =
       el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
-  }, []);
+    // because we want to target the element in the middle of screen calculate it
+
+    const children = Array.from(el.children) as HTMLElement[];
+    const userMessageIndices = messages
+      .map((msg, idx) => (msg.role === "user" ? idx : -1))
+      .filter((idx) => idx !== -1);
+    if (userMessageIndices.length === 0) return;
+
+    let closestIndex = -1;
+    let minDistance = Infinity;
+    const containerTop = el.getBoundingClientRect().top;
+    const targetOffset = el.clientHeight / 2;
+    for (let i = 0; i < userMessageIndices.length; i++) {
+      const msgIdx = userMessageIndices[i];
+      const child = children.find(
+        (c) => c.getAttribute("data-index") === msgIdx.toString(),
+      );
+      if (child) {
+        const rect = child.getBoundingClientRect();
+        const distance = Math.abs(rect.top + targetOffset - containerTop);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestIndex = msgIdx;
+        }
+      }
+    }
+    if (closestIndex !== -1) {
+      targetMessageIndex.current = closestIndex;
+    }
+  }, [messages]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -70,6 +104,7 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({ onMobileClose }) => {
     if (!scrollRef.current) return;
 
     const el = scrollRef.current;
+    const currentTop = el.scrollTop;
     const children = Array.from(el.children) as HTMLElement[];
 
     const userMessageIndices = messages
@@ -78,44 +113,42 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({ onMobileClose }) => {
 
     if (userMessageIndices.length === 0) return;
 
-    let currentIndexInUserMessages = -1;
-    let minDistance = Infinity;
+    let targetIndexInArray = -1;
+    const currentIndexInArray = userMessageIndices.indexOf(
+      targetMessageIndex.current,
+    );
 
-    for (let i = 0; i < userMessageIndices.length; i++) {
-      const msgIdx = userMessageIndices[i];
-      const child = children.find(
-        (c) => c.getAttribute("data-index") === msgIdx.toString(),
-      );
-      if (child) {
-        const rect = child.getBoundingClientRect();
-        const distance = Math.abs(rect.top - el.getBoundingClientRect().top);
-        if (distance < minDistance) {
-          minDistance = distance;
-          currentIndexInUserMessages = i;
-        }
+    if (direction === "next") {
+      targetIndexInArray = currentIndexInArray + 1;
+    } else {
+      if (currentTop != lastScrollTopPosition.current) {
+        // focus the current target
+        targetIndexInArray = currentIndexInArray;
+      } else {
+        targetIndexInArray = currentIndexInArray - 1;
       }
     }
-
-    let targetIndexInUserMessages = -1;
-    if (direction === "next") {
-      targetIndexInUserMessages = currentIndexInUserMessages + 1;
-    } else {
-      targetIndexInUserMessages = currentIndexInUserMessages - 1;
+    if (targetIndexInArray < 0) {
+      targetIndexInArray = 0;
     }
 
-    if (
-      targetIndexInUserMessages >= 0 &&
-      targetIndexInUserMessages < userMessageIndices.length
-    ) {
-      const targetMsgIdx = userMessageIndices[targetIndexInUserMessages];
+    if (targetIndexInArray >= userMessageIndices.length) {
+      // scroll to end
+      el.scrollTo(0, el.scrollHeight);
+    } else {
+      targetMessageIndex.current = userMessageIndices[targetIndexInArray];
       const targetChild = children.find(
-        (c) => c.getAttribute("data-index") === targetMsgIdx.toString(),
+        (c) =>
+          c.getAttribute("data-index") ===
+          targetMessageIndex.current.toString(),
       );
       if (targetChild) {
-        targetChild.scrollIntoView({ behavior: "smooth", block: "center" });
+        // WARNING you must not use animation, or you have to update the timeout.
+        targetChild.scrollIntoView({ behavior: "instant", block: "center" });
+        setTimeout(() => {
+          lastScrollTopPosition.current = el.scrollTop;
+        }, 50);
       }
-    } else if (direction === "next" && targetIndexInUserMessages >= userMessageIndices.length) {
-      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
     }
   };
 
@@ -234,7 +267,7 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({ onMobileClose }) => {
                 sx={{
                   px: { xs: 1, sm: 2 },
                   display: "flex",
-                   justifyContent: "flex-start",
+                  justifyContent: "flex-start",
 
                   mb: 1.5,
                 }}

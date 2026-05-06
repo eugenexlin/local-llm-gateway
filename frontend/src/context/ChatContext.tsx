@@ -158,7 +158,22 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setConversations((prev) => {
         const conv = prev[activeConversationId];
         if (!conv) return prev;
-        const updatedMessages = conv.messages.slice(0, index + 1);
+
+        // Find the last user message at or before the target index
+        let endIndex = -1;
+        for (let i = index; i >= 0; i--) {
+          if (conv.messages[i]?.role === "user") {
+            endIndex = i;
+            break;
+          }
+        }
+
+        // If no user message found, just keep up to the target index
+        if (endIndex === -1) {
+          endIndex = index;
+        }
+
+        const updatedMessages = conv.messages.slice(0, endIndex + 1);
         return {
           ...prev,
           [activeConversationId]: {

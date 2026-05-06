@@ -16,12 +16,15 @@ const ChatDots: React.FC<ChatDotsProps> = ({
 }) => {
   return (
     <Box className={styles.dotsContainer} sx={{ ...sx }}>
-      {[1, 2, 3].map((x) => {
-        return <Box
-          className={styles.dot}
-          mr={gap}
-          sx={{ "--size": `${size}`, "--mt": mt ?? 0 }}
-        />;
+      {[1, 2, 3].map((x, i) => {
+        return (
+          <Box
+            key={i}
+            className={styles.dot}
+            mr={gap}
+            sx={{ "--size": `${size}`, "--mt": mt ?? 0 }}
+          />
+        );
       })}
     </Box>
   );

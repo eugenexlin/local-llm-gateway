@@ -42,7 +42,7 @@ const SparklineChart: React.FC<SparklineChartProps> = ({
       });
     }
   }
-  const color = USER_COLORS[0]
+  const color = USER_COLORS[0];
 
   return (
     <div
@@ -53,7 +53,7 @@ const SparklineChart: React.FC<SparklineChartProps> = ({
       }}
     >
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={fullData}>
+        <LineChart width="100%" height="100%" data={fullData}>
           <XAxis
             dataKey="index"
             type="number"
@@ -69,7 +69,9 @@ const SparklineChart: React.FC<SparklineChartProps> = ({
             tickLine={{ stroke: `${color}66` }}
             tick={{ fontSize: 9, fill: `${color}88` }}
             interval={0}
-            tickFormatter={(v: number) => yDomain ? Math.round(v).toString() : `${v}%`}
+            tickFormatter={(v: number) =>
+              yDomain ? Math.round(v).toString() : `${v}%`
+            }
           />
           <CartesianGrid
             strokeDasharray="3 3"
