@@ -10,6 +10,7 @@ import {
 } from "@mui/material";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import StarIcon from "@mui/icons-material/Star";
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import { ChatMessageItem, useChat } from "../../context/ChatContext";
 import ChatDots from "./ChatDots";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
@@ -37,7 +38,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
 
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [showRevertDialog, setShowRevertDialog] = useState(false);
-  const [showTokenView, setShowTokenView] = useState<"prompt" | "completion">("completion");
+  const [showTokenView, setShowTokenView] = useState<"prompt" | "completion">(
+    "completion",
+  );
   const [liveElapsed, setLiveElapsed] = useState(0);
   const theme = useTheme();
 
@@ -82,14 +85,20 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
     setShowRevertDialog(false);
   };
 
-  const formatTokenStat = (tokens: number, seconds: number | undefined, isLive = false) => {
+  const formatTokenStat = (
+    tokens: number,
+    seconds: number | undefined,
+    isLive = false,
+  ) => {
     const elapsed = isLive && liveElapsed > 0 ? liveElapsed : seconds;
     const tps = elapsed && elapsed > 0 ? (tokens / elapsed).toFixed(1) : "—";
     const sec = elapsed !== undefined ? `${elapsed.toFixed(1)}` : "—";
     return `${tokens} tokens · ${sec}s · ${tps} t/s`;
   };
 
-  const isMobile = theme.breakpoints.values.sm > 0 && window.innerWidth < theme.breakpoints.values.sm;
+  const isMobile =
+    theme.breakpoints.values.sm > 0 &&
+    window.innerWidth < theme.breakpoints.values.sm;
 
   const renderContent = (content: string) => {
     const parts = content.split(/(```[\s\S]*?```)/g);
@@ -394,53 +403,127 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                 message.completionTokens > 0 && (
                   <>
                     {isMobile ? (
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                        <Box sx={{
-                          display: "inline-flex",
-                          bgcolor: "rgba(255,255,255,0.08)",
-                          borderRadius: 2,
-                          p: 0.2,
-                          gap: 0.15,
-                        }}>
-                          <IconButton size="small" onClick={() => setShowTokenView("prompt")} sx={{
-                            bgcolor: showTokenView === "prompt" ? "white" : "transparent",
-                            color: showTokenView === "prompt" ? "#1e293b" : "#64748b",
-                            borderRadius: "50%",
-                            p: 0.35,
-                            minWidth: 22,
-                            "&:hover": { bgcolor: showTokenView === "prompt" ? "#f1f5f9" : "rgba(255,255,255,0.04)" },
-                          }}>
-                            <MenuBookIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton size="small" onClick={() => setShowTokenView("completion")} sx={{
-                            bgcolor: showTokenView === "completion" ? "white" : "transparent",
-                            color: showTokenView === "completion" ? "#1e293b" : "#64748b",
-                            borderRadius: "50%",
-                            p: 0.35,
-                            minWidth: 22,
-                            "&:hover": { bgcolor: showTokenView === "completion" ? "#f1f5f9" : "rgba(255,255,255,0.04)" },
-                          }}>
-                            <StarIcon fontSize="small" />
-                          </IconButton>
+                      <Box
+                        sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+                      >
+                        <Box
+                          sx={{
+                            display: "inline-flex",
+                            bgcolor: "rgba(0,0,0,0.2)",
+                            borderRadius: "8px",
+                            boxShadow: "inset 1px 1px 2px rgba(0,0,0,0.2)",
+                            p: "2px",
+                          }}
+                        >
+                          <Tooltip title="Prompt Tokens">
+                            <IconButton
+                              size="small"
+                              onClick={() => setShowTokenView("prompt")}
+                              sx={{
+                                bgcolor:
+                                  showTokenView === "prompt"
+                                    ? "white"
+                                    : "transparent",
+                                color:
+                                  showTokenView === "prompt"
+                                    ? "#8b5cf6"
+                                    : "rgba(127,127,127,0.8)",
+                                boxShadow:
+                                  showTokenView === "prompt"
+                                    ? "1px 1px 2px rgba(0,0,0,0.2)"
+                                    : "#64748b",
+                                borderRadius: "6px",
+                                p: 0.35,
+                                minWidth: 22,
+                                "&:hover": {
+                                  bgcolor:
+                                    showTokenView === "prompt"
+                                      ? "#f1f5f9"
+                                      : "rgba(255,255,255,0.04)",
+                                },
+                              }}
+                            >
+                              <MenuBookIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Completion Tokens">
+                            <IconButton
+                              size="small"
+                              onClick={() => setShowTokenView("completion")}
+                              sx={{
+                                bgcolor:
+                                  showTokenView === "completion"
+                                    ? "white"
+                                    : "transparent",
+                                color:
+                                  showTokenView === "completion"
+                                    ? "#8b5cf6"
+                                    : "rgba(127,127,127,0.8)",
+                                boxShadow:
+                                  showTokenView === "completion"
+                                    ? "1px 1px 2px rgba(0,0,0,0.2)"
+                                    : "#64748b",
+                                borderRadius: "6px",
+                                p: 0.35,
+                                minWidth: 22,
+                                "&:hover": {
+                                  bgcolor:
+                                    showTokenView === "completion"
+                                      ? "#f1f5f9"
+                                      : "rgba(255,255,255,0.04)",
+                                },
+                              }}
+                            >
+                              <AutoAwesomeIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
                         </Box>
                         <Typography variant="caption" sx={{ color: "#94a3b8" }}>
                           {showTokenView === "prompt"
-                            ? formatTokenStat(message.promptTokens ?? 0, message.promptSeconds)
-                            : formatTokenStat(message.completionTokens ?? 0, message.completionSeconds, isStreaming)
-                          }
+                            ? formatTokenStat(
+                                message.promptTokens ?? 0,
+                                message.promptSeconds,
+                              )
+                            : formatTokenStat(
+                                message.completionTokens ?? 0,
+                                message.completionSeconds,
+                                isStreaming,
+                              )}
                         </Typography>
                       </Box>
                     ) : (
-                      <Typography variant="caption" sx={{ color: "#94a3b8" }}>
-                        <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.4 }}>
-                          <MenuBookIcon fontSize="small" sx={{ color: "#94a3b8" }} />
-                          {formatTokenStat(message.promptTokens ?? 0, message.promptSeconds)}
-                        </Box>
-                        {"  "}
-                        <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.4 }}>
-                          <StarIcon fontSize="small" sx={{ color: "#94a3b8" }} />
-                          {formatTokenStat(message.completionTokens ?? 0, message.completionSeconds, isStreaming)}
-                        </Box>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: "#94a3b8",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          marginLeft: "8px",
+                        }}
+                      >
+                        <Tooltip title="Prompt Tokens">
+                          <MenuBookIcon
+                            fontSize="small"
+                            sx={{ color: "#94a3b8" }}
+                          />
+                        </Tooltip>
+
+                        {formatTokenStat(
+                          message.promptTokens ?? 0,
+                          message.promptSeconds,
+                        )}
+                        <Tooltip title="Completion Tokens">
+                          <AutoAwesomeIcon
+                            fontSize="small"
+                            sx={{ color: "#94a3b8" }}
+                          />
+                        </Tooltip>
+                        {formatTokenStat(
+                          message.completionTokens ?? 0,
+                          message.completionSeconds,
+                          isStreaming,
+                        )}
                       </Typography>
                     )}
                   </>
