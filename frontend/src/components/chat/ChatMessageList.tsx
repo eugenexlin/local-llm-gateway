@@ -10,6 +10,14 @@ interface ChatMessageListProps {
   onMobileClose?: () => void;
 }
 
+// distance from which we will base the direction we go relative to the previous set scroll position
+// this is to not deal with the dumb crud of exact matching calculation
+// for example you get set to some location
+// then you scroll down like 50 units,
+// and then you click previous on the arrow keys, you should go back to original
+// or you click next, and the you should go to next
+const DISTANCE_FOR_PROXIMITY_LOGIC = 10;
+
 const ChatMessageList: React.FC<ChatMessageListProps> = ({ onMobileClose }) => {
   const {
     messages,
@@ -25,16 +33,16 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({ onMobileClose }) => {
   const targetMessageIndex = useRef<number>(-1);
 
   // keep track of last programatic scroll position and move again if it didnt change.
-  const lastScrollTopPosition = useRef<number>(-1);
+  const previousScrollTop = useRef<number>(-1);
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const threshold = 80;
+    const threshold = 30;
     isAtBottomRef.current =
       el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
-    // because we want to target the element in the middle of screen calculate it
 
+    // because we want to target the element in the middle of screen calculate it
     const children = Array.from(el.children) as HTMLElement[];
     const userMessageIndices = messages
       .map((msg, idx) => (msg.role === "user" ? idx : -1))
@@ -43,17 +51,20 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({ onMobileClose }) => {
 
     let closestIndex = -1;
     let minDistance = Infinity;
-    const containerTop = el.getBoundingClientRect().top;
-    const targetOffset = el.clientHeight / 2;
+    const elRect = el.getBoundingClientRect();
+
+    const parentTop = elRect.top / 2; // this is basically the height of the top bar to be subtracted
+    const targetOffset = el.clientHeight / 2 + 3; // plus few pixel to tie break so that seeking to the next number surely 
     for (let i = 0; i < userMessageIndices.length; i++) {
       const msgIdx = userMessageIndices[i];
       const child = children.find(
         (c) => c.getAttribute("data-index") === msgIdx.toString(),
       );
       if (child) {
-        const rect = child.getBoundingClientRect();
-        const distance = Math.abs(rect.top + targetOffset - containerTop);
-        if (distance < minDistance) {
+        const childRect = child.getBoundingClientRect();
+        const distance =
+          targetOffset - (childRect.top - parentTop);
+        if (distance >= 0 && distance < minDistance) {
           minDistance = distance;
           closestIndex = msgIdx;
         }
@@ -118,10 +129,18 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({ onMobileClose }) => {
       targetMessageIndex.current,
     );
 
+    // try proximity
+    if (
+      Math.abs(currentTop - previousScrollTop.current) <
+      DISTANCE_FOR_PROXIMITY_LOGIC
+    ) {
+      // ok it turns out the math might be perfect and work fine for now.
+    }
+
     if (direction === "next") {
       targetIndexInArray = currentIndexInArray + 1;
     } else {
-      if (currentTop != lastScrollTopPosition.current) {
+      if (currentTop != previousScrollTop.current) {
         // focus the current target
         targetIndexInArray = currentIndexInArray;
       } else {
@@ -146,7 +165,7 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({ onMobileClose }) => {
         // WARNING you must not use animation, or you have to update the timeout.
         targetChild.scrollIntoView({ behavior: "instant", block: "center" });
         setTimeout(() => {
-          lastScrollTopPosition.current = el.scrollTop;
+          previousScrollTop.current = el.scrollTop;
         }, 50);
       }
     }

@@ -173,7 +173,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           endIndex = index;
         }
 
-        const updatedMessages = conv.messages.slice(0, endIndex + 1);
+        const updatedMessages = conv.messages.slice(0, endIndex);
         return {
           ...prev,
           [activeConversationId]: {
