@@ -7,6 +7,8 @@ import {
   FormControl,
   InputLabel,
   Select,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import { DATE_PRESETS } from "../utils/dateUtils";
 
@@ -27,6 +29,8 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
   onPresetChange,
   presetIndex: externalPresetIndex,
 }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [startDateStr, setStartDateStr] = React.useState("");
   const [startTimeStr, setStartTimeStr] = React.useState("00:00");
   const [endDateStr, setEndDateStr] = React.useState("");
@@ -93,84 +97,149 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
   };
 
   return (
-    <Paper sx={{ p: 2, mb: 2 }}>
-      <Box
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: isMobile ? "column" : "row",
+        gap: 2,
+        flexWrap: isMobile ? "nowrap" : "wrap",
+        alignItems: "flex-end",
+      }}
+    >
+      <FormControl
         sx={{
-          display: "flex",
-          gap: 2,
-          flexWrap: "wrap",
-          alignItems: "flex-end",
+          minWidth: 200,
+          width: isMobile ? "100%" : "auto",
         }}
       >
-        <FormControl sx={{ minWidth: 200 }}>
-          <InputLabel>Preset Range</InputLabel>
-          <Select
-            value={activePresetIndex}
-            label="Preset Range"
-            onChange={(e) => {
-              onPresetChange(e.target.value as number);
-            }}
-          >
-            {DATE_PRESETS.map((preset, index) => (
-              <MenuItem key={index} value={index}>
-                {preset.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <InputLabel>Preset Range</InputLabel>
+        <Select
+          value={activePresetIndex}
+          label="Preset Range"
+          onChange={(e) => {
+            onPresetChange(e.target.value as number);
+          }}
+        >
+          {DATE_PRESETS.map((preset, index) => (
+            <MenuItem key={index} value={index}>
+              {preset.label}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
 
-        <TextField
-          label="From"
-          type="date"
-          value={startDateStr}
-          onChange={(e) => {
-            setStartDateStr(e.target.value);
-            setActivePresetIndex(DATE_PRESETS.length - 1);
-          }}
-          onBlur={() => handleDateSubmit("start")}
-          InputLabelProps={{ shrink: true }}
-          sx={{ minWidth: 180 }}
-        />
-        <TextField
-          label="Time"
-          type="time"
-          value={startTimeStr}
-          onChange={(e) => {
-            setStartTimeStr(e.target.value);
-            setActivePresetIndex(DATE_PRESETS.length - 1);
-          }}
-          onBlur={() => handleDateSubmit("start")}
-          InputLabelProps={{ shrink: true }}
-          sx={{ width: 160 }}
-          inputProps={{ step: 60 }}
-        />
-        <TextField
-          label="To"
-          type="date"
-          value={endDateStr}
-          onChange={(e) => {
-            setEndDateStr(e.target.value);
-            setActivePresetIndex(DATE_PRESETS.length - 1);
-          }}
-          onBlur={() => handleDateSubmit("end")}
-          InputLabelProps={{ shrink: true }}
-          sx={{ minWidth: 180 }}
-        />
-        <TextField
-          label="Time"
-          type="time"
-          value={endTimeStr}
-          onChange={(e) => {
-            setEndTimeStr(e.target.value);
-            setActivePresetIndex(DATE_PRESETS.length - 1);
-          }}
-          onBlur={() => handleDateSubmit("end")}
-          InputLabelProps={{ shrink: true }}
-          sx={{ width: 160 }}
-          inputProps={{ step: 60 }}
-        />
-      </Box>
-    </Paper>
+      {isMobile ? (
+        <>
+          <Box sx={{ display: "flex", gap: 1, width: "100%" }}>
+            <TextField
+              label="From"
+              type="date"
+              value={startDateStr}
+              onChange={(e) => {
+                setStartDateStr(e.target.value);
+                setActivePresetIndex(DATE_PRESETS.length - 1);
+              }}
+              onBlur={() => handleDateSubmit("start")}
+              InputLabelProps={{ shrink: true }}
+              sx={{ flex: 1 }}
+            />
+            <TextField
+              label="Time"
+              type="time"
+              value={startTimeStr}
+              onChange={(e) => {
+                setStartTimeStr(e.target.value);
+                setActivePresetIndex(DATE_PRESETS.length - 1);
+              }}
+              onBlur={() => handleDateSubmit("start")}
+              InputLabelProps={{ shrink: true }}
+              sx={{ flex: 1 }}
+              inputProps={{ step: 60 }}
+            />
+          </Box>
+          <Box sx={{ display: "flex", gap: 1, width: "100%" }}>
+            <TextField
+              label="To"
+              type="date"
+              value={endDateStr}
+              onChange={(e) => {
+                setEndDateStr(e.target.value);
+                setActivePresetIndex(DATE_PRESETS.length - 1);
+              }}
+              onBlur={() => handleDateSubmit("end")}
+              InputLabelProps={{ shrink: true }}
+              sx={{ flex: 1 }}
+            />
+            <TextField
+              label="Time"
+              type="time"
+              value={endTimeStr}
+              onChange={(e) => {
+                setEndTimeStr(e.target.value);
+                setActivePresetIndex(DATE_PRESETS.length - 1);
+              }}
+              onBlur={() => handleDateSubmit("end")}
+              InputLabelProps={{ shrink: true }}
+              sx={{ flex: 1 }}
+              inputProps={{ step: 60 }}
+            />
+          </Box>
+        </>
+      ) : (
+        <>
+          <TextField
+            label="From"
+            type="date"
+            value={startDateStr}
+            onChange={(e) => {
+              setStartDateStr(e.target.value);
+              setActivePresetIndex(DATE_PRESETS.length - 1);
+            }}
+            onBlur={() => handleDateSubmit("start")}
+            InputLabelProps={{ shrink: true }}
+            sx={{ minWidth: 180 }}
+          />
+          <TextField
+            label="Time"
+            type="time"
+            value={startTimeStr}
+            onChange={(e) => {
+              setStartTimeStr(e.target.value);
+              setActivePresetIndex(DATE_PRESETS.length - 1);
+            }}
+            onBlur={() => handleDateSubmit("start")}
+            InputLabelProps={{ shrink: true }}
+            sx={{ width: 160 }}
+            inputProps={{ step: 60 }}
+          />
+          <TextField
+            label="To"
+            type="date"
+            value={endDateStr}
+            onChange={(e) => {
+              setEndDateStr(e.target.value);
+              setActivePresetIndex(DATE_PRESETS.length - 1);
+            }}
+            onBlur={() => handleDateSubmit("end")}
+            InputLabelProps={{ shrink: true }}
+            sx={{ minWidth: 180 }}
+          />
+          <TextField
+            label="Time"
+            type="time"
+            value={endTimeStr}
+            onChange={(e) => {
+              setEndTimeStr(e.target.value);
+              setActivePresetIndex(DATE_PRESETS.length - 1);
+            }}
+            onBlur={() => handleDateSubmit("end")}
+            InputLabelProps={{ shrink: true }}
+            sx={{ width: 160 }}
+            inputProps={{ step: 60 }}
+          />
+        </>
+      )}
+    </Box>
   );
 };
 

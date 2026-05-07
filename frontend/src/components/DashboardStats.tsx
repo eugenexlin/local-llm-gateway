@@ -4,7 +4,14 @@ import {
   secondsToDisplayValue,
   displayValueToSeconds,
 } from "../utils/granularityDisplay";
-import { Box, Typography, Button, IconButton, Tooltip } from "@mui/material";
+import {
+  Box,
+  Typography,
+  Button,
+  IconButton,
+  Tooltip,
+  Paper,
+} from "@mui/material";
 import {
   Refresh,
   KeyboardArrowLeft,
@@ -766,16 +773,18 @@ const DashboardStats: React.FC = () => {
 
   return (
     <>
-      <UserFilter
-        currentUser={user}
-        selectedUserIds={selectedUserIds}
-        onUserChange={(userIds) => {
-          setSelectedUserIds(userIds);
-          setSelectedApiKeyId(null);
-        }}
-        selectedApiKeyId={selectedApiKeyId}
-        onApiKeyChange={setSelectedApiKeyId}
-      />
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <UserFilter
+          currentUser={user}
+          selectedUserIds={selectedUserIds}
+          onUserChange={(userIds) => {
+            setSelectedUserIds(userIds);
+            setSelectedApiKeyId(null);
+          }}
+          selectedApiKeyId={selectedApiKeyId}
+          onApiKeyChange={setSelectedApiKeyId}
+        />
+      </Paper>
 
       <Box
         sx={{
@@ -820,20 +829,22 @@ const DashboardStats: React.FC = () => {
         </Box>
       </Box>
 
-      <DateRangePicker
-        startDate={startDate}
-        endDate={endDate}
-        onStartDateChange={(date) => {
-          setStartDate(date);
-          handleGraphRefresh();
-        }}
-        onEndDateChange={(date) => {
-          setEndDate(date);
-          handleGraphRefresh();
-        }}
-        onPresetChange={handlePresetChange}
-        presetIndex={selectedPresetIndex}
-      />
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <DateRangePicker
+          startDate={startDate}
+          endDate={endDate}
+          onStartDateChange={(date) => {
+            setStartDate(date);
+            handleGraphRefresh();
+          }}
+          onEndDateChange={(date) => {
+            setEndDate(date);
+            handleGraphRefresh();
+          }}
+          onPresetChange={handlePresetChange}
+          presetIndex={selectedPresetIndex}
+        />
+      </Paper>
 
       <MetricsSection
         total_tokens={rangeMetrics?.total_tokens}

@@ -23,7 +23,6 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogContentText,
   DialogActions,
   Button,
   Chip,
@@ -468,7 +467,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
   };
 
   return (
-    <Box sx={{ mt: 4, pt: 2, borderTop: 1, borderColor: "divider" }}>
+    <Box sx={{ mt: 4, pt: 2 }}>
       <Box
         sx={{
           display: "flex",

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  Box,
+  Grid,
   FormControl,
   InputLabel,
   Select,
@@ -12,6 +12,8 @@ import {
   FormControlLabel,
   ListItemText,
   Radio,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import type { User } from "../context/AuthContext";
 
@@ -45,6 +47,8 @@ const UserFilter: React.FC<UserFilterProps> = ({
   onApiKeyChange,
   loading = false,
 }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [users, setUsers] = useState<UserOption[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKeyOption[]>([]);
   const [fetchingUsers, setFetchingUsers] = useState(false);
@@ -55,7 +59,9 @@ const UserFilter: React.FC<UserFilterProps> = ({
     const fetchUsers = async () => {
       try {
         setFetchingUsers(true);
-        const response = await fetch("/api/metrics/users", { credentials: 'include' });
+        const response = await fetch("/api/metrics/users", {
+          credentials: "include",
+        });
         if (response.ok) {
           const data = await response.json();
           setUsers(data);
@@ -73,7 +79,8 @@ const UserFilter: React.FC<UserFilterProps> = ({
     prevSelectedRef.current = selectedUserIds;
   }, [selectedUserIds]);
 
-  const selectedUserId = selectedUserIds.length === 1 ? selectedUserIds[0] : null;
+  const selectedUserId =
+    selectedUserIds.length === 1 ? selectedUserIds[0] : null;
 
   useEffect(() => {
     if (
@@ -85,7 +92,7 @@ const UserFilter: React.FC<UserFilterProps> = ({
         try {
           const response = await fetch(
             `/api/metrics/users/${selectedUserId}/api-keys`,
-            { credentials: 'include' },
+            { credentials: "include" },
           );
           if (response.ok) {
             const data = await response.json();
@@ -107,12 +114,12 @@ const UserFilter: React.FC<UserFilterProps> = ({
   const handleUserChange = (event: any) => {
     const newValues: string[] = event.target.value;
     const prevValues = prevSelectedRef.current;
-    
+
     const prevHadAll = prevValues.includes("all");
     const newHasAll = newValues.includes("all");
-    
+
     let userIds: string[];
-    
+
     if (!prevHadAll && newHasAll) {
       userIds = ["all"];
     } else if (prevHadAll && !newHasAll) {
@@ -122,7 +129,7 @@ const UserFilter: React.FC<UserFilterProps> = ({
     } else {
       userIds = newValues.filter((id: string) => id !== "all");
     }
-    
+
     prevSelectedRef.current = userIds;
     onUserChange(userIds);
     if (userIds.length !== 1) {
@@ -156,12 +163,26 @@ const UserFilter: React.FC<UserFilterProps> = ({
       return "All Users";
     }
     if (value.length === 1 && value[0] === "all") {
-      return <Chip label="All Users" size="small" color="primary" variant="outlined" />;
+      return (
+        <Chip
+          label="All Users"
+          size="small"
+          color="primary"
+          variant="outlined"
+        />
+      );
     }
     if (value.length === 1) {
       const user = users.find((u) => u.id === value[0]);
       if (user) {
-        return <Chip label={user.name || user.email} size="small" color="primary" variant="outlined" />;
+        return (
+          <Chip
+            label={user.name || user.email}
+            size="small"
+            color="primary"
+            variant="outlined"
+          />
+        );
       }
     }
     return (
@@ -184,140 +205,142 @@ const UserFilter: React.FC<UserFilterProps> = ({
   };
 
   return (
-    <Box
-      sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}
-    >
-      <FormControl size="small" sx={{ minWidth: 250 }}>
-        <InputLabel>User</InputLabel>
-        <Select
-          value={selectedUserIds}
-          label="User"
-          onChange={handleUserChange}
-          multiple
-          disabled={loading || fetchingUsers}
-          renderValue={renderSelectedValue}
-          MenuProps={{
-            PaperProps: {
-              sx: { maxHeight: 400 },
-            },
-          }}
-        >
-          <MenuItem value="all">
-            <Radio
-              checked={isAllSelected}
-              size="small"
-            />
-            <ListItemText primary="All Users" />
-          </MenuItem>
-          {currentUserOption && !currentUserInUsers && (
-            <MenuItem value={currentUserOption.id}>
-              <Checkbox
-                checked={selectedUserIds.includes(currentUserOption.id)}
-                size="small"
-              />
-              <ListItemText primary={currentUserOption.name || currentUserOption.email} />
+    <Grid container spacing={2} alignItems="center">
+      <Grid size={{ xs: 12, sm: 6 }}>
+        <FormControl size="small" sx={{ minWidth: 250, width: "100%" }}>
+          <InputLabel>User</InputLabel>
+          <Select
+            value={selectedUserIds}
+            label="User"
+            onChange={handleUserChange}
+            multiple
+            disabled={loading || fetchingUsers}
+            renderValue={renderSelectedValue}
+            MenuProps={{
+              PaperProps: {
+                sx: { maxHeight: 400 },
+              },
+            }}
+          >
+            <MenuItem value="all">
+              <Radio checked={isAllSelected} size="small" />
+              <ListItemText primary="All Users" />
             </MenuItem>
-          )}
-          {users.map((user) => (
-            <MenuItem key={user.id} value={user.id}>
-              <Checkbox
-                checked={selectedUserIds.includes(user.id)}
-                size="small"
-              />
-              <ListItemText primary={user.name || user.email} />
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-
-      {showApiKeyFilter && (
-        <Stack direction="row" spacing={1} alignItems="center">
-          {apiKeys.length > 0 && (
-            <FormControlLabel
-              control={
+            {currentUserOption && !currentUserInUsers && (
+              <MenuItem value={currentUserOption.id}>
                 <Checkbox
-                  checked={showRevoked}
-                  onChange={(e) => setShowRevoked(e.target.checked)}
-                  size="medium"
-                  sx={{ ml: 1 }}
+                  checked={selectedUserIds.includes(currentUserOption.id)}
+                  size="small"
                 />
-              }
-              label="Show Revoked API Keys"
-            />
-          )}
-        </Stack>
-      )}
+                <ListItemText
+                  primary={currentUserOption.name || currentUserOption.email}
+                />
+              </MenuItem>
+            )}
+            {users.map((user) => (
+              <MenuItem key={user.id} value={user.id}>
+                <Checkbox
+                  checked={selectedUserIds.includes(user.id)}
+                  size="small"
+                />
+                <ListItemText primary={user.name || user.email} />
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Grid>
 
       {showApiKeyFilter && currentUser?.id === selectedUserIds[0] && (
-        <FormControl size="small" sx={{ minWidth: 200 }}>
-          <InputLabel>API Key</InputLabel>
-          <Select
-            value={selectedApiKeyId || ""}
-            label="API Key"
-            onChange={handleApiKeyChange}
-            disabled={loading}
-            renderValue={(value) => {
-              if (!value) {
-                return (
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <FormControl size="small" sx={{ flex: 1, minWidth: 120 }}>
+              <InputLabel>API Key</InputLabel>
+              <Select
+                value={selectedApiKeyId || ""}
+                label="API Key"
+                onChange={handleApiKeyChange}
+                disabled={loading}
+                renderValue={(value) => {
+                  if (!value) {
+                    return (
+                      <Chip
+                        label="All Keys"
+                        size="small"
+                        color="secondary"
+                        variant="outlined"
+                      />
+                    );
+                  }
+                  const key = apiKeys.find((k) => k.id === value);
+                  return key ? (
+                    <Chip
+                      label={`${key.name} (${key.id.substring(0, 8)}...)`}
+                      size="small"
+                      color="secondary"
+                      variant="outlined"
+                    />
+                  ) : null;
+                }}
+              >
+                <MenuItem value="">
                   <Chip
                     label="All Keys"
                     size="small"
                     color="secondary"
                     variant="outlined"
                   />
-                );
-              }
-              const key = apiKeys.find((k) => k.id === value);
-              return key ? (
-                <Chip
-                  label={`${key.name} (${key.id.substring(0, 8)}...)`}
+                </MenuItem>
+                {apiKeys.map((key) => (
+                  <MenuItem key={key.id} value={key.id}>
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      alignItems="center"
+                      sx={{ flexWrap: "wrap" }}
+                    >
+                      <span>{key.name}</span>
+                      {!key.is_active && (
+                        <Chip
+                          label="Revoked"
+                          size="small"
+                          sx={{
+                            fontSize: "10px",
+                            bgcolor: "#ffebee",
+                            color: "#c62828",
+                            height: 18,
+                            ml: 0.5,
+                          }}
+                        />
+                      )}
+                      <Typography
+                        component="span"
+                        sx={{ color: "text.secondary", fontSize: "12px" }}
+                      >
+                        ({key.id.substring(0, 8)}...)
+                      </Typography>
+                    </Stack>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={showRevoked}
+                  onChange={(e) => setShowRevoked(e.target.checked)}
                   size="small"
-                  color="secondary"
-                  variant="outlined"
                 />
-              ) : null;
-            }}
-          >
-            <MenuItem value="">
-              <Chip
-                label="All Keys"
-                size="small"
-                color="secondary"
-                variant="outlined"
-              />
-            </MenuItem>
-            {apiKeys.map((key) => (
-              <MenuItem key={key.id} value={key.id}>
-                <Stack
-                  direction="row"
-                  spacing={1}
-                  alignItems="center"
-                  sx={{ flexWrap: "wrap" }}
-                >
-                  <span>{key.name}</span>
-                  {!key.is_active && (
-                    <Chip
-                      label="Revoked"
-                      size="small"
-                      sx={{
-                        fontSize: "10px",
-                        bgcolor: "#ffebee",
-                        color: "#c62828",
-                        height: 18,
-                        ml: 0.5,
-                      }}
-                    />
-                  )}
-                  <Typography component="span" sx={{ color: "text.secondary", fontSize: "12px" }}>
-                    ({key.id.substring(0, 8)}...)
-                  </Typography>
-                </Stack>
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+              }
+              label="Show Revoked"
+              sx={{ mr: 0.5, whiteSpace: "nowrap" }}
+              slotProps={{
+                typography: { variant: "body2", sx: { fontSize: "0.75rem" } },
+              }}
+            />
+          </Stack>
+        </Grid>
       )}
-    </Box>
+    </Grid>
   );
 };
 

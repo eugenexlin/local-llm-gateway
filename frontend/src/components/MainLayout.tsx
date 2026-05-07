@@ -24,6 +24,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import ChatFAB from "./chat/ChatFAB";
 import ChatDrawer from "./chat/ChatDrawer";
 import { useAuth } from "../context/AuthContext";
+import { sharedFabStyle } from "../utils/styles";
 
 const drawerWidth = 240;
 
@@ -210,11 +211,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           size="small"
           onClick={handleDrawerToggle}
           sx={{
-            position: "fixed",
-            top: 8,
-            left: 8,
-            zIndex: 1200,
-            boxShadow: 2,
+            ...sharedFabStyle,
+            top: 12,
+            left: 12,
           }}
           aria-label="menu"
         >
@@ -230,10 +229,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         open={location.state?.chatOpen}
         onClose={() => handleChatClose()}
       />
-      <Box
-        sx={{ display: "flex", flex: 1, bgcolor: "#f5f5f5" }}
-        id="dashboard-content-wrapper"
-      >
+      <Box sx={{ display: "flex", flex: 1 }} id="dashboard-content-wrapper">
         <Drawer
           variant="permanent"
           sx={{
