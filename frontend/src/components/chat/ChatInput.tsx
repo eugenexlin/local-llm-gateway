@@ -9,7 +9,11 @@ import {
 import SendIcon from "@mui/icons-material/Send";
 import { useChat } from "../../context/ChatContext";
 
-const ChatInput: React.FC = () => {
+interface ChatInputProps {
+  pageMode?: boolean;
+}
+
+const ChatInput: React.FC<ChatInputProps> = ({ pageMode }) => {
   const { sendMessage, isLoading, selectedKeyId, inputContent, setInputContent } = useChat();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -42,7 +46,7 @@ const ChatInput: React.FC = () => {
   return (
     <Box
       sx={{
-        p: { xs: 1, sm: 2 },
+        p: pageMode ? { xs: 2, sm: 3, md: 4 } : { xs: 1, sm: 2 },
         borderTop: "1px solid #e2e8f0",
         bgcolor: "background.paper",
       }}

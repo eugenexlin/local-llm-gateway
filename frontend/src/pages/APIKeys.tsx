@@ -27,12 +27,22 @@ import {
   Checkbox,
   FormControlLabel,
   TextareaAutosize,
+  useMediaQuery,
 } from "@mui/material";
 import { ApiKey } from "../models/ApiKey";
+import theme from "../theme";
 
 function APIKeys() {
   const { user } = useAuth();
-  const { apiKeys, apiKeyLoading, fetchApiKeys, createKey, revokeKey, updateKey } = useAPIKeys();
+  const {
+    apiKeys,
+    apiKeyLoading,
+    fetchApiKeys,
+    createKey,
+    revokeKey,
+    updateKey,
+  } = useAPIKeys();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [newKeyName, setNewKeyName] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [copiedKeys, setCopiedKeys] = useState<Set<string>>(new Set());
@@ -133,7 +143,11 @@ function APIKeys() {
   const handleSaveEdit = async (keyId: string) => {
     if (!editingName.trim()) return;
     setSaving(keyId);
-    const result = await updateKey(keyId, editingName, editingDescription || undefined);
+    const result = await updateKey(
+      keyId,
+      editingName,
+      editingDescription || undefined,
+    );
     if (result) {
       handleCancelEdit();
     }
@@ -159,6 +173,9 @@ function APIKeys() {
 
   return (
     <>
+      <Box sx={{ textAlign: isMobile ? "center" : "start", paddingBottom: "16px" }}>
+        <Typography variant="h5">API Keys</Typography>
+      </Box>
       <Box
         sx={{
           display: "flex",
@@ -169,9 +186,6 @@ function APIKeys() {
           gap: 1,
         }}
       >
-        <Box>
-          <Typography variant="h5">API Keys</Typography>
-        </Box>
         <Stack direction="row" spacing={2} alignItems="center">
           <FormControlLabel
             control={

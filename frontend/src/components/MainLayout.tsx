@@ -9,14 +9,21 @@ import {
   Divider,
   Typography,
   Toolbar,
+  Fab,
+  Avatar,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import KeyIcon from "@mui/icons-material/Key";
 import MonitorHeartIcon from "@mui/icons-material/MonitorHeart";
+import ChatIcon from "@mui/icons-material/Chat";
+import MenuIcon from "@mui/icons-material/Menu";
+import LogoutIcon from "@mui/icons-material/Logout";
 import { useNavigate, useLocation } from "react-router-dom";
-import TopNav from "./TopNav";
 import ChatFAB from "./chat/ChatFAB";
 import ChatDrawer from "./chat/ChatDrawer";
+import { useAuth } from "../context/AuthContext";
 
 const drawerWidth = 240;
 
@@ -27,20 +34,37 @@ interface MainLayoutProps {
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
 
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
   const menuItems = [
+    { text: "Chat", icon: <ChatIcon />, path: "/chat" },
     { text: "Dashboard", icon: <DashboardIcon />, path: "/dashboard" },
-    { text: "API Keys", icon: <KeyIcon />, path: "/api-keys" },
     { text: "Server Stats", icon: <MonitorHeartIcon />, path: "/server-stats" },
+    { text: "API Keys", icon: <KeyIcon />, path: "/api-keys" },
   ];
 
   const drawer = (
-    <Box sx={{ width: drawerWidth, overflow: "hidden" }}>
+    <Box
+      sx={{
+        width: drawerWidth,
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+      }}
+    >
       <Toolbar
         id="drawer-header"
         sx={{
@@ -71,52 +95,132 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         </Typography>
       </Toolbar>
       <Divider />
-      <List>
-        {menuItems.map((item) => (
-          <ListItem
-            key={item.text}
-            onClick={() => {
-              navigate(item.path);
-              setMobileOpen(false);
-            }}
-            sx={{
-              backgroundColor:
-                location.pathname === item.path
-                  ? "rgba(33, 150, 243, 0.08)"
-                  : "transparent",
-              "&:hover": { backgroundColor: "rgba(33, 150, 243, 0.04)" },
-            }}
-          >
-            <ListItemIcon
+      <Box sx={{ flex: 1 }}>
+        <List>
+          {menuItems.map((item) => (
+            <ListItem
+              key={item.text}
+              onClick={() => {
+                navigate(item.path);
+                setMobileOpen(false);
+              }}
               sx={{
-                color:
-                  location.pathname === item.path ? "primary.main" : "inherit",
+                backgroundColor:
+                  location.pathname === item.path
+                    ? "rgba(33, 150, 243, 0.08)"
+                    : "transparent",
+                "&:hover": { backgroundColor: "rgba(33, 150, 243, 0.04)" },
               }}
             >
-              {item.icon}
-            </ListItemIcon>
-            <ListItemText primary={item.text} />
-          </ListItem>
-        ))}
-      </List>
+              <ListItemIcon
+                sx={{
+                  color:
+                    location.pathname === item.path
+                      ? "primary.main"
+                      : "inherit",
+                }}
+              >
+                {item.icon}
+              </ListItemIcon>
+              <ListItemText primary={item.text} />
+            </ListItem>
+          ))}
+        </List>
+      </Box>
+      <Box sx={{ mt: "auto" }}>
+        <Divider />
+        <ListItem
+          onClick={handleLogout}
+          sx={{
+            cursor: "pointer",
+            "&:hover": { backgroundColor: "rgba(33, 150, 243, 0.04)" },
+          }}
+        >
+          <ListItemIcon sx={{ color: "inherit" }}>
+            <LogoutIcon />
+          </ListItemIcon>
+          <ListItemText primary="Logout" />
+        </ListItem>
+        <Divider />
+        <Box
+          sx={{
+            px: 2,
+            py: 1.5,
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+          }}
+        >
+          <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main" }}>
+            {user?.name?.charAt(0).toUpperCase()}
+          </Avatar>
+          <Box>
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 500,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {user?.name}
+            </Typography>
+            {user?.email && (
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "text.secondary",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  display: "block",
+                }}
+              >
+                {user.email}
+              </Typography>
+            )}
+          </Box>
+        </Box>
+      </Box>
     </Box>
   );
 
   const handleChatOpen = () => {
-    navigate(location.pathname, { state: {...location.state, chatOpen: true }, replace: false });
+    navigate(location.pathname, {
+      state: { ...location.state, chatOpen: true },
+      replace: false,
+    });
   };
   const handleChatClose = () => {
     if (window.history.state && window.history.state.idx > 0) {
       navigate(-1);
     } else {
-      // If no history exists, go to a logical parent or home page
-      navigate(location.pathname, { state: {...location.state,  chatOpen: false }, replace: true });
+      navigate(location.pathname, {
+        state: { ...location.state, chatOpen: false },
+        replace: true,
+      });
     }
   };
 
   return (
     <>
-      <TopNav onMenuClick={handleDrawerToggle} />
+      {isMobile && (
+        <Fab
+          size="small"
+          onClick={handleDrawerToggle}
+          sx={{
+            position: "fixed",
+            top: 8,
+            left: 8,
+            zIndex: 1200,
+            boxShadow: 2,
+          }}
+          aria-label="menu"
+        >
+          <MenuIcon />
+        </Fab>
+      )}
       <ChatFAB
         open={location.state?.chatOpen}
         onClose={() => handleChatClose()}
@@ -169,6 +273,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             flexGrow: 1,
             p: { xs: 1, sm: 2, md: 3 },
             ml: { sm: `${drawerWidth}px` },
+            pt: { xs: 4, sm: 2 },
           }}
           id="main-content"
         >

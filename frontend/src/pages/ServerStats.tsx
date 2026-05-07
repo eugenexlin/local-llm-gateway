@@ -428,12 +428,6 @@ const ServerStats: React.FC = () => {
     return () => clearInterval(interval);
   }, [fetchStats, seedHistory]);
 
-  const secondsAgo = (): string => {
-    if (!lastUpdated) return "";
-    const diff = Math.floor((Date.now() - lastUpdated.getTime()) / 1000);
-    return `${diff}s ago`;
-  };
-
   if (error && !stats) {
     return (
       <Box sx={{ p: 3, textAlign: "center" }}>
@@ -445,73 +439,25 @@ const ServerStats: React.FC = () => {
     );
   }
 
-  if (!stats) {
+  const cpuUsage = stats?.cpu.usage ?? 0;
+  const ramUsage = stats?.ram.usedPercent ?? 0;
+  const dbSize = stats?.database.sizeHuman ?? "N/A";
+
+  const loadingSection = () => {
     return (
-      <>
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            mb: 2,
-          }}
-        >
-          <Typography variant="h5">Server Stats</Typography>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Chip
-              size="small"
-              label="Connecting..."
-              sx={{
-                bgcolor: "warning.light",
-                color: "warning.contrastText",
-                fontWeight: 600,
-                fontSize: "0.75rem",
-              }}
-            />
-            <CircularProgress size={16} />
-          </Box>
-        </Box>
-      </>
-    );
-  }
-
-  const cpuUsage = stats.cpu.usage;
-  const ramUsage = stats.ram.usedPercent;
-  const dbSize = stats.database.sizeHuman;
-
-  return (
-    <>
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 2,
-          flexWrap: "wrap",
-          gap: 1,
-        }}
-      >
-        <Typography variant="h5">Server Stats</Typography>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <Tooltip title="Refresh">
-            <IconButton onClick={fetchStats} size="small">
-              <RefreshIcon
-                sx={{
-                  color: "text.secondary",
-                  ...(loading
-                    ? { animation: `${spin} 1s linear infinite` }
-                    : {}),
-                }}
-              />
-            </IconButton>
-          </Tooltip>
-        </Box>
+      <Box sx={{ textAlign: "center" }}>
+        <CircularProgress aria-label="Loading…" />
       </Box>
+    );
+  };
 
-      <Grid container spacing={2}>
-        <Grid size={{ xs: 12 }}>
-          <StatsCard title="GPU" icon={<GpuIcon />}>
-            {stats.gpu.gpuAvailable ? (
+  const gpuSection = (stats: ServerStatsData | null) => {
+    return (
+      <Grid size={{ xs: 12 }}>
+        <StatsCard title="GPU" icon={<GpuIcon />}>
+          {!stats && loadingSection()}
+          {stats !== null &&
+            (stats.gpu.gpuAvailable ? (
               <Box>
                 {stats.gpu.gpus.map((gpu, idx) => {
                   return (
@@ -618,13 +564,19 @@ const ServerStats: React.FC = () => {
               >
                 No GPUs detected
               </Typography>
-            )}
-          </StatsCard>
-        </Grid>
+            ))}
+        </StatsCard>
+      </Grid>
+    );
+  };
 
-        {stats.cpu.cores.length > 0 && (
-          <Grid size={{ xs: 12 }}>
-            <StatsCard title="CPU" icon={<CpuIcon />}>
+  const cpuSection = (stats: ServerStatsData | null) => {
+    return (
+      <Grid size={{ xs: 12 }}>
+        <StatsCard title="CPU" icon={<CpuIcon />}>
+          {!stats && loadingSection()}
+          {stats !== null && stats.cpu.cores.length > 0 && (
+            <>
               <LoadGauge
                 value={cpuUsage}
                 color={getGaugeColor(cpuUsage)}
@@ -689,244 +641,289 @@ const ServerStats: React.FC = () => {
                   </Box>
                 ))}
               </Box>
-            </StatsCard>
-          </Grid>
-        )}
+            </>
+          )}
+        </StatsCard>
+      </Grid>
+    );
+  };
 
-        <Grid size={{ xs: 12, sm: 6 }}>
-          <StatsCard title="Network I/O" icon={<NetworkIoIcon />}>
-            <Box sx={{ mb: 2 }}>
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  mb: 1,
-                }}
-              >
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Upload
-                  </Typography>
-                  <Box
-                    sx={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      bgcolor: "#4caf50",
-                    }}
-                  />
-                </Box>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {stats.network.bytesSentHuman}
-                </Typography>
-              </Box>
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  mb: 1,
-                }}
-              >
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Download
-                  </Typography>
-                  <Box
-                    sx={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      bgcolor: "#2196f3",
-                    }}
-                  />
-                </Box>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {stats.network.bytesReceivedHuman}
-                </Typography>
-              </Box>
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <Typography variant="body2" color="text.secondary">
-                  Total
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {stats.network.bytesSentHuman} +{" "}
-                  {stats.network.bytesReceivedHuman}
-                </Typography>
-              </Box>
-            </Box>
-          </StatsCard>
-        </Grid>
-
-        <Grid size={{ xs: 12, sm: 6 }}>
-          <StatsCard title="RAM" icon={<RamIcon />}>
-            <Box sx={{ textAlign: "center", mb: 1 }}>
-              <Typography
-                variant="h3"
-                sx={{
-                  fontWeight: 700,
-                  color: getGaugeColor(ramUsage),
-                }}
-              >
-                {ramUsage.toFixed(1)}%
-              </Typography>
-            </Box>
-            <LinearProgress
-              variant="determinate"
-              value={ramUsage}
+  const otherSection = (stats: ServerStatsData | null) => {
+    return [
+      <Grid size={{ xs: 12, sm: 6 }} key="ram">
+        <StatsCard title="RAM" icon={<RamIcon />}>
+          <Box sx={{ textAlign: "center", mb: 1 }}>
+            <Typography
+              variant="h3"
               sx={{
-                height: 8,
-                borderRadius: 4,
-                bgcolor: "rgba(0,0,0,0.06)",
-                "& .MuiLinearProgress-bar": {
-                  borderRadius: 4,
-                  bgcolor: getGaugeColor(ramUsage),
-                },
+                fontWeight: 700,
+                color: getGaugeColor(ramUsage),
               }}
-            />
-            <Box
-              sx={{ mt: 1.5, display: "flex", justifyContent: "space-between" }}
             >
+              {ramUsage.toFixed(1)}%
+            </Typography>
+          </Box>
+          <LinearProgress
+            variant="determinate"
+            value={ramUsage}
+            sx={{
+              height: 8,
+              borderRadius: 4,
+              bgcolor: "rgba(0,0,0,0.06)",
+              "& .MuiLinearProgress-bar": {
+                borderRadius: 4,
+                bgcolor: getGaugeColor(ramUsage),
+              },
+            }}
+          />
+          <Box
+            sx={{
+              mt: 1.5,
+              display: "flex",
+              justifyContent: "space-between",
+            }}
+          >
+            <Typography variant="caption" color="text.secondary">
+              {stats?.ram.used ?? 0} / {stats?.ram.total ?? 0} GB
+            </Typography>
+            {(stats?.ram.swapTotal ?? 0) > 0 && (
               <Typography variant="caption" color="text.secondary">
-                {stats.ram.used} / {stats.ram.total} GB
+                Swap: {stats?.ram.swapUsed ?? 0} GB
               </Typography>
-              {stats.ram.swapTotal > 0 && (
-                <Typography variant="caption" color="text.secondary">
-                  Swap: {stats.ram.swapUsed} GB
-                </Typography>
-              )}
-            </Box>
-          </StatsCard>
-        </Grid>
-
-        <Grid size={{ xs: 12, sm: 6 }}>
-          <StatsCard title="System Info" icon={<InfoIcon />}>
-            <Box>
-              <Box
-                sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}
-              >
+            )}
+          </Box>
+        </StatsCard>
+      </Grid>,
+      <Grid size={{ xs: 12, sm: 6 }}  key="db">
+        <StatsCard title="Database" icon={<StorageIcon />}>
+          <Box sx={{ textAlign: "center", mb: 1 }}>
+            <Typography
+              variant="h3"
+              sx={{
+                fontWeight: 700,
+                color: "#2e7d32",
+              }}
+            >
+              {dbSize}
+            </Typography>
+          </Box>
+        </StatsCard>
+      </Grid>,
+      <Grid size={{ xs: 12, sm: 6 }}  key="io">
+        <StatsCard title="Network I/O" icon={<NetworkIoIcon />}>
+          <Box sx={{ mb: 2 }}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 1,
+              }}
+            >
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <Typography variant="body2" color="text.secondary">
-                  CPU
+                  Upload
                 </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{ fontWeight: 500, textAlign: "right" }}
-                >
-                  {isMobile
-                    ? stats.cpu.model.split(" ").slice(0, 3).join(" ") + "..."
-                    : stats.cpu.model}
-                </Typography>
-              </Box>
-              <Box
-                sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}
-              >
-                <Typography variant="body2" color="text.secondary">
-                  CPU Speed
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                  {stats.cpu.speed} MHz
-                </Typography>
-              </Box>
-              <Box
-                sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}
-              >
-                <Typography variant="body2" color="text.secondary">
-                  Cores
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                  {stats.cpu.cores.length}
-                </Typography>
-              </Box>
-              <Box
-                sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}
-              >
-                <Typography variant="body2" color="text.secondary">
-                  GPU
-                </Typography>
-                <Chip
-                  size="small"
-                  label={stats.gpu.gpuAvailable ? "Available" : "Not Found"}
+                <Box
                   sx={{
-                    bgcolor: stats.gpu.gpuAvailable
-                      ? "success.light"
-                      : "grey.300",
-                    color: stats.gpu.gpuAvailable ? "white" : "text.secondary",
-                    fontWeight: 600,
-                    fontSize: "0.7rem",
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    bgcolor: "#4caf50",
                   }}
                 />
               </Box>
-              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                <Typography variant="body2" color="text.secondary">
-                  Platform
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                  {stats.platform === "linux" ? "Linux" : stats.platform}
-                </Typography>
-              </Box>
-              {stats.currentModel && (
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    mt: 1,
-                  }}
-                >
-                  <Typography variant="body2" color="text.secondary">
-                    Model
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontWeight: 500,
-                      textAlign: "right",
-                      maxWidth: "60%",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                    title={stats.currentModel}
-                  >
-                    {stats.currentModel}
-                  </Typography>
-                </Box>
-              )}
-              <Box
-                sx={{ display: "flex", justifyContent: "space-between", mt: 1 }}
-              >
-                <Typography variant="body2" color="text.secondary">
-                  Server Time
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                  {new Date(stats.timestamp).toLocaleString()}
-                </Typography>
-              </Box>
-            </Box>
-          </StatsCard>
-        </Grid>
-
-        <Grid size={{ xs: 12, sm: 6 }}>
-          <StatsCard title="Database" icon={<StorageIcon />}>
-            <Box sx={{ textAlign: "center", mb: 1 }}>
-              <Typography
-                variant="h3"
-                sx={{
-                  fontWeight: 700,
-                  color: "#2e7d32",
-                }}
-              >
-                {dbSize}
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                {stats?.network.bytesSentHuman}
               </Typography>
             </Box>
-          </StatsCard>
-        </Grid>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 1,
+              }}
+            >
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Download
+                </Typography>
+                <Box
+                  sx={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    bgcolor: "#2196f3",
+                  }}
+                />
+              </Box>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                {stats?.network.bytesReceivedHuman}
+              </Typography>
+            </Box>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                Total
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                {stats?.network.bytesSentHuman} +{" "}
+                {stats?.network.bytesReceivedHuman}
+              </Typography>
+            </Box>
+          </Box>
+        </StatsCard>
+      </Grid>,
+      <Grid size={{ xs: 12, sm: 6 }}  key="sys">
+        <StatsCard title="System Info" icon={<InfoIcon />}>
+          <Box>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                mb: 1,
+              }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                CPU
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{ fontWeight: 500, textAlign: "right" }}
+              >
+                {isMobile
+                  ? stats?.cpu.model.split(" ").slice(0, 3).join(" ") + "..."
+                  : stats?.cpu.model}
+              </Typography>
+            </Box>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                mb: 1,
+              }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                CPU Speed
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                {stats !== null ? `${stats.cpu.speed}MHz` : ""}
+              </Typography>
+            </Box>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                mb: 1,
+              }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                Cores
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                {stats?.cpu.cores.length}
+              </Typography>
+            </Box>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                mb: 1,
+              }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                GPU
+              </Typography>
+              <Chip
+                size="small"
+                label={stats?.gpu.gpuAvailable ? "Available" : "Not Found"}
+                sx={{
+                  bgcolor: stats?.gpu.gpuAvailable
+                    ? "success.light"
+                    : "grey.300",
+                  color: stats?.gpu.gpuAvailable ? "white" : "text.secondary",
+                  fontWeight: 600,
+                  fontSize: "0.7rem",
+                }}
+              />
+            </Box>
+            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+              <Typography variant="body2" color="text.secondary">
+                Platform
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                {stats?.platform === "linux" ? "Linux" : stats?.platform}
+              </Typography>
+            </Box>
+            {stats?.currentModel && (
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  mt: 1,
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Model
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 500,
+                    textAlign: "right",
+                    maxWidth: "60%",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                  title={stats.currentModel}
+                >
+                  {stats.currentModel}
+                </Typography>
+              </Box>
+            )}
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                mt: 1,
+              }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                Server Time
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                {stats !== null
+                  ? new Date(stats.timestamp).toLocaleString()
+                  : ""}
+              </Typography>
+            </Box>
+          </Box>
+        </StatsCard>
+      </Grid>,
+    ];
+  };
+
+  return (
+    <>
+      <Box
+        sx={{
+          textAlign: isMobile ? "center" : "start",
+          paddingBottom: "16px",
+        }}
+      >
+        <Typography variant="h5">Server Stats</Typography>
+      </Box>
+      <Grid container spacing={2}>
+        {gpuSection(stats)}
+        {cpuSection(stats)}
+        {otherSection(stats)}
       </Grid>
     </>
   );

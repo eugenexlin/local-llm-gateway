@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Fab, Badge, Tooltip } from '@mui/material';
 import ChatIcon from '@mui/icons-material/Chat';
 import CloseIcon from '@mui/icons-material/Close';
+import { useLocation } from 'react-router-dom';
 
 interface ChatFABProps {
   open: boolean;
@@ -10,6 +11,7 @@ interface ChatFABProps {
 }
 
 const ChatFAB: React.FC<ChatFABProps> = ({ open, onClose, onOpen }) => {
+  const location = useLocation();
   const [hasMessages, setHasMessages] = useState(false);
 
   useEffect(() => {
@@ -41,7 +43,7 @@ const ChatFAB: React.FC<ChatFABProps> = ({ open, onClose, onOpen }) => {
     boxShadow: '0 4px 16px rgba(139, 92, 246, 0.35)',
   };
 
-  if (open) {
+  if (open || location.pathname === '/chat') {
     return null;
   }
 

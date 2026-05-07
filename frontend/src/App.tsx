@@ -5,6 +5,7 @@ import { ChatProvider } from "./context/ChatContext";
 import Dashboard from "./pages/Dashboard";
 import APIKeys from "./pages/APIKeys";
 import ServerStats from "./pages/ServerStats";
+import ChatPage from "./pages/ChatPage";
 import Login from "./pages/Login";
 import AuthCallback from "./pages/AuthCallback";
 import MainLayout from "./components/MainLayout";
@@ -110,6 +111,7 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/api-keys" element={<APIKeys />} />
             <Route path="/server-stats" element={<ServerStats />} />
+            <Route path="/chat" element={<ChatPage />} />
           </Route>
           <Route path="*" element={<NotFoundRoute />} />
         </Routes>

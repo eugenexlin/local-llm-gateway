@@ -23,12 +23,14 @@ interface ChatMessageProps {
   message: ChatMessageItem;
   isStreaming: boolean;
   index: number;
+  pageMode?: boolean;
 }
 
 const ChatMessage: React.FC<ChatMessageProps> = ({
   message,
   isStreaming,
   index,
+  pageMode,
 }) => {
   const isUser = message.role === "user";
   const isStreamingResponse = !isUser && isStreaming;
@@ -272,7 +274,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
         display: "flex",
         justifyContent: isUser ? "flex-end" : "flex-start",
         mb: 1.5,
-        px: { xs: 1, sm: 2 },
+        px: pageMode ? { xs: 2, sm: 4, md: 6 } : { xs: 1, sm: 2 },
         position: "relative",
       }}
     >
@@ -351,7 +353,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
         )}
         <Box
           sx={{
-            px: { xs: 1, sm: 2 },
+            px: pageMode ? { xs: 2, sm: 3, md: 4 } : { xs: 1, sm: 2 },
             py: { xs: 0.75, sm: 1.25 },
             borderRadius: isUser
               ? { xs: "16px 16px 4px 16px", sm: "16px 16px 4px 16px" }

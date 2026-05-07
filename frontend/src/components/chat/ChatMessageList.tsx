@@ -8,6 +8,7 @@ import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 
 interface ChatMessageListProps {
   onMobileClose?: () => void;
+  pageMode?: boolean;
 }
 
 // distance from which we will base the direction we go relative to the previous set scroll position
@@ -18,7 +19,7 @@ interface ChatMessageListProps {
 // or you click next, and the you should go to next
 const DISTANCE_FOR_PROXIMITY_LOGIC = 10;
 
-const ChatMessageList: React.FC<ChatMessageListProps> = ({ onMobileClose }) => {
+const ChatMessageList: React.FC<ChatMessageListProps> = ({ onMobileClose, pageMode }) => {
   const {
     messages,
     isLoading,
@@ -192,6 +193,7 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({ onMobileClose }) => {
             justifyContent: "center",
             gap: 1,
             py: 1,
+            px: pageMode ? { xs: 2, sm: 4, md: 6 } : { xs: 1, sm: 2 },
             bgcolor: "rgba(248, 250, 252, 0.8)",
             backdropFilter: "blur(4px)",
           }}
@@ -268,15 +270,16 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({ onMobileClose }) => {
         <>
           {messages.map((msg, idx) => (
             <Box key={idx} data-index={idx} data-role={msg.role}>
-              <ChatMessage
-                index={idx}
-                message={msg}
-                isStreaming={
-                  streamingConversationId === activeConversation?.id &&
-                  idx === messages.length - 1 &&
-                  msg.role === "assistant"
-                }
-              />
+           <ChatMessage
+                  index={idx}
+                  message={msg}
+                  isStreaming={
+                    streamingConversationId === activeConversation?.id &&
+                    idx === messages.length - 1 &&
+                    msg.role === "assistant"
+                  }
+                  pageMode={pageMode}
+                />
             </Box>
           ))}
           {streamingConversationId === activeConversation?.id &&
