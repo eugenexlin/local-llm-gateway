@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
-import { getRangeSeconds } from "../utils/granularity";
+import { getRangeSeconds } from "../../utils/granularity";
 import {
   secondsToDisplayValue,
   displayValueToSeconds,
-} from "../utils/granularityDisplay";
+} from "../../utils/granularityDisplay";
 import {
   Box,
   Typography,
@@ -22,12 +22,12 @@ import {
   ZoomIn,
   ZoomOut,
 } from "@mui/icons-material";
-import DateRangePicker from "./DateRangePicker";
-import ProgressiveGraph from "./ProgressiveGraph";
+import DateRangePicker from "../ui/DateRangePicker";
+import ProgressiveGraph from "../charts/ProgressiveGraph";
 import MetricsSection from "./MetricsSection";
-import UserFilter from "./UserFilter";
-import InsightsGraph from "./InsightsGraph";
-import SettingsModal from "./SettingsModal";
+import UserFilter from "../ui/UserFilter";
+import InsightsGraph from "../charts/InsightsGraph";
+import SettingsModal from "../ui/SettingsModal";
 import {
   getCacheSize,
   getCacheEnabled,
@@ -35,16 +35,16 @@ import {
   writeCache,
   mergeCachedData,
   clearCache,
-} from "../utils/dataCache";
-import { useAuth } from "../context/AuthContext";
+} from "../../utils/dataCache";
+import { useAuth } from "../../context/AuthContext";
 import type {
   MetricType,
   InsightsConfig,
   ProgressiveDataPoint,
   BarGrouping,
-} from "../types/metrics";
-import { DATE_PRESETS } from "../utils/dateUtils";
-import { calculateOptimalGranularitySeconds } from "../utils/granularity";
+} from "../../types/metrics";
+import { DATE_PRESETS } from "../../utils/dateUtils";
+import { calculateOptimalGranularitySeconds } from "../../utils/granularity";
 
 export type UserGraphData = Record<string, ProgressiveDataPoint[]>;
 

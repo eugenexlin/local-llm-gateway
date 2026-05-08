@@ -274,7 +274,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
         display: "flex",
         justifyContent: isUser ? "flex-end" : "flex-start",
         mb: 1.5,
-        px: pageMode ? { xs: 2, sm: 4, md: 6 } : { xs: 1, sm: 2 },
         position: "relative",
       }}
     >
@@ -293,7 +292,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
               borderRadius: "8px",
               bgcolor: "#f5f3ff",
               overflow: "hidden",
-              border: "2px solid #8b5cf6",
+              border: "1px solid #8b5cf6",
             }}
           >
             <details open={!chatSettings.defaultThinkingCollapsed}>
@@ -358,17 +357,11 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
             borderRadius: isUser
               ? { xs: "16px 16px 4px 16px", sm: "16px 16px 4px 16px" }
               : { xs: "16px 16px 16px 4px", sm: "16px 16px 16px 4px" },
-            bgcolor: isUser ? "primary.main" : "#f1f5f9",
+            bgcolor: isUser ? "primary.main" : "#ffffff",
             color: isUser ? "white" : "#1e293b",
             boxShadow: isUser
               ? "0 2px 8px rgba(139, 92, 246, 0.25)"
               : "0 1px 3px rgba(0,0,0,0.06)",
-            cursor: "pointer",
-          }}
-          onClick={(e) => {
-            if (isUser) {
-              setAnchorEl(e.currentTarget as any);
-            }
           }}
         >
           {renderContent(message.content)}
@@ -440,7 +433,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                                 "&:hover": {
                                   bgcolor:
                                     showTokenView === "prompt"
-                                      ? "#f1f5f9"
+                                      ? "#ffffff"
                                       : "rgba(255,255,255,0.04)",
                                 },
                               }}
@@ -471,7 +464,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                                 "&:hover": {
                                   bgcolor:
                                     showTokenView === "completion"
-                                      ? "#f1f5f9"
+                                      ? "#ffffff"
                                       : "rgba(255,255,255,0.04)",
                                 },
                               }}

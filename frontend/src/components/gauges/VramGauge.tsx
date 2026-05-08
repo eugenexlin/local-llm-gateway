@@ -1,5 +1,5 @@
 import { Box, LinearProgress, Typography } from "@mui/material";
-import { getGaugeColor } from "../utils/colors";
+import { getGaugeColor } from "../../utils/colors";
 
 interface VramGaugeProps {
   value: number | null;

@@ -3,41 +3,29 @@ import { Box, Typography, IconButton, Tooltip } from "@mui/material";
 import ChatMessage from "./ChatMessage";
 import ChatDots from "./ChatDots";
 import { useChat } from "../../context/ChatContext";
-import NavigateBeforeIcon from "@mui/icons-material/NavigateBefore";
-import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 
 interface ChatMessageListProps {
+  scrollRef: React.RefObject<HTMLDivElement | null>;
   onMobileClose?: () => void;
   pageMode?: boolean;
 }
 
-// distance from which we will base the direction we go relative to the previous set scroll position
-// this is to not deal with the dumb crud of exact matching calculation
-// for example you get set to some location
-// then you scroll down like 50 units,
-// and then you click previous on the arrow keys, you should go back to original
-// or you click next, and the you should go to next
-const DISTANCE_FOR_PROXIMITY_LOGIC = 10;
-
-const ChatMessageList: React.FC<ChatMessageListProps> = ({ onMobileClose, pageMode }) => {
+const ChatMessageList: React.FC<ChatMessageListProps> = (
+  props: ChatMessageListProps,
+) => {
   const {
     messages,
     isLoading,
     streamingConversationId,
     activeConversation,
     createConversation,
+    scrollState,
   } = useChat();
-  const scrollRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
   const prevMessagesLengthRef = useRef(0);
 
-  const targetMessageIndex = useRef<number>(-1);
-
-  // keep track of last programatic scroll position and move again if it didnt change.
-  const previousScrollTop = useRef<number>(-1);
-
   const handleScroll = useCallback(() => {
-    const el = scrollRef.current;
+    const el = props.scrollRef.current;
     if (!el) return;
     const threshold = 30;
     isAtBottomRef.current =
@@ -55,7 +43,7 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({ onMobileClose, pageMo
     const elRect = el.getBoundingClientRect();
 
     const parentTop = elRect.top / 2; // this is basically the height of the top bar to be subtracted
-    const targetOffset = el.clientHeight / 2 + 3; // plus few pixel to tie break so that seeking to the next number surely 
+    const targetOffset = el.clientHeight / 2 + 3; // plus few pixel to tie break so that seeking to the next number surely
     for (let i = 0; i < userMessageIndices.length; i++) {
       const msgIdx = userMessageIndices[i];
       const child = children.find(
@@ -63,8 +51,7 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({ onMobileClose, pageMo
       );
       if (child) {
         const childRect = child.getBoundingClientRect();
-        const distance =
-          targetOffset - (childRect.top - parentTop);
+        const distance = targetOffset - (childRect.top - parentTop);
         if (distance >= 0 && distance < minDistance) {
           minDistance = distance;
           closestIndex = msgIdx;
@@ -72,19 +59,19 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({ onMobileClose, pageMo
       }
     }
     if (closestIndex !== -1) {
-      targetMessageIndex.current = closestIndex;
+      scrollState.targetMessageIndex = closestIndex;
     }
   }, [messages]);
 
   useEffect(() => {
-    const el = scrollRef.current;
+    const el = props.scrollRef.current;
     if (!el) return;
     el.addEventListener("scroll", handleScroll, { passive: true });
     return () => el.removeEventListener("scroll", handleScroll);
   }, [handleScroll]);
 
   useEffect(() => {
-    const el = scrollRef.current;
+    const el = props.scrollRef.current;
     if (!el) return;
 
     const prevLen = prevMessagesLengthRef.current;
@@ -109,114 +96,18 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({ onMobileClose, pageMo
     } else {
       createConversation();
     }
-    onMobileClose?.();
-  };
-
-  const scrollToUserMessage = (direction: "next" | "prev") => {
-    if (!scrollRef.current) return;
-
-    const el = scrollRef.current;
-    const currentTop = el.scrollTop;
-    const children = Array.from(el.children) as HTMLElement[];
-
-    const userMessageIndices = messages
-      .map((msg, idx) => (msg.role === "user" ? idx : -1))
-      .filter((idx) => idx !== -1);
-
-    if (userMessageIndices.length === 0) return;
-
-    let targetIndexInArray = -1;
-    const currentIndexInArray = userMessageIndices.indexOf(
-      targetMessageIndex.current,
-    );
-
-    // try proximity
-    if (
-      Math.abs(currentTop - previousScrollTop.current) <
-      DISTANCE_FOR_PROXIMITY_LOGIC
-    ) {
-      // ok it turns out the math might be perfect and work fine for now.
-    }
-
-    if (direction === "next") {
-      targetIndexInArray = currentIndexInArray + 1;
-    } else {
-      if (currentTop != previousScrollTop.current) {
-        // focus the current target
-        targetIndexInArray = currentIndexInArray;
-      } else {
-        targetIndexInArray = currentIndexInArray - 1;
-      }
-    }
-    if (targetIndexInArray < 0) {
-      targetIndexInArray = 0;
-    }
-
-    if (targetIndexInArray >= userMessageIndices.length) {
-      // scroll to end
-      el.scrollTo(0, el.scrollHeight);
-    } else {
-      targetMessageIndex.current = userMessageIndices[targetIndexInArray];
-      const targetChild = children.find(
-        (c) =>
-          c.getAttribute("data-index") ===
-          targetMessageIndex.current.toString(),
-      );
-      if (targetChild) {
-        // WARNING you must not use animation, or you have to update the timeout.
-        targetChild.scrollIntoView({ behavior: "instant", block: "center" });
-        setTimeout(() => {
-          previousScrollTop.current = el.scrollTop;
-        }, 50);
-      }
-    }
+    props.onMobileClose?.();
   };
 
   return (
     <Box
-      ref={scrollRef}
+      ref={props.scrollRef}
       sx={{
         flex: 1,
-        overflow: "auto",
-        bgcolor: "#f8fafc",
+        overflow: props.pageMode ? "visible" : "auto",
         position: "relative",
       }}
     >
-      {/* Navigation Controls */}
-      {messages.length > 0 && (
-        <Box
-          sx={{
-            position: "sticky",
-            top: 0,
-            zIndex: 10,
-            display: "flex",
-            justifyContent: "center",
-            gap: 1,
-            py: 1,
-            px: pageMode ? { xs: 2, sm: 4, md: 6 } : { xs: 1, sm: 2 },
-            bgcolor: "rgba(248, 250, 252, 0.8)",
-            backdropFilter: "blur(4px)",
-          }}
-        >
-          <Tooltip title="Previous User Message">
-            <IconButton
-              size="small"
-              onClick={() => scrollToUserMessage("prev")}
-            >
-              <NavigateBeforeIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Next User Message">
-            <IconButton
-              size="small"
-              onClick={() => scrollToUserMessage("next")}
-            >
-              <NavigateNextIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      )}
-
       {messages.length === 0 ? (
         <Box
           sx={{
@@ -270,16 +161,16 @@ const ChatMessageList: React.FC<ChatMessageListProps> = ({ onMobileClose, pageMo
         <>
           {messages.map((msg, idx) => (
             <Box key={idx} data-index={idx} data-role={msg.role}>
-           <ChatMessage
-                  index={idx}
-                  message={msg}
-                  isStreaming={
-                    streamingConversationId === activeConversation?.id &&
-                    idx === messages.length - 1 &&
-                    msg.role === "assistant"
-                  }
-                  pageMode={pageMode}
-                />
+              <ChatMessage
+                index={idx}
+                message={msg}
+                isStreaming={
+                  streamingConversationId === activeConversation?.id &&
+                  idx === messages.length - 1 &&
+                  msg.role === "assistant"
+                }
+                pageMode={props.pageMode}
+              />
             </Box>
           ))}
           {streamingConversationId === activeConversation?.id &&

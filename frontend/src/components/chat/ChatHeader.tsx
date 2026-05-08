@@ -70,10 +70,6 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ onClose, onToggleSidebar, onOpe
     setSettingsOpen(false);
   };
 
-  const handleToggleReasoning = (checked: boolean) => {
-    setIncludeReasoningInContext(checked);
-  };
-
   const getKeyInfoById = (targetId: string) => {
     return apiKeys.find((k) => k.id == targetId);
   };
@@ -255,7 +251,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ onClose, onToggleSidebar, onOpe
         settings={chatSettings}
         onChange={setChatSettings}
         includeReasoningInContext={includeReasoningInContext}
-        onToggleReasoning={handleToggleReasoning}
+        onToggleReasoning={setIncludeReasoningInContext}
       />
 
       <Menu

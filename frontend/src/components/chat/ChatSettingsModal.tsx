@@ -23,8 +23,8 @@ import { useChat } from "../../context/ChatContext";
 interface ChatSettingsModalProps {
   open: boolean;
   onClose: () => void;
-  settings?: Partial<ChatSettings>;
-  onChange?: (partial: Partial<ChatSettings>) => void;
+  settings: Partial<ChatSettings>;
+  onChange: (partial: Partial<ChatSettings>) => void;
   includeReasoningInContext?: boolean;
   onToggleReasoning?: (checked: boolean) => void;
 }
@@ -36,7 +36,7 @@ const formatTokenCount = (count: number): string => {
   return count.toString();
 };
 
-const ChatSettingsModal: React.FC<ChatSettingsModalProps> = ({
+const  ChatSettingsModal: React.FC<ChatSettingsModalProps> = ({
   open,
   onClose,
   settings,
@@ -131,7 +131,7 @@ const ChatSettingsModal: React.FC<ChatSettingsModalProps> = ({
               bgcolor: "#f8fafc",
               borderRadius: 1,
               cursor: activeKeys.length > 0 ? "pointer" : "default",
-              "&:hover": activeKeys.length > 0 ? { bgcolor: "#f1f5f9" } : {},
+              "&:hover": activeKeys.length > 0 ? { bgcolor: "#ffffff" } : {},
             }}
             onClick={activeKeys.length > 0 ? handleKeyMenuOpen : undefined}
           >

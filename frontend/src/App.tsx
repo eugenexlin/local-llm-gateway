@@ -8,7 +8,7 @@ import ServerStats from "./pages/ServerStats";
 import ChatPage from "./pages/ChatPage";
 import Login from "./pages/Login";
 import AuthCallback from "./pages/AuthCallback";
-import MainLayout from "./components/MainLayout";
+import MainLayout from "./components/layout/MainLayout";
 
 interface PrivateRouteProps {
   children?: React.ReactNode;

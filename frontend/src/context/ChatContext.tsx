@@ -70,6 +70,12 @@ interface ChatContextType {
   renameConversation: (id: string, title: string) => void;
   clearHistory: () => void;
   setError: (error: string | null) => void;
+  scrollState: ChatScrollState;
+}
+
+export interface ChatScrollState {
+  targetMessageIndex: number;
+  previousScrollTop: number;
 }
 
 const pubUrl = import.meta.env.PUBLIC_URL || "";
@@ -472,7 +478,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         const decoder = new TextDecoder();
         let buffer = "";
         let usageParsed = false;
-        let lastUsageData: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null = null;
+        let lastUsageData: {
+          prompt_tokens: number;
+          completion_tokens: number;
+          total_tokens: number;
+        } | null = null;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -569,7 +579,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
                   const estimatedCompletionTokens = Math.max(
                     0,
-                    Math.round((newContent.length + (newThinking?.length || 0)) / 4)
+                    Math.round(
+                      (newContent.length + (newThinking?.length || 0)) / 4,
+                    ),
                   );
 
                   updatedMessages[lastIdx] = {
@@ -596,12 +608,19 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
         // Finalize the message
         const endTime = Date.now();
-        const promptSeconds = firstTokenTimeRef.current > 0
-          ? Math.round(((firstTokenTimeRef.current - streamStartTimeRef.current) / 1000) * 10) / 10
-          : undefined;
-        const completionSeconds = firstTokenTimeRef.current > 0
-          ? Math.round(((endTime - firstTokenTimeRef.current) / 1000) * 10) / 10
-          : undefined;
+        const promptSeconds =
+          firstTokenTimeRef.current > 0
+            ? Math.round(
+                ((firstTokenTimeRef.current - streamStartTimeRef.current) /
+                  1000) *
+                  10,
+              ) / 10
+            : undefined;
+        const completionSeconds =
+          firstTokenTimeRef.current > 0
+            ? Math.round(((endTime - firstTokenTimeRef.current) / 1000) * 10) /
+              10
+            : undefined;
 
         setConversations((prev) => {
           const conv = prev[convId];
@@ -673,6 +692,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }
   }, [activeConversationId, deleteConversation]);
 
+  const scrollState: ChatScrollState = {
+    targetMessageIndex: 0,
+    previousScrollTop: 0,
+  };
+
   return (
     <ChatContext.Provider
       value={{
@@ -703,6 +727,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         renameConversation,
         clearHistory,
         setError,
+        scrollState,
       }}
     >
       {children}
@@ -710,10 +735,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useChat() {
+export const useChat = (): ChatContextType => {
   const context = useContext(ChatContext);
   if (!context) {
     throw new Error("useChat must be used within a ChatProvider");
   }
   return context;
-}
+};

@@ -1,8 +1,8 @@
 import React from "react";
 import { Grid, Box } from "@mui/material";
 import MetricCard from "./MetricCard";
-import type { MetricType } from "../types/metrics";
-import { formatValue } from "../utils/formatValue";
+import type { MetricType } from "../../types/metrics";
+import { formatValue } from "../../utils/formatValue";
 
 interface MetricsSectionProps {
   total_tokens?: number;

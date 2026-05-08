@@ -1,22 +1,24 @@
 import { Box, Typography } from "@mui/material";
-import SparklineChart from "./SparklineChart";
+import SparklineChart from "../charts/SparklineChart";
 import RangeBar from "./RangeBar";
-import { getRangeGuageColor } from "../utils/colors";
 
-interface PowerGaugeProps {
+interface TempGaugeProps {
+  title: string;
   value: number | null;
   history: { timestamp: number; value: number }[];
   globalMin: number;
   globalMax: number;
+  color: string;
 }
 
-const PowerGauge: React.FC<PowerGaugeProps> = ({
+const TempGauge: React.FC<TempGaugeProps> = ({
+  title,
   value,
   history,
   globalMin,
   globalMax,
+  color,
 }) => {
-  const color = getRangeGuageColor(value, globalMin, globalMax);
   return (
     <Box>
       <Box
@@ -25,18 +27,13 @@ const PowerGauge: React.FC<PowerGaugeProps> = ({
           gap: 2,
         }}
       >
-        <Box sx={{ flex: 1, marginTop: 1}}>
-          <Typography
-            variant="body2"
-            sx={{ fontWeight: 500, display: "block" }}
-          >
-            Power
-          </Typography>
+        <Box sx={{ flex: 1, marginTop: 1 }}>
+          <Typography variant="body2">{title}</Typography>
           <RangeBar
             value={value ?? globalMin}
             min={globalMin}
             max={globalMax}
-            formatValue={(v) => `${v}W`}
+            formatValue={(v) => `${v}°C`}
             color={color}
           />
         </Box>
@@ -53,4 +50,4 @@ const PowerGauge: React.FC<PowerGaugeProps> = ({
   );
 };
 
-export default PowerGauge;
+export default TempGauge;

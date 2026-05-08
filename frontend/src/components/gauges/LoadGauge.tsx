@@ -1,6 +1,6 @@
 import React from "react";
 import { Box, Typography, LinearProgress } from "@mui/material";
-import SparklineChart from "./SparklineChart";
+import SparklineChart from "../charts/SparklineChart";
 
 interface LoadGaugeProps {
   value: number | null;

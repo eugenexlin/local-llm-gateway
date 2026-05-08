@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState } from "react";
 import {
   Box,
   Drawer,
@@ -21,10 +21,10 @@ import ChatIcon from "@mui/icons-material/Chat";
 import MenuIcon from "@mui/icons-material/Menu";
 import LogoutIcon from "@mui/icons-material/Logout";
 import { useNavigate, useLocation } from "react-router-dom";
-import ChatFAB from "./chat/ChatFAB";
-import ChatDrawer from "./chat/ChatDrawer";
-import { useAuth } from "../context/AuthContext";
-import { sharedFabStyle } from "../utils/styles";
+import ChatFAB from "../chat/ChatFAB";
+import ChatDrawer from "../chat/ChatDrawer";
+import { useAuth } from "../../context/AuthContext";
+import { sharedFabStyle, sharedGlassStyle } from "../../utils/styles";
 
 const drawerWidth = 240;
 
@@ -206,29 +206,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
   return (
     <>
-      {isMobile && (
-        <Fab
-          size="small"
-          onClick={handleDrawerToggle}
-          sx={{
-            ...sharedFabStyle,
-            top: 12,
-            left: 12,
-          }}
-          aria-label="menu"
-        >
-          <MenuIcon />
-        </Fab>
-      )}
-      <ChatFAB
-        open={location.state?.chatOpen}
-        onClose={() => handleChatClose()}
-        onOpen={() => handleChatOpen()}
-      />
-      <ChatDrawer
-        open={location.state?.chatOpen}
-        onClose={() => handleChatClose()}
-      />
       <Box sx={{ display: "flex", flex: 1 }} id="dashboard-content-wrapper">
         <Drawer
           variant="permanent"
@@ -266,10 +243,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         <Box
           component="main"
           sx={{
+            position: "fixed",
+            top: 0,
+            bottom: 0,
+            left: 0,
+            right: 0,
+            overflow: "auto",
             flexGrow: 1,
             p: { xs: 1, sm: 2, md: 3 },
-            ml: { sm: `${drawerWidth}px` },
-            pt: { xs: 4, sm: 2 },
           }}
           id="main-content"
         >
@@ -281,6 +262,30 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           </Box>
         </Box>
       </Box>
+      {isMobile && (
+        <Fab
+          size="small"
+          onClick={handleDrawerToggle}
+          sx={{
+            ...sharedFabStyle,
+            ...sharedGlassStyle,
+            top: 8,
+            left: 8,
+          }}
+          aria-label="menu"
+        >
+          <MenuIcon />
+        </Fab>
+      )}
+      <ChatDrawer
+        open={location.state?.chatOpen}
+        onClose={() => handleChatClose()}
+      />
+      <ChatFAB
+        open={location.state?.chatOpen}
+        onClose={() => handleChatClose()}
+        onOpen={() => handleChatOpen()}
+      />
     </>
   );
 };

@@ -26,16 +26,16 @@ import {
   Bar,
   Legend,
 } from "recharts";
-import { metricLabels } from "../utils/metricsLabels";
-import { getAllGranularityOptions } from "../utils/granularityDisplay";
+import { metricLabels } from "../../utils/metricsLabels";
+import { getAllGranularityOptions } from "../../utils/granularityDisplay";
 import type {
   MetricType,
   ProgressiveDataPoint,
   BarGrouping,
-} from "../types/metrics";
-import { formatValue } from "../utils/formatValue";
+} from "../../types/metrics";
+import { formatValue } from "../../utils/formatValue";
 import { ChartTooltip } from "./InsightsGraph";
-import { USER_COLORS } from "../utils/colors";
+import { USER_COLORS } from "../../utils/colors";
 
 export type UserGraphData = Record<string, ProgressiveDataPoint[]>;
 

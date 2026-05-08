@@ -1,5 +1,5 @@
 import { Box, Typography, useMediaQuery } from "@mui/material";
-import DashboardStats from "../components/DashboardStats";
+import DashboardStats from "../components/dashboard/DashboardStats";
 import theme from "../theme";
 
 function Dashboard() {
@@ -7,10 +7,12 @@ function Dashboard() {
 
   return (
     <>
-      <Box sx={{ textAlign: isMobile ? "center" : "start", paddingBottom: "16px" }}>
+      <Box
+        sx={{ textAlign: isMobile ? "center" : "start", paddingBottom: "16px" }}
+      >
         <Typography variant="h5">Usage Stats</Typography>
       </Box>
-      <DashboardStats />;
+      <DashboardStats />
     </>
   );
 }

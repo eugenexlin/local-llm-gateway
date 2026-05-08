@@ -33,9 +33,9 @@ import type {
   HeatMapDataPoint,
   AxisType,
   PresetConfig,
-} from "../types/metrics";
-import { formatValue } from "../utils/formatValue";
-import { USER_COLORS } from "../utils/colors";
+} from "../../types/metrics";
+import { formatValue } from "../../utils/formatValue";
+import { USER_COLORS } from "../../utils/colors";
 
 const MAX_POINTS = 10000;
 

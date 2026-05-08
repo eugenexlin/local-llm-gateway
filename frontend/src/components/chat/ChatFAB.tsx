@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Fab, Badge, Tooltip } from '@mui/material';
-import ChatIcon from '@mui/icons-material/Chat';
-import CloseIcon from '@mui/icons-material/Close';
-import { useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from "react";
+import { Fab, Badge, Tooltip } from "@mui/material";
+import ChatIcon from "@mui/icons-material/Chat";
+import CloseIcon from "@mui/icons-material/Close";
+import { useLocation } from "react-router-dom";
+import { sharedFabStyle, sharedGlassStyle } from "../../utils/styles";
 
 interface ChatFABProps {
   open: boolean;
@@ -16,8 +17,8 @@ const ChatFAB: React.FC<ChatFABProps> = ({ open, onClose, onOpen }) => {
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem('llm_chat_history');
-      setHasMessages(!!stored && stored !== '[]');
+      const stored = localStorage.getItem("llm_chat_history");
+      setHasMessages(!!stored && stored !== "[]");
     } catch {
       setHasMessages(false);
     }
@@ -31,27 +32,22 @@ const ChatFAB: React.FC<ChatFABProps> = ({ open, onClose, onOpen }) => {
     }
   };
 
-  const fabStyle: React.CSSProperties = {
-    position: 'fixed',
-    bottom: 24,
-    right: 24,
-    zIndex: 1300,
-    width: 56,
-    height: 56,
-    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-    transform: open ? 'rotate(90deg) scale(0.9)' : 'rotate(0deg) scale(1)',
-    boxShadow: '0 4px 16px rgba(139, 92, 246, 0.35)',
-  };
-
-  if (open || location.pathname === '/chat') {
+  if (location.pathname === "/chat") {
     return null;
   }
 
   return (
-    <Tooltip title={hasMessages ? 'Continue chat' : 'Open chat'}>
+    <Tooltip title={hasMessages ? "Continue chat" : "Open chat"}>
       <Fab
+        size="small"
         onClick={handleClick}
-        sx={fabStyle}
+        sx={{
+          ...sharedFabStyle,
+          ...sharedGlassStyle,
+          top: 8,
+          right: 8,
+          zIndex: open ? 1500 : undefined,
+        }}
         className="chat-fab"
       >
         <Badge
@@ -59,13 +55,13 @@ const ChatFAB: React.FC<ChatFABProps> = ({ open, onClose, onOpen }) => {
           variant="dot"
           invisible={!hasMessages}
           sx={{
-            '& .MuiBadge-badge': {
+            "& .MuiBadge-badge": {
               top: -2,
               right: -2,
             },
           }}
         >
-          <ChatIcon />
+          {open ? <CloseIcon /> : <ChatIcon />}
         </Badge>
       </Fab>
     </Tooltip>

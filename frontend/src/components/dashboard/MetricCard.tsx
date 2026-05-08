@@ -1,6 +1,6 @@
 import React from "react";
 import { Typography, Box, CircularProgress, useMediaQuery, useTheme } from "@mui/material";
-import { metricLabels } from "../utils/metricsLabels";
+import { metricLabels } from "../../utils/metricsLabels";
 
 interface MetricCardProps {
   metricKey: keyof typeof metricLabels;

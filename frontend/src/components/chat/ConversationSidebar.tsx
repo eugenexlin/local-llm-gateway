@@ -21,7 +21,7 @@ interface ConversationSidebarProps {
   onBack?: () => void;
 }
 
-const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
+const ConversationList: React.FC<ConversationSidebarProps> = ({
   onBack,
 }) => {
   const {
@@ -112,7 +112,6 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
         width: onBack ? "100%" : 260,
         minWidth: onBack ? "100%" : 260,
         height: onBack ? "100%" : "100vh",
-        bgcolor: "#f8fafc",
         borderRight: onBack ? "none" : "1px solid #e2e8f0",
         display: "flex",
         flexDirection: "column",
@@ -123,7 +122,7 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
       <Box
         sx={{
           px: 2,
-          py: 1.5,
+          py: 1,
           borderBottom: "1px solid #e2e8f0",
           display: "flex",
           alignItems: "center",
@@ -149,6 +148,16 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
             Conversations
           </Typography>
         </Box>
+      </Box>
+
+      {/* Conversation List */}
+      <Box
+        sx={{
+          flex: 1,
+          overflow: "auto",
+          py: 0.5,
+        }}
+      >
         <IconButton
           size="small"
           onClick={handleNewChat}
@@ -165,16 +174,6 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
         >
           <AddIcon fontSize="small" />
         </IconButton>
-      </Box>
-
-      {/* Conversation List */}
-      <Box
-        sx={{
-          flex: 1,
-          overflow: "auto",
-          py: 0.5,
-        }}
-      >
         {sortedConversations.length === 0 ? (
           <Box
             sx={{
@@ -351,4 +350,4 @@ const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   );
 };
 
-export default ConversationSidebar;
+export default ConversationList;

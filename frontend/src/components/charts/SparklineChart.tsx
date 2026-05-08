@@ -7,8 +7,8 @@ import {
   YAxis,
   CartesianGrid,
 } from "recharts";
-import { MAX_SPARKLINE_POINTS } from "../utils/constants";
-import { USER_COLORS } from "../utils/colors";
+import { MAX_SPARKLINE_POINTS } from "../../utils/constants";
+import { USER_COLORS } from "../../utils/colors";
 
 interface SparklineChartProps {
   data: { timestamp: number; value: number }[];

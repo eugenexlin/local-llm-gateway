@@ -22,17 +22,17 @@ const spin = keyframes({
   "100%": { transform: "rotate(360deg)" },
 });
 import RefreshIcon from "@mui/icons-material/Refresh";
-import GpuIcon from "../components/GpuIcon";
-import CpuIcon from "../components/CpuIcon";
-import RamIcon from "../components/RamIcon";
+import GpuIcon from "../components/gauges/GpuIcon";
+import CpuIcon from "../components/icons/CpuIcon";
+import RamIcon from "../components/icons/RamIcon";
 import InfoIcon from "@mui/icons-material/Info";
 import StorageIcon from "@mui/icons-material/Storage";
-import NetworkIoIcon from "../components/NetworkIoIcon";
-import LoadGauge from "../components/LoadGauge";
-import TempGauge from "../components/TempGauge";
-import VramGauge from "../components/VramGauge";
-import PowerGauge from "../components/PowerGauge";
-import FanGauge from "../components/FanGauge";
+import NetworkIoIcon from "../components/icons/NetworkIoIcon";
+import LoadGauge from "../components/gauges/LoadGauge";
+import TempGauge from "../components/gauges/TempGauge";
+import VramGauge from "../components/gauges/VramGauge";
+import PowerGauge from "../components/gauges/PowerGauge";
+import FanGauge from "../components/gauges/FanGauge";
 
 interface CpuCore {
   cpu: number;
