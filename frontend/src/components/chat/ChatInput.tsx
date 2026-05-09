@@ -18,7 +18,6 @@ interface ChatInputProps {
   onSettingsClick: () => void;
   onConversationListClick: () => void;
   scrollToUserMessage: (direction: "next" | "prev") => void;
-  pageMode?: boolean;
 }
 
 const ChatInput: React.FC<ChatInputProps> = (props: ChatInputProps) => {
@@ -61,8 +60,8 @@ const ChatInput: React.FC<ChatInputProps> = (props: ChatInputProps) => {
   return (
     <Box
       sx={{
-        position: props.pageMode ? "sticky" : "unset",
-        bottom: props.pageMode ? { xs: 8, sm: 8, md: 24 } : "unset",
+        position: "sticky",
+        bottom: 0,
       }}
     >
       {!selectedKeyId && (

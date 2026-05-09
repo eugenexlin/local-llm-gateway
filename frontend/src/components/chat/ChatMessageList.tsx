@@ -7,7 +7,6 @@ import { useChat } from "../../context/ChatContext";
 interface ChatMessageListProps {
   scrollRef: React.RefObject<HTMLDivElement | null>;
   onMobileClose?: () => void;
-  pageMode?: boolean;
 }
 
 const ChatMessageList: React.FC<ChatMessageListProps> = (
@@ -104,7 +103,7 @@ const ChatMessageList: React.FC<ChatMessageListProps> = (
       ref={props.scrollRef}
       sx={{
         flex: 1,
-        overflow: props.pageMode ? "visible" : "auto",
+        overflow: "visible",
         position: "relative",
       }}
     >
@@ -116,7 +115,7 @@ const ChatMessageList: React.FC<ChatMessageListProps> = (
             alignItems: "center",
             justifyContent: "center",
             height: "100%",
-            px: { xs: 2, sm: 4 },
+            p: { xs: 2, sm: 4 },
             textAlign: "center",
             cursor: "pointer",
           }}

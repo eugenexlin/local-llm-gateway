@@ -9,7 +9,6 @@ import {
   useTheme,
 } from "@mui/material";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
-import StarIcon from "@mui/icons-material/Star";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import { ChatMessageItem, useChat } from "../../context/ChatContext";
 import ChatDots from "./ChatDots";
@@ -23,14 +22,12 @@ interface ChatMessageProps {
   message: ChatMessageItem;
   isStreaming: boolean;
   index: number;
-  pageMode?: boolean;
 }
 
 const ChatMessage: React.FC<ChatMessageProps> = ({
   message,
   isStreaming,
   index,
-  pageMode,
 }) => {
   const isUser = message.role === "user";
   const isStreamingResponse = !isUser && isStreaming;
@@ -352,8 +349,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
         )}
         <Box
           sx={{
-            px: pageMode ? { xs: 2, sm: 3, md: 4 } : { xs: 1, sm: 2 },
-            py: { xs: 0.75, sm: 1.25 },
+            p: { xs: 1,  sm: 2,},
             borderRadius: isUser
               ? { xs: "16px 16px 4px 16px", sm: "16px 16px 4px 16px" }
               : { xs: "16px 16px 16px 4px", sm: "16px 16px 16px 4px" },

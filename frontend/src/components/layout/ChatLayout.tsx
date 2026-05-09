@@ -11,11 +11,7 @@ import ChatSettingsModal from "../chat/ChatSettingsModal";
 import ConversationList from "../chat/ConversationSidebar";
 import theme from "../../theme";
 
-interface ChatLayoutProps {
-  onToggleConversationList?: () => void;
-  onMobileClose?: () => void;
-  pageMode?: boolean;
-}
+interface ChatLayoutProps {}
 
 export const ChatLayout = (props: ChatLayoutProps) => {
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -86,9 +82,16 @@ export const ChatLayout = (props: ChatLayoutProps) => {
   };
 
   return (
-    <>
+    <Box
+      sx={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+      }}
+    >
       {/* Navigation Controls */}
-      {isMobile && !isConversationListOpen && (
+      {(!isMobile || !isConversationListOpen) && messages.length > 0 && (
         <Box
           sx={{
             position: "sticky",
@@ -126,43 +129,49 @@ export const ChatLayout = (props: ChatLayoutProps) => {
           </Box>
         </Box>
       )}
-
-      {isConversationListOpen && (
-        <ConversationList
-          onBack={() => {
-            setIsConversationListOpen(false);
-          }}
-        ></ConversationList>
-      )}
-      {/* main chat window */}
-
-      {isMobile && !isConversationListOpen && (
+      <Box
+        sx={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+        }}
+      >
         <Box
           sx={{
-            position: "relative",
+            flex: 1,
             display: "flex",
-            overflow: "hidden",
-            marginTop: 1,
+            flexDirection: "row",
+            justifyContent: "center",
           }}
         >
-          {/* Message list */}
-          <ChatMessageList scrollRef={scrollRef} pageMode />
-
-          <ChatSettingsModal
-            open={isSettingsOpen}
-            onClose={() => {
-              setIsSettingsOpen(false);
-            }}
-            onChange={setChatSettings}
-            settings={chatSettings}
-            includeReasoningInContext={includeReasoningInContext}
-            onToggleReasoning={setIncludeReasoningInContext}
-          ></ChatSettingsModal>
-
-          {/* Setup modal overlay */}
-          {!selectedKeyId && <ChatSetupModal open={true} />}
+          {isConversationListOpen && (
+            <ConversationList
+              isFullPage={isMobile}
+              onBack={() => {
+                setIsConversationListOpen(false);
+              }}
+            ></ConversationList>
+          )}
+          {/* main chat window */}
+          {(!isMobile || !isConversationListOpen) && (
+            <ChatMessageList scrollRef={scrollRef} pageMode />
+          )}
         </Box>
-      )}
+      </Box>
+      <ChatSettingsModal
+        open={isSettingsOpen}
+        onClose={() => {
+          setIsSettingsOpen(false);
+        }}
+        onChange={setChatSettings}
+        settings={chatSettings}
+        includeReasoningInContext={includeReasoningInContext}
+        onToggleReasoning={setIncludeReasoningInContext}
+      ></ChatSettingsModal>
+
+      {/* Setup modal overlay */}
+      {!selectedKeyId && <ChatSetupModal open={true} />}
       {/* Input TODO */}
       <ChatInput
         onSettingsClick={() => {
@@ -174,6 +183,6 @@ export const ChatLayout = (props: ChatLayoutProps) => {
         scrollToUserMessage={scrollToUserMessage}
         pageMode
       />
-    </>
+    </Box>
   );
 };

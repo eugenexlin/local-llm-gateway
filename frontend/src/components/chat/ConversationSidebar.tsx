@@ -8,7 +8,6 @@ import {
   MenuItem,
   TextField,
 } from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
 import ChatIcon from "@mui/icons-material/Chat";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
@@ -18,12 +17,13 @@ import ChatDots from "./ChatDots";
 import { useChat, Conversation } from "../../context/ChatContext";
 
 interface ConversationSidebarProps {
+  isFullPage: boolean;
   onBack?: () => void;
 }
 
-const ConversationList: React.FC<ConversationSidebarProps> = ({
-  onBack,
-}) => {
+const ConversationList: React.FC<ConversationSidebarProps> = (
+  props: ConversationSidebarProps,
+) => {
   const {
     conversations,
     activeConversationId,
@@ -46,7 +46,7 @@ const ConversationList: React.FC<ConversationSidebarProps> = ({
 
   const handleNewChat = () => {
     createConversation();
-    onBack?.();
+    props.onBack?.();
   };
 
   const handleOpenMenu = (event: React.MouseEvent<HTMLElement>, id: string) => {
@@ -109,10 +109,10 @@ const ConversationList: React.FC<ConversationSidebarProps> = ({
     <Box
       className="conversation-sidebar"
       sx={{
-        width: onBack ? "100%" : 260,
-        minWidth: onBack ? "100%" : 260,
-        height: onBack ? "100%" : "100vh",
-        borderRight: onBack ? "none" : "1px solid #e2e8f0",
+        width: props.isFullPage ? "100%" : 260,
+        minWidth: props.isFullPage ? "100%" : 260,
+        height: props.isFullPage ? "100%" : "100vh",
+        borderRight: props.isFullPage ? "none" : "1px solid #e2e8f0",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
@@ -130,8 +130,8 @@ const ConversationList: React.FC<ConversationSidebarProps> = ({
         }}
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          {onBack && (
-            <IconButton size="small" onClick={onBack} sx={{ color: "#64748b" }}>
+          {props.onBack && (
+            <IconButton size="small" onClick={props.onBack} sx={{ color: "#64748b" }}>
               <ArrowBackIcon fontSize="small" />
             </IconButton>
           )}
@@ -158,22 +158,30 @@ const ConversationList: React.FC<ConversationSidebarProps> = ({
           py: 0.5,
         }}
       >
-        <IconButton
-          size="small"
+        <ListItemButton
           onClick={handleNewChat}
           sx={{
-            bgcolor: "primary.main",
-            color: "white",
-            width: 28,
-            height: 28,
+            px: 1.5,
+            py: 1,
+            mb: 0.25,
+            borderRadius: 1,
             "&:hover": {
-              bgcolor: "primary.dark",
+              bgcolor: "rgba(139, 92, 246, 0.08)",
             },
           }}
-          title="New chat"
         >
-          <AddIcon fontSize="small" />
-        </IconButton>
+          <ChatIcon fontSize="small" sx={{ color: "#8b5cf6", mr: 1 }} />
+          <Typography
+            variant="body2"
+            sx={{
+              fontSize: "0.8125rem",
+              color: "#8b5cf6",
+              fontWeight: 500,
+            }}
+          >
+            New Conversation
+          </Typography>
+        </ListItemButton>
         {sortedConversations.length === 0 ? (
           <Box
             sx={{
@@ -193,7 +201,7 @@ const ConversationList: React.FC<ConversationSidebarProps> = ({
               variant="caption"
               sx={{ color: "#cbd5e1", fontSize: "0.6875rem" }}
             >
-              Click + to start a new chat
+              Click "New Conversation" to start a chat
             </Typography>
           </Box>
         ) : (
@@ -232,7 +240,7 @@ const ConversationList: React.FC<ConversationSidebarProps> = ({
                 <ListItemButton
                   onClick={() => {
                     switchConversation(conv.id);
-                    onBack?.();
+                    props.onBack?.();
                   }}
                   sx={{
                     px: 1.5,
