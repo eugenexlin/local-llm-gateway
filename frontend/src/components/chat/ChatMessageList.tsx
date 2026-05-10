@@ -168,7 +168,6 @@ const ChatMessageList: React.FC<ChatMessageListProps> = (
                   idx === messages.length - 1 &&
                   msg.role === "assistant"
                 }
-                pageMode={props.pageMode}
               />
             </Box>
           ))}

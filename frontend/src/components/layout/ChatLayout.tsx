@@ -155,7 +155,7 @@ export const ChatLayout = (props: ChatLayoutProps) => {
           )}
           {/* main chat window */}
           {(!isMobile || !isConversationListOpen) && (
-            <ChatMessageList scrollRef={scrollRef} pageMode />
+            <ChatMessageList scrollRef={scrollRef} />
           )}
         </Box>
       </Box>
@@ -181,7 +181,6 @@ export const ChatLayout = (props: ChatLayoutProps) => {
           setIsConversationListOpen(!isConversationListOpen);
         }}
         scrollToUserMessage={scrollToUserMessage}
-        pageMode
       />
     </Box>
   );

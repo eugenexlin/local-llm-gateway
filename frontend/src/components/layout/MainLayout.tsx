@@ -14,12 +14,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     setMainMargin(margin);
   }, []);
 
-  useCallback(() => {
-    if (firstRender) {
+  if (firstRender) {
+    setTimeout(() => {
       setFirstRender(false);
-    }
-  }, [firstRender]);
-
+    }, 100);
+  }
   return (
     <>
       <DrawerNavigation onMarginChange={handleMarginChange} />
