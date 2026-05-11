@@ -22,12 +22,14 @@ interface ChatMessageProps {
   message: ChatMessageItem;
   isStreaming: boolean;
   index: number;
+  isHighlighted?: boolean;
 }
 
 const ChatMessage: React.FC<ChatMessageProps> = ({
   message,
   isStreaming,
   index,
+  isHighlighted,
 }) => {
   const isUser = message.role === "user";
   const isStreamingResponse = !isUser && isStreaming;
@@ -42,6 +44,19 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
   );
   const [liveElapsed, setLiveElapsed] = useState(0);
   const theme = useTheme();
+
+  const [activateHighlight, setActivateHighlight] = useState<boolean>(false);
+
+  const triggerHighlightAction = isHighlighted && !activateHighlight;
+  if (triggerHighlightAction) {
+    setTimeout(() => {
+      setActivateHighlight(true);
+    }, 100);
+  }
+  const resetHighlightAction = !isHighlighted && activateHighlight;
+  if (resetHighlightAction) {
+    setActivateHighlight(false);
+  }
 
   useEffect(() => {
     if (isStreaming && message.thinking && thinkingRef.current) {
@@ -349,15 +364,20 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
         )}
         <Box
           sx={{
-            p: { xs: 1,  sm: 2,},
+            p: { xs: 1, sm: 2 },
             borderRadius: isUser
               ? { xs: "16px 16px 4px 16px", sm: "16px 16px 4px 16px" }
               : { xs: "16px 16px 16px 4px", sm: "16px 16px 16px 4px" },
             bgcolor: isUser ? "primary.main" : "#ffffff",
             color: isUser ? "white" : "#1e293b",
-            boxShadow: isUser
-              ? "0 2px 8px rgba(139, 92, 246, 0.25)"
-              : "0 1px 3px rgba(0,0,0,0.06)",
+            transition: "box-shadow 1s ease-out, filter 1s ease-out",
+            ...(triggerHighlightAction
+              ? {
+                  boxShadow: `0px 0px 6px 2px ${theme.palette.secondary.main}, inset 0px 0px 4px 2px ${theme.palette.background.default}`,
+                  filter: "brightness(150%)",
+                  transition: "unset",
+                }
+              : {}),
           }}
         >
           {renderContent(message.content)}

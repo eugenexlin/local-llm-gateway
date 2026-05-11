@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useCallback } from "react";
-import { Box, Typography, IconButton, Tooltip } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import ChatMessage from "./ChatMessage";
 import ChatDots from "./ChatDots";
 import { useChat } from "../../context/ChatContext";
@@ -7,6 +7,7 @@ import { useChat } from "../../context/ChatContext";
 interface ChatMessageListProps {
   scrollRef: React.RefObject<HTMLDivElement | null>;
   onMobileClose?: () => void;
+  highlightIndex?: number | null;
 }
 
 const ChatMessageList: React.FC<ChatMessageListProps> = (
@@ -20,6 +21,7 @@ const ChatMessageList: React.FC<ChatMessageListProps> = (
     createConversation,
     scrollState,
   } = useChat();
+  const { highlightIndex } = props;
   const isAtBottomRef = useRef(true);
   const prevMessagesLengthRef = useRef(0);
 
@@ -168,6 +170,7 @@ const ChatMessageList: React.FC<ChatMessageListProps> = (
                   idx === messages.length - 1 &&
                   msg.role === "assistant"
                 }
+                isHighlighted={idx === highlightIndex}
               />
             </Box>
           ))}
