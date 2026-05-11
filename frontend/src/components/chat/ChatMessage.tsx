@@ -374,7 +374,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
             ...(triggerHighlightAction
               ? {
                   boxShadow: `0px 0px 6px 2px ${theme.palette.secondary.main}, inset 0px 0px 4px 2px ${theme.palette.background.default}`,
-                  filter: "brightness(150%)",
+                  filter: "brightness(140%)",
                   transition: "unset",
                 }
               : {}),

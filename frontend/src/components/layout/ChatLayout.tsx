@@ -3,7 +3,7 @@ import ChatMessageList from "../chat/ChatMessageList";
 import ChatSetupModal from "../chat/ChatSetupModal";
 import ChatInput from "../chat/ChatInput";
 import { useChat } from "../../context/ChatContext";
-import { useRef, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { sharedGlassStyle } from "../../utils/styles";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
@@ -27,17 +27,14 @@ export const ChatLayout = (props: ChatLayoutProps) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isConversationListOpen, setIsConversationListOpen] =
     useState<boolean>(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
 
   const scrollToUserMessage = useCallback(
     (direction: "next" | "prev") => {
-      if (!scrollRef.current) return;
-
-      const el = scrollRef.current;
+      const el = document.getElementById("main-content");
+      if (!el) return;
       const elRect = el.getBoundingClientRect();
       const currentTop = el.scrollTop;
-      const children = Array.from(el.children) as HTMLElement[];
 
       const userMessageIndices = messages
         .map((msg, idx) => (msg.role === "user" ? idx : -1))
@@ -64,21 +61,20 @@ export const ChatLayout = (props: ChatLayoutProps) => {
       }
 
       if (targetIndexInArray >= userMessageIndices.length) {
-        console.warn("scroll end?")
         el.scrollTo(0, el.scrollHeight + elRect.height);
+        setHighlightIndex(-1);
       } else {
         const targetMsgIndex = userMessageIndices[targetIndexInArray];
         scrollState.targetMessageIndex = targetMsgIndex;
         setHighlightIndex(targetMsgIndex);
-        const targetChild = children.find(
-          (c) =>
-            c.getAttribute("data-index") ===
-            scrollState.targetMessageIndex.toString(),
-        );
+        const targetChild = el.querySelector(
+          `[data-index="${scrollState.targetMessageIndex}"]`,
+        ) as HTMLElement;
         if (targetChild) {
           targetChild.scrollIntoView({ behavior: "instant", block: "center" });
           setTimeout(() => {
             scrollState.previousScrollTop = el.scrollTop;
+            setHighlightIndex(-1);
           }, 50);
         }
       }
@@ -160,10 +156,7 @@ export const ChatLayout = (props: ChatLayoutProps) => {
           )}
           {/* main chat window */}
           {(!isMobile || !isConversationListOpen) && (
-            <ChatMessageList
-              scrollRef={scrollRef}
-              highlightIndex={highlightIndex}
-            />
+            <ChatMessageList highlightIndex={highlightIndex} />
           )}
         </Box>
       </Box>

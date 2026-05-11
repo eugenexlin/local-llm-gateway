@@ -46,7 +46,6 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
     if (stored !== null) return stored === "true";
     return false;
   });
-  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     if (isMedium) {
@@ -70,10 +69,6 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
     localStorage.setItem("drawer-collapsed", String(collapsed));
   }, [collapsed]);
 
-  const handleMobileToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
-
   const handleCollapsedToggle = () => {
     setCollapsed(!collapsed);
   };
@@ -90,10 +85,10 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
   };
 
   const menuItems = [
-    { text: "Chat", icon: <ChatIcon />, path: "/chat" },
     { text: "Dashboard", icon: <DashboardIcon />, path: "/dashboard" },
     { text: "Server Stats", icon: <MonitorHeartIcon />, path: "/server-stats" },
     { text: "API Keys", icon: <KeyIcon />, path: "/api-keys" },
+    { text: "Chat", icon: <ChatIcon />, path: "/chat" },
   ];
 
   const showLabels = !collapsed || isMobile;
@@ -142,7 +137,9 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
               onClick={(e) => {
                 e.stopPropagation();
                 navigate(item.path);
-                setMobileOpen(false);
+                if (isMobile || isMedium) {
+                  setCollapsed(true);
+                }
               }}
               sx={{
                 backgroundColor:
@@ -281,8 +278,8 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
       <>
         <Drawer
           variant="temporary"
-          open={mobileOpen}
-          onClose={handleMobileToggle}
+          open={collapsed}
+          onClose={handleCollapsedToggle}
           ModalProps={{ keepMounted: true }}
           sx={{
             width: drawerWidth,
@@ -300,10 +297,11 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
           id="temporary-drawer"
         >
           {drawerContent}
+          {collapseToggleButton}
         </Drawer>
         <Fab
           size="small"
-          onClick={handleMobileToggle}
+          onClick={handleCollapsedToggle}
           sx={{
             ...sharedFabStyle,
             ...sharedGlassStyle,

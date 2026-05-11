@@ -5,7 +5,6 @@ import ChatDots from "./ChatDots";
 import { useChat } from "../../context/ChatContext";
 
 interface ChatMessageListProps {
-  scrollRef: React.RefObject<HTMLDivElement | null>;
   onMobileClose?: () => void;
   highlightIndex?: number | null;
 }
@@ -26,14 +25,13 @@ const ChatMessageList: React.FC<ChatMessageListProps> = (
   const prevMessagesLengthRef = useRef(0);
 
   const handleScroll = useCallback(() => {
-    const el = props.scrollRef.current;
+    const el = document.getElementById("main-content");
     if (!el) return;
     const threshold = 30;
     isAtBottomRef.current =
       el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
 
     // because we want to target the element in the middle of screen calculate it
-    const children = Array.from(el.children) as HTMLElement[];
     const userMessageIndices = messages
       .map((msg, idx) => (msg.role === "user" ? idx : -1))
       .filter((idx) => idx !== -1);
@@ -47,9 +45,7 @@ const ChatMessageList: React.FC<ChatMessageListProps> = (
     const targetOffset = el.clientHeight / 2 + 3; // plus few pixel to tie break so that seeking to the next number surely
     for (let i = 0; i < userMessageIndices.length; i++) {
       const msgIdx = userMessageIndices[i];
-      const child = children.find(
-        (c) => c.getAttribute("data-index") === msgIdx.toString(),
-      );
+      const child = el.querySelector(`[data-index="${msgIdx}"]`) as HTMLElement;
       if (child) {
         const childRect = child.getBoundingClientRect();
         const distance = targetOffset - (childRect.top - parentTop);
@@ -65,14 +61,14 @@ const ChatMessageList: React.FC<ChatMessageListProps> = (
   }, [messages]);
 
   useEffect(() => {
-    const el = props.scrollRef.current;
+    const el = document.getElementById("main-content");
     if (!el) return;
     el.addEventListener("scroll", handleScroll, { passive: true });
     return () => el.removeEventListener("scroll", handleScroll);
   }, [handleScroll]);
 
   useEffect(() => {
-    const el = props.scrollRef.current;
+    const el = document.getElementById("main-content");
     if (!el) return;
 
     const prevLen = prevMessagesLengthRef.current;
@@ -102,7 +98,6 @@ const ChatMessageList: React.FC<ChatMessageListProps> = (
 
   return (
     <Box
-      ref={props.scrollRef}
       sx={{
         flex: 1,
         overflow: "visible",
