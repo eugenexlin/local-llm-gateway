@@ -9,7 +9,6 @@ import {
   TextField,
 } from "@mui/material";
 import ChatIcon from "@mui/icons-material/Chat";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -17,8 +16,9 @@ import ChatDots from "./ChatDots";
 import { useChat, Conversation } from "../../context/ChatContext";
 
 interface ConversationSidebarProps {
-  isFullPage: boolean;
-  onBack?: () => void;
+  onSuggestClose: () => void;
+  highlightActive?: boolean;
+  onConversationSelect?: (convId: string) => void;
 }
 
 const ConversationList: React.FC<ConversationSidebarProps> = (
@@ -46,7 +46,7 @@ const ConversationList: React.FC<ConversationSidebarProps> = (
 
   const handleNewChat = () => {
     createConversation();
-    props.onBack?.();
+    props.onSuggestClose();
   };
 
   const handleOpenMenu = (event: React.MouseEvent<HTMLElement>, id: string) => {
@@ -109,47 +109,13 @@ const ConversationList: React.FC<ConversationSidebarProps> = (
     <Box
       className="conversation-sidebar"
       sx={{
-        width: props.isFullPage ? "100%" : 260,
-        minWidth: props.isFullPage ? "100%" : 260,
-        height: props.isFullPage ? "100%" : "100vh",
-        borderRight: props.isFullPage ? "none" : "1px solid #e2e8f0",
+        width: "100%",
+        minWidth: "100%",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
       }}
     >
-      {/* Header */}
-      <Box
-        sx={{
-          px: 2,
-          py: 1,
-          borderBottom: "1px solid #e2e8f0",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          {props.onBack && (
-            <IconButton size="small" onClick={props.onBack} sx={{ color: "#64748b" }}>
-              <ArrowBackIcon fontSize="small" />
-            </IconButton>
-          )}
-          <Typography
-            variant="body2"
-            sx={{
-              fontWeight: 600,
-              color: "#475569",
-              textTransform: "uppercase",
-              letterSpacing: 0.05,
-              fontSize: "0.6875rem",
-            }}
-          >
-            Conversations
-          </Typography>
-        </Box>
-      </Box>
-
       {/* Conversation List */}
       <Box
         sx={{
@@ -239,8 +205,9 @@ const ConversationList: React.FC<ConversationSidebarProps> = (
               ) : (
                 <ListItemButton
                   onClick={() => {
+                    props.onConversationSelect?.(conv.id);
                     switchConversation(conv.id);
-                    props.onBack?.();
+                    props.onSuggestClose();
                   }}
                   sx={{
                     px: 1.5,
@@ -248,12 +215,12 @@ const ConversationList: React.FC<ConversationSidebarProps> = (
                     mb: 0.25,
                     borderRadius: 1,
                     bgcolor:
-                      activeConversationId === conv.id
+                      props.highlightActive && activeConversationId === conv.id
                         ? "rgba(139, 92, 246, 0.1)"
                         : "transparent",
                     "&:hover": {
                       bgcolor:
-                        activeConversationId === conv.id
+                        props.highlightActive && activeConversationId === conv.id
                           ? "rgba(139, 92, 246, 0.15)"
                           : "rgba(0, 0, 0, 0.04)",
                     },
@@ -265,11 +232,11 @@ const ConversationList: React.FC<ConversationSidebarProps> = (
                       sx={{
                         fontSize: "0.8125rem",
                         color:
-                          activeConversationId === conv.id
+                          props.highlightActive && activeConversationId === conv.id
                             ? "#8b5cf6"
                             : "#334155",
                         fontWeight:
-                          activeConversationId === conv.id ? 600 : 400,
+                          props.highlightActive && activeConversationId === conv.id ? 600 : 400,
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
@@ -308,7 +275,7 @@ const ConversationList: React.FC<ConversationSidebarProps> = (
                       ml: "auto",
                       color: "#94a3b8",
                       "&:hover": { color: "#475569" },
-                      opacity: activeConversationId === conv.id ? 1 : 0,
+                      opacity: props.highlightActive && activeConversationId === conv.id ? 1 : 0,
                     }}
                   >
                     <MoreVertIcon fontSize="small" />

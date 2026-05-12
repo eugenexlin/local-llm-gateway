@@ -22,6 +22,7 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import KeyboardArrowLeftIcon from "@mui/icons-material/KeyboardArrowLeft";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import ConversationList from "../chat/ConversationSidebar";
 import { sharedFabStyle, sharedGlassStyle } from "../../utils/styles";
 
 const drawerWidth = 300;
@@ -103,12 +104,14 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
         height: "100%",
       }}
     >
+      {/* Header - fixed top */}
       <Box
         id="drawer-header"
         sx={{
           p: 1,
           display: "flex",
           alignContent: "center",
+          flexShrink: 0,
         }}
       >
         <Box sx={{ pr: "8px" }}>
@@ -129,17 +132,28 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
         )}
       </Box>
       <Divider />
-      <Box sx={{ flex: 1 }}>
+      {/* Middle section - scrollable */}
+      <Box
+        sx={{
+          flex: 1,
+          overflow: "auto",
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0,
+        }}
+      >
         <List disablePadding>
-          {menuItems.map((item) => (
+          {menuItems.map((item, i) => (
             <ListItem
-              key={item.text}
+              key={i + " " + item.text}
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(item.path);
                 if (isMobile || isMedium) {
                   setCollapsed(true);
                 }
+                setTimeout(() => {
+                  navigate(item.path);
+                }, 1);
               }}
               sx={{
                 backgroundColor:
@@ -174,8 +188,26 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
             </ListItem>
           ))}
         </List>
+        <Divider />
+        {/* Conversation list - only show when drawer is expanded */}
+        {showLabels && (
+          <ConversationList
+            onSuggestClose={() => {
+              if (isMobile || isMedium) {
+                setCollapsed(true);
+              }
+            }}
+            highlightActive={location.pathname === "/chat"}
+            onConversationSelect={(_convId) => {
+              setTimeout(() => {
+                navigate("/chat");
+              }, 1);
+            }}
+          />
+        )}
       </Box>
-      <Box sx={{ mt: "auto" }}>
+      {/* Footer - fixed bottom */}
+      <Box sx={{ flexShrink: 0 }}>
         <Divider />
         <ListItem
           onClick={(e) => {
@@ -278,7 +310,7 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
       <>
         <Drawer
           variant="temporary"
-          open={collapsed}
+          open={!collapsed}
           onClose={handleCollapsedToggle}
           ModalProps={{ keepMounted: true }}
           sx={{

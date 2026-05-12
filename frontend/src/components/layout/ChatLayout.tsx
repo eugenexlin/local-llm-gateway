@@ -1,4 +1,4 @@
-import { Box, IconButton, Tooltip, useMediaQuery } from "@mui/material";
+import { Box, IconButton, Tooltip } from "@mui/material";
 import ChatMessageList from "../chat/ChatMessageList";
 import ChatSetupModal from "../chat/ChatSetupModal";
 import ChatInput from "../chat/ChatInput";
@@ -8,13 +8,10 @@ import { sharedGlassStyle } from "../../utils/styles";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import ChatSettingsModal from "../chat/ChatSettingsModal";
-import ConversationList from "../chat/ConversationSidebar";
-import theme from "../../theme";
 
 interface ChatLayoutProps {}
 
 export const ChatLayout = (props: ChatLayoutProps) => {
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const {
     messages,
     selectedKeyId,
@@ -25,8 +22,6 @@ export const ChatLayout = (props: ChatLayoutProps) => {
     setIncludeReasoningInContext,
   } = useChat();
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
-  const [isConversationListOpen, setIsConversationListOpen] =
-    useState<boolean>(false);
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
 
   const scrollToUserMessage = useCallback(
@@ -92,7 +87,7 @@ export const ChatLayout = (props: ChatLayoutProps) => {
       }}
     >
       {/* Navigation Controls */}
-      {(!isMobile || !isConversationListOpen) && messages.length > 0 && (
+      {messages.length > 0 && (
         <Box
           sx={{
             position: "sticky",
@@ -146,18 +141,8 @@ export const ChatLayout = (props: ChatLayoutProps) => {
             justifyContent: "center",
           }}
         >
-          {isConversationListOpen && (
-            <ConversationList
-              isFullPage={isMobile}
-              onBack={() => {
-                setIsConversationListOpen(false);
-              }}
-            ></ConversationList>
-          )}
           {/* main chat window */}
-          {(!isMobile || !isConversationListOpen) && (
-            <ChatMessageList highlightIndex={highlightIndex} />
-          )}
+          <ChatMessageList highlightIndex={highlightIndex} />
         </Box>
       </Box>
       <ChatSettingsModal
@@ -177,9 +162,6 @@ export const ChatLayout = (props: ChatLayoutProps) => {
       <ChatInput
         onSettingsClick={() => {
           setIsSettingsOpen(true);
-        }}
-        onConversationListClick={() => {
-          setIsConversationListOpen(!isConversationListOpen);
         }}
         scrollToUserMessage={scrollToUserMessage}
       />

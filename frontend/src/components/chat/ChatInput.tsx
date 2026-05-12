@@ -16,7 +16,7 @@ import NoteAddIcon from "@mui/icons-material/NoteAdd";
 
 interface ChatInputProps {
   onSettingsClick: () => void;
-  onConversationListClick: () => void;
+  onConversationListClick?: () => void;
   scrollToUserMessage: (direction: "next" | "prev") => void;
 }
 
@@ -150,16 +150,16 @@ const ChatInput: React.FC<ChatInputProps> = (props: ChatInputProps) => {
             ...sharedGlassStyle,
           }}
         >
-          <Tooltip title="Conversations">
-            <IconButton
-              sx={{ width: 40, height: 40 }}
-              onClick={() => {
-                props.onConversationListClick();
-              }}
-            >
-              <ListAltIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+          {props.onConversationListClick && (
+            <Tooltip title="Conversations">
+              <IconButton
+                sx={{ width: 40, height: 40 }}
+                onClick={() => props.onConversationListClick!()}
+              >
+                <ListAltIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
           <Tooltip title="Settings">
             <IconButton
               sx={{ width: 40, height: 40 }}
