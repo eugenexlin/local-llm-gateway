@@ -21,3 +21,25 @@ export const highlightPulse = keyframes`
     box-shadow: 0 0 0 0 rgba(139, 92, 246, 0);
   }
 `;
+
+export const sidebarItemBase: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  height: "50px",
+  paddingLeft: "16px",
+  paddingRight: "16px",
+  paddingTop: "8px",
+  paddingBottom: "8px",
+  gap: "16px",
+  cursor: "pointer",
+  borderRadius: 0,
+};
+
+export const sidebarIconContainer: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "24px",
+  height: "24px",
+  flexShrink: 0,
+};

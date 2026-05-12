@@ -2,10 +2,6 @@ import React, { useState, useEffect } from "react";
 import {
   Box,
   Drawer,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
   Divider,
   Typography,
   Fab,
@@ -23,7 +19,7 @@ import KeyboardArrowLeftIcon from "@mui/icons-material/KeyboardArrowLeft";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import ConversationList from "../chat/ConversationSidebar";
-import { sharedFabStyle, sharedGlassStyle } from "../../utils/styles";
+import { sharedFabStyle, sharedGlassStyle, sidebarItemBase, sidebarIconContainer } from "../../utils/styles";
 
 const drawerWidth = 300;
 const collapsedWidth = 56; // 40 + 8 + 8
@@ -41,6 +37,8 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isMedium = useMediaQuery(theme.breakpoints.between("sm", "md"));
   const { user, logout } = useAuth();
+
+  const ui = theme.custom.ui;
 
   const [collapsed, setCollapsed] = useState(() => {
     const stored = localStorage.getItem("drawer-collapsed");
@@ -142,52 +140,50 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
           minHeight: 0,
         }}
       >
-        <List disablePadding>
-          {menuItems.map((item, i) => (
-            <ListItem
-              key={i + " " + item.text}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (isMobile || isMedium) {
-                  setCollapsed(true);
-                }
-                setTimeout(() => {
-                  navigate(item.path);
-                }, 1);
-              }}
+        {menuItems.map((item, i) => (
+          <Box
+            key={i + " " + item.text}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (isMobile || isMedium) {
+                setCollapsed(true);
+              }
+              setTimeout(() => {
+                navigate(item.path);
+              }, 1);
+            }}
+            sx={{
+              ...sidebarItemBase,
+              backgroundColor:
+                location.pathname === item.path
+                  ? ui.activeBg
+                  : "transparent",
+              "&:hover": { backgroundColor: ui.hoverBg },
+            }}
+          >
+            <Box
               sx={{
-                backgroundColor:
+                ...sidebarIconContainer,
+                color:
                   location.pathname === item.path
-                    ? "rgba(33, 150, 243, 0.08)"
-                    : "transparent",
-                "&:hover": { backgroundColor: "rgba(33, 150, 243, 0.04)" },
+                    ? ui.activeColor
+                    : "inherit",
               }}
-              alignItems="center"
             >
-              <ListItemIcon
+              {item.icon}
+            </Box>
+            {showLabels && (
+              <Typography
                 sx={{
-                  height: "27px",
-                  color:
-                    location.pathname === item.path
-                      ? "primary.main"
-                      : "inherit",
+                  whiteSpace: "nowrap",
+                  fontSize: "0.875rem",
                 }}
               >
-                {item.icon}
-              </ListItemIcon>
-              {showLabels && (
-                <ListItemText
-                  sx={{
-                    whiteSpace: "nowrap",
-                    height: "24px",
-                    lineHeight: "24px",
-                  }}
-                  primary={item.text}
-                />
-              )}
-            </ListItem>
-          ))}
-        </List>
+                {item.text}
+              </Typography>
+            )}
+          </Box>
+        ))}
         <Divider />
         {/* Conversation list - only show when drawer is expanded */}
         {showLabels && (
@@ -209,21 +205,26 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
       {/* Footer - fixed bottom */}
       <Box sx={{ flexShrink: 0 }}>
         <Divider />
-        <ListItem
+       <Box
           onClick={(e) => {
             e.stopPropagation();
             handleLogout();
           }}
           sx={{
-            cursor: "pointer",
-            "&:hover": { backgroundColor: "rgba(33, 150, 243, 0.04)" },
+            ...sidebarItemBase,
+            "&:hover": { backgroundColor: ui.hoverBg },
           }}
         >
-          <ListItemIcon sx={{ color: "inherit", minWidth: 36 }}>
+          <Box
+            sx={{
+              ...sidebarIconContainer,
+              color: "inherit",
+            }}
+          >
             <LogoutIcon />
-          </ListItemIcon>
-          {showLabels && <ListItemText primary="Logout" />}
-        </ListItem>
+          </Box>
+          {showLabels && <Typography sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>Logout</Typography>}
+        </Box>
         <Divider />
         <Box
           sx={{

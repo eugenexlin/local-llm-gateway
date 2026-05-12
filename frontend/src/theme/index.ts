@@ -24,7 +24,21 @@ const theme = createTheme({
     fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
   },
   shape: {
-    borderRadius: 8,
+    borderRadius: 0,
+  },
+  custom: {
+    ui: {
+      hoverBg: 'rgba(139, 92, 246, 0.04)',
+      activeBg: 'rgba(139, 92, 246, 0.08)',
+      activeColor: '#8b5cf6',
+      textPrimary: '#334155',
+      textSecondary: '#94a3b8',
+      textMuted: '#cbd5e1',
+      borderColor: '#e0e0e0',
+      editBg: 'rgba(139, 92, 246, 0.06)',
+      deleteColor: '#dc2626',
+      deleteHoverBg: 'rgba(220, 38, 38, 0.06)',
+    },
   },
   components: {
     MuiDrawer: {
@@ -45,7 +59,7 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           textTransform: 'none',
-          borderRadius: 8,
+          borderRadius: 0,
         },
       },
     },

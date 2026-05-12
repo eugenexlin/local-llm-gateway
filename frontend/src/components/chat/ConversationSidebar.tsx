@@ -3,17 +3,19 @@ import {
   Box,
   Typography,
   IconButton,
-  ListItemButton,
   Menu,
   MenuItem,
   TextField,
 } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import ChatIcon from "@mui/icons-material/Chat";
+import AddCircleIcon from "@mui/icons-material/AddCircle";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import ChatDots from "./ChatDots";
 import { useChat, Conversation } from "../../context/ChatContext";
+import { sidebarItemBase, sidebarIconContainer } from "../../utils/styles";
 
 interface ConversationSidebarProps {
   onSuggestClose: () => void;
@@ -33,6 +35,9 @@ const ConversationList: React.FC<ConversationSidebarProps> = (
     deleteConversation,
     renameConversation,
   } = useChat();
+
+  const theme = useTheme();
+  const ui = theme.custom.ui;
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -121,33 +126,35 @@ const ConversationList: React.FC<ConversationSidebarProps> = (
         sx={{
           flex: 1,
           overflow: "auto",
-          py: 0.5,
         }}
       >
-        <ListItemButton
+        <Box
           onClick={handleNewChat}
           sx={{
-            px: 1.5,
-            py: 1,
-            mb: 0.25,
-            borderRadius: 1,
-            "&:hover": {
-              bgcolor: "rgba(139, 92, 246, 0.08)",
-            },
+            ...sidebarItemBase,
+            px: 2,
+            "&:hover": { backgroundColor: ui.activeBg },
           }}
         >
-          <ChatIcon fontSize="small" sx={{ color: "#8b5cf6", mr: 1 }} />
-          <Typography
-            variant="body2"
+          <Box
             sx={{
-              fontSize: "0.8125rem",
-              color: "#8b5cf6",
+              ...sidebarIconContainer,
+              color: ui.activeColor,
+            }}
+          >
+            <AddCircleIcon fontSize="small" />
+          </Box>
+          <Typography
+            sx={{
+              fontSize: "0.875rem",
+              color: ui.activeColor,
               fontWeight: 500,
+              whiteSpace: "nowrap",
             }}
           >
             New Conversation
           </Typography>
-        </ListItemButton>
+        </Box>
         {sortedConversations.length === 0 ? (
           <Box
             sx={{
@@ -156,16 +163,16 @@ const ConversationList: React.FC<ConversationSidebarProps> = (
               textAlign: "center",
             }}
           >
-            <ChatIcon sx={{ color: "#cbd5e1", mb: 1 }} />
+            <ChatIcon sx={{ color: ui.textMuted, mb: 1 }} />
             <Typography
               variant="body2"
-              sx={{ color: "#94a3b8", fontSize: "0.8125rem" }}
+              sx={{ color: ui.textSecondary, fontSize: "0.875rem" }}
             >
               No conversations yet
             </Typography>
             <Typography
               variant="caption"
-              sx={{ color: "#cbd5e1", fontSize: "0.6875rem" }}
+              sx={{ color: ui.textMuted, fontSize: "0.75rem" }}
             >
               Click "New Conversation" to start a chat
             </Typography>
@@ -177,13 +184,12 @@ const ConversationList: React.FC<ConversationSidebarProps> = (
                 <Box
                   sx={{
                     px: 1.5,
-                    py: 0.75,
+                    py: 1,
                     display: "flex",
                     alignItems: "center",
-                    bgcolor: "rgba(139, 92, 246, 0.06)",
-                    borderRadius: 1,
-                    mx: 1,
-                    mb: 0.25,
+                    bgcolor: ui.editBg,
+                    borderRadius: 0,
+                    height: "50px",
                   }}
                 >
                   <TextField
@@ -203,26 +209,24 @@ const ConversationList: React.FC<ConversationSidebarProps> = (
                   />
                 </Box>
               ) : (
-                <ListItemButton
+                <Box
                   onClick={() => {
                     props.onConversationSelect?.(conv.id);
                     switchConversation(conv.id);
                     props.onSuggestClose();
                   }}
                   sx={{
-                    px: 1.5,
-                    py: 1,
-                    mb: 0.25,
-                    borderRadius: 1,
+                    ...sidebarItemBase,
                     bgcolor:
                       props.highlightActive && activeConversationId === conv.id
-                        ? "rgba(139, 92, 246, 0.1)"
+                        ? ui.activeBg
                         : "transparent",
                     "&:hover": {
                       bgcolor:
-                        props.highlightActive && activeConversationId === conv.id
-                          ? "rgba(139, 92, 246, 0.15)"
-                          : "rgba(0, 0, 0, 0.04)",
+                        props.highlightActive &&
+                        activeConversationId === conv.id
+                          ? ui.activeBg
+                          : ui.hoverBg,
                     },
                   }}
                 >
@@ -230,13 +234,17 @@ const ConversationList: React.FC<ConversationSidebarProps> = (
                     <Typography
                       variant="body2"
                       sx={{
-                        fontSize: "0.8125rem",
+                        fontSize: "0.875rem",
                         color:
-                          props.highlightActive && activeConversationId === conv.id
-                            ? "#8b5cf6"
-                            : "#334155",
+                          props.highlightActive &&
+                          activeConversationId === conv.id
+                            ? ui.activeColor
+                            : ui.textPrimary,
                         fontWeight:
-                          props.highlightActive && activeConversationId === conv.id ? 600 : 400,
+                          props.highlightActive &&
+                          activeConversationId === conv.id
+                            ? 600
+                            : 400,
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
@@ -247,7 +255,7 @@ const ConversationList: React.FC<ConversationSidebarProps> = (
                     <Box
                       sx={{
                         display: "flex",
-                        color: "#94a3b8",
+                        color: ui.textSecondary,
                         height: "16px",
                       }}
                     >
@@ -273,14 +281,18 @@ const ConversationList: React.FC<ConversationSidebarProps> = (
                     }}
                     sx={{
                       ml: "auto",
-                      color: "#94a3b8",
-                      "&:hover": { color: "#475569" },
-                      opacity: props.highlightActive && activeConversationId === conv.id ? 1 : 0,
+                      color: ui.textSecondary,
+                      "&:hover": { color: ui.textPrimary },
+                      opacity:
+                        props.highlightActive &&
+                        activeConversationId === conv.id
+                          ? 1
+                          : 0,
                     }}
                   >
                     <MoreVertIcon fontSize="small" />
                   </IconButton>
-                </ListItemButton>
+                </Box>
               )}
             </Box>
           ))
@@ -303,7 +315,7 @@ const ConversationList: React.FC<ConversationSidebarProps> = (
             );
             if (conv) handleStartEdit(conv);
           }}
-          sx={{ gap: 1, fontSize: "0.8125rem" }}
+          sx={{ gap: 1, fontSize: "0.875rem" }}
         >
           <EditIcon fontSize="small" />
           Rename
@@ -312,9 +324,9 @@ const ConversationList: React.FC<ConversationSidebarProps> = (
           onClick={handleDelete}
           sx={{
             gap: 1,
-            fontSize: "0.8125rem",
-            color: "#dc2626",
-            "&:hover": { bgcolor: "rgba(220, 38, 38, 0.06)" },
+            fontSize: "0.875rem",
+            color: ui.deleteColor,
+            "&:hover": { bgcolor: ui.deleteHoverBg },
           }}
         >
           <DeleteIcon fontSize="small" />
