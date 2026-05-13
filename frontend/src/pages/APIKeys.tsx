@@ -173,7 +173,9 @@ function APIKeys() {
 
   return (
     <>
-      <Box sx={{ textAlign: isMobile ? "center" : "start", paddingBottom: "16px" }}>
+      <Box
+        sx={{ textAlign: isMobile ? "center" : "start", paddingBottom: "16px" }}
+      >
         <Typography variant="h5">API Keys</Typography>
       </Box>
       <Box
@@ -269,7 +271,7 @@ function APIKeys() {
           <CircularProgress />
         </Box>
       ) : displayedKeys.length === 0 ? (
-        <Paper sx={{ p: 6, textAlign: "center", bgcolor: "white" }}>
+        <Paper sx={{ p: 6, textAlign: "center", bgcolor: "background.paper" }}>
           <Key sx={{ fontSize: 48, color: "text.disabled", mb: 2 }} />
           <Typography
             variant="h6"
@@ -283,7 +285,13 @@ function APIKeys() {
           </Typography>
         </Paper>
       ) : (
-        <Paper sx={{ borderRadius: 2, overflow: "hidden", bgcolor: "white" }}>
+        <Paper
+          sx={{
+            borderRadius: 2,
+            overflow: "hidden",
+            bgcolor: "background.paper",
+          }}
+        >
           {displayedKeys.map((key, index) => (
             <Box
               key={key.id}
@@ -293,7 +301,6 @@ function APIKeys() {
                   index < displayedKeys.length - 1
                     ? "1px solid #e0e0e0"
                     : "none",
-                "&:hover": { bgcolor: "#f5f5f5" },
               }}
             >
               <Box

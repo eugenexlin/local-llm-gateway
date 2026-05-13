@@ -10,12 +10,9 @@ import {
 import SendIcon from "@mui/icons-material/Send";
 import { useChat } from "../../context/ChatContext";
 import { sharedGlassStyle } from "../../utils/styles";
-import SettingsIcon from "@mui/icons-material/Settings";
 import ListAltIcon from "@mui/icons-material/ListAlt";
-import NoteAddIcon from "@mui/icons-material/NoteAdd";
 
 interface ChatInputProps {
-  onSettingsClick: () => void;
   onConversationListClick?: () => void;
   scrollToUserMessage: (direction: "next" | "prev") => void;
 }
@@ -74,7 +71,7 @@ const ChatInput: React.FC<ChatInputProps> = (props: ChatInputProps) => {
             px: 1,
           }}
         >
-          Please select an API key above to start chatting
+          Please select an API key to start chatting
         </Typography>
       )}
 
@@ -94,7 +91,7 @@ const ChatInput: React.FC<ChatInputProps> = (props: ChatInputProps) => {
         inputProps={{ ref: textareaRef as any }}
         sx={{
           "& .MuiOutlinedInput-root": {
-            borderRadius: 3,
+            borderRadius: "16px",
             "& fieldset": {
               borderColor: "#e2e8f0",
             },
@@ -160,16 +157,6 @@ const ChatInput: React.FC<ChatInputProps> = (props: ChatInputProps) => {
               </IconButton>
             </Tooltip>
           )}
-          <Tooltip title="Settings">
-            <IconButton
-              sx={{ width: 40, height: 40 }}
-              onClick={() => {
-                props.onSettingsClick();
-              }}
-            >
-              <SettingsIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
         </Box>
       </Box>
     </Box>

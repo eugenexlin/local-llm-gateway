@@ -37,7 +37,7 @@ const ChatSetupModal: React.FC<ChatSetupModalProps> = ({ open }) => {
     >
       <Box
         sx={{
-          bgcolor: "white",
+          bgcolor: "background.paper",
           borderRadius: 3,
           p: 4,
           boxShadow: "0 8px 32px rgba(0,0,0,0.12)",

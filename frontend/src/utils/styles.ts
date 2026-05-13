@@ -27,7 +27,7 @@ export const sidebarItemBase: React.CSSProperties = {
   alignItems: "center",
   height: "50px",
   paddingLeft: "16px",
-  paddingRight: "16px",
+  paddingRight: "8px",
   paddingTop: "8px",
   paddingBottom: "8px",
   gap: "16px",

@@ -15,10 +15,12 @@ import MonitorHeartIcon from "@mui/icons-material/MonitorHeart";
 import ChatIcon from "@mui/icons-material/Chat";
 import MenuIcon from "@mui/icons-material/Menu";
 import LogoutIcon from "@mui/icons-material/Logout";
+import SettingsIcon from "@mui/icons-material/Settings";
 import KeyboardArrowLeftIcon from "@mui/icons-material/KeyboardArrowLeft";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import ConversationList from "../chat/ConversationSidebar";
+import SettingsDialog from "./SettingsDialog";
 import { sharedFabStyle, sharedGlassStyle, sidebarItemBase, sidebarIconContainer } from "../../utils/styles";
 
 const drawerWidth = 300;
@@ -82,6 +84,8 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
     logout();
     navigate("/login");
   };
+
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const menuItems = [
     { text: "Dashboard", icon: <DashboardIcon />, path: "/dashboard" },
@@ -205,6 +209,27 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
       {/* Footer - fixed bottom */}
       <Box sx={{ flexShrink: 0 }}>
         <Divider />
+        <Box
+          onClick={(e) => {
+            e.stopPropagation();
+            setSettingsOpen(true);
+          }}
+          sx={{
+            ...sidebarItemBase,
+            "&:hover": { backgroundColor: ui.hoverBg },
+          }}
+        >
+          <Box
+            sx={{
+              ...sidebarIconContainer,
+              color: "inherit",
+            }}
+          >
+            <SettingsIcon />
+          </Box>
+          {showLabels && <Typography sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>Settings</Typography>}
+        </Box>
+        <Divider />
        <Box
           onClick={(e) => {
             e.stopPropagation();
@@ -272,6 +297,7 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
           )}
         </Box>
       </Box>
+      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </Box>
   );
 

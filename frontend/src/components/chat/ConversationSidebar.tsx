@@ -132,7 +132,7 @@ const ConversationList: React.FC<ConversationSidebarProps> = (
           onClick={handleNewChat}
           sx={{
             ...sidebarItemBase,
-            px: 2,
+            paddingLeft: 3,
             "&:hover": { backgroundColor: ui.activeBg },
           }}
         >
@@ -217,6 +217,7 @@ const ConversationList: React.FC<ConversationSidebarProps> = (
                   }}
                   sx={{
                     ...sidebarItemBase,
+                    paddingLeft: 3,
                     bgcolor:
                       props.highlightActive && activeConversationId === conv.id
                         ? ui.activeBg
@@ -273,25 +274,27 @@ const ConversationList: React.FC<ConversationSidebarProps> = (
                       )}
                     </Box>
                   </Box>
-                  <IconButton
-                    size="small"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenMenu(e, conv.id);
-                    }}
-                    sx={{
-                      ml: "auto",
-                      color: ui.textSecondary,
-                      "&:hover": { color: ui.textPrimary },
-                      opacity:
-                        props.highlightActive &&
-                        activeConversationId === conv.id
-                          ? 1
-                          : 0,
-                    }}
-                  >
-                    <MoreVertIcon fontSize="small" />
-                  </IconButton>
+                  {activeConversationId === conv.id && (
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenMenu(e, conv.id);
+                      }}
+                      sx={{
+                        ml: "auto",
+                        color: ui.textSecondary,
+                        "&:hover": { color: ui.textPrimary },
+                        opacity:
+                          props.highlightActive &&
+                          activeConversationId === conv.id
+                            ? 1
+                            : 0,
+                      }}
+                    >
+                      <MoreVertIcon fontSize="small" />
+                    </IconButton>
+                  )}
                 </Box>
               )}
             </Box>

@@ -114,7 +114,6 @@ const ChatMessageList: React.FC<ChatMessageListProps> = (
             height: "100%",
             p: { xs: 2, sm: 4 },
             textAlign: "center",
-            cursor: "pointer",
           }}
           onClick={handleEmptyStateClick}
         >
@@ -122,7 +121,7 @@ const ChatMessageList: React.FC<ChatMessageListProps> = (
             sx={{
               width: 56,
               height: 56,
-              borderRadius: 3,
+              borderRadius: "50%",
               bgcolor: "rgba(139, 92, 246, 0.1)",
               display: "flex",
               alignItems: "center",
@@ -150,7 +149,7 @@ const ChatMessageList: React.FC<ChatMessageListProps> = (
             Start a conversation
           </Typography>
           <Typography variant="body2" sx={{ color: "#94a3b8", maxWidth: 280 }}>
-            Select an API key above, then type a message to chat with the LLM.
+            Select an API key, then type a message to chat with the LLM.
           </Typography>
         </Box>
       ) : (

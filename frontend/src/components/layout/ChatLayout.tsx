@@ -7,21 +7,13 @@ import { useState, useCallback } from "react";
 import { sharedGlassStyle } from "../../utils/styles";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
-import ChatSettingsModal from "../chat/ChatSettingsModal";
 
-interface ChatLayoutProps {}
-
-export const ChatLayout = (props: ChatLayoutProps) => {
+export const ChatLayout = () => {
   const {
     messages,
     selectedKeyId,
     scrollState,
-    chatSettings,
-    setChatSettings,
-    includeReasoningInContext,
-    setIncludeReasoningInContext,
   } = useChat();
-  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
 
   const scrollToUserMessage = useCallback(
@@ -145,24 +137,11 @@ export const ChatLayout = (props: ChatLayoutProps) => {
           <ChatMessageList highlightIndex={highlightIndex} />
         </Box>
       </Box>
-      <ChatSettingsModal
-        open={isSettingsOpen}
-        onClose={() => {
-          setIsSettingsOpen(false);
-        }}
-        onChange={setChatSettings}
-        settings={chatSettings}
-        includeReasoningInContext={includeReasoningInContext}
-        onToggleReasoning={setIncludeReasoningInContext}
-      ></ChatSettingsModal>
 
       {/* Setup modal overlay */}
       {!selectedKeyId && <ChatSetupModal open={true} />}
       {/* Input TODO */}
       <ChatInput
-        onSettingsClick={() => {
-          setIsSettingsOpen(true);
-        }}
         scrollToUserMessage={scrollToUserMessage}
       />
     </Box>
