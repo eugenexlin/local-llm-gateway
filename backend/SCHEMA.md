@@ -1,6 +1,6 @@
 # Database Schema
 
-This document describes the database schema for the LLM Gateway. The database is stored in `backend/local_llm_gateway.db` using SQLite.
+This document describes the database schema for the LLM Gateway. The database is stored at the path specified by `DATABASE_PATH` in `.env` (default: `backend/local_llm_gateway.db`) using SQLite with [better-sqlite3](https://github.com/WiseLibs/better-sqlite3).
 
 **Note:** If you need to reset the database, simply delete the `.db` file and restart the server. All tables will be recreated automatically.
 
@@ -8,63 +8,47 @@ This document describes the database schema for the LLM Gateway. The database is
 
 ### users
 
-Stores user account information.
+Stores user account information created via Google OAuth or development test login.
 
 ```sql
 CREATE TABLE users (
     id TEXT PRIMARY KEY,
     email TEXT UNIQUE NOT NULL,
     name TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    is_active INTEGER DEFAULT 1
+    oauth_id TEXT,
+    oauth_provider TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 ```
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
-| id | TEXT | PRIMARY KEY | Unique user identifier (UUID) |
+| id | TEXT | PRIMARY KEY | Unique user identifier (format: `user-{uuid}`) |
 | email | TEXT | UNIQUE, NOT NULL | User email address |
 | name | TEXT | - | User's display name |
-| created_at | DATETIME | DEFAULT CURRENT_TIMESTAMP | Account creation timestamp |
-| is_active | INTEGER | DEFAULT 1 | Active status (1 = active, 0 = inactive) |
+| oauth_id | TEXT | - | External OAuth provider ID (Google user ID) |
+| oauth_provider | TEXT | - | OAuth provider name (`google` or `test`) |
+| created_at | TEXT | DEFAULT datetime('now') | Account creation timestamp |
 
-### sessions
-
-Stores user session information for authentication.
-
-```sql
-CREATE TABLE sessions (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    token_hash TEXT NOT NULL,
-    expires_at DATETIME NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-);
-```
-
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| id | TEXT | PRIMARY KEY | Unique session identifier (UUID) |
-| user_id | TEXT | NOT NULL, FOREIGN KEY | Associated user ID |
-| token_hash | TEXT | NOT NULL | Hashed session token |
-| expires_at | DATETIME | NOT NULL | Session expiration timestamp |
-| created_at | DATETIME | DEFAULT CURRENT_TIMESTAMP | Session creation timestamp |
+**Indexes:**
+- `idx_users_email` on `email`
+- `idx_users_email_lower` on `LOWER(email)` (unique)
 
 ### api_keys
 
-Stores API keys for programmatic access to the llm.
+Stores API keys for programmatic access to the LLM proxy.
 
 ```sql
 CREATE TABLE api_keys (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
-    key_hash TEXT UNIQUE NOT NULL,
+    key_hash TEXT NOT NULL UNIQUE,
+    description TEXT,
     user_id TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    expires_at DATETIME,
+    created_at TEXT NOT NULL,
     is_active INTEGER DEFAULT 1,
-    last_used_at DATETIME,
+    revoked_at TEXT,
+    last_used_at TEXT,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 ```
@@ -74,108 +58,88 @@ CREATE TABLE api_keys (
 | id | TEXT | PRIMARY KEY | Unique API key identifier (UUID) |
 | name | TEXT | NOT NULL | User-provided name for the key |
 | key_hash | TEXT | UNIQUE, NOT NULL | SHA-256 hash of the API key (never stored plain text) |
-| user_id | TEXT | FOREIGN KEY | Associated user ID (can be null for system keys) |
-| created_at | DATETIME | DEFAULT CURRENT_TIMESTAMP | Key creation timestamp |
-| expires_at | DATETIME | - | Optional expiration date |
+| description | TEXT | - | Optional user-provided description |
+| user_id | TEXT | FOREIGN KEY | Associated user ID |
+| created_at | TEXT | NOT NULL | Key creation timestamp |
 | is_active | INTEGER | DEFAULT 1 | Active status (1 = active, 0 = revoked) |
-| last_used_at | DATETIME | - | Timestamp of last usage |
+| revoked_at | TEXT | - | Timestamp when the key was revoked |
+| last_used_at | TEXT | - | Timestamp of last usage |
+
+**Indexes:**
+- `idx_api_keys_user_id` on `user_id`
+- `idx_api_key_hash` on `key_hash`
 
 **API Key Format:**
 - Generated format: `lf_{random_base64_string}`
-- Example: `lf_kJ8sL9mN3pQ2rT5vW7xY0zA1bC4dE6fG8hI9jK0lM2n`
 - Full key is only returned once when created
 - Only the hash is stored in the database
 
 ### usage_logs
 
-Stores detailed usage metrics for all API requests.
+Stores detailed usage metrics for all API requests proxied to the LLM.
 
 ```sql
 CREATE TABLE usage_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id TEXT,
-    api_key TEXT,
-    model TEXT NOT NULL,
-    endpoint TEXT NOT NULL,
-    method TEXT NOT NULL,
-    input_tokens INTEGER DEFAULT 0,
-    output_tokens INTEGER DEFAULT 0,
+    api_key_id TEXT NOT NULL,
+    prompt_tokens INTEGER DEFAULT 0,
+    completion_tokens INTEGER DEFAULT 0,
     total_tokens INTEGER DEFAULT 0,
-    request_size INTEGER DEFAULT 0,
-    response_size INTEGER DEFAULT 0,
-    status_code INTEGER,
-    latency_ms INTEGER,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
+    duration_ms INTEGER DEFAULT 0,
+    timestamp TEXT NOT NULL,
+    idempotency_key TEXT,
+    cache_creation_input_tokens INTEGER DEFAULT 0,
+    cache_read_input_tokens INTEGER DEFAULT 0,
+    FOREIGN KEY (api_key_id) REFERENCES api_keys(id) ON DELETE CASCADE
 );
 ```
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | INTEGER | PRIMARY KEY AUTOINCREMENT | Unique log entry ID |
-| user_id | TEXT | FOREIGN KEY | Associated user ID |
-| api_key | TEXT | FOREIGN KEY | API key hash that made the request |
-| model | TEXT | NOT NULL | LLM model used (e.g., "gpt-3.5-turbo") |
-| endpoint | TEXT | NOT NULL | API endpoint accessed |
-| method | TEXT | NOT NULL | HTTP method (GET, POST, etc.) |
-| input_tokens | INTEGER | DEFAULT 0 | Tokens sent to the model |
-| output_tokens | INTEGER | DEFAULT 0 | Tokens received from the model |
-| total_tokens | INTEGER | DEFAULT 0 | Total tokens (input + output) |
-| request_size | INTEGER | DEFAULT 0 | Size of request in bytes |
-| response_size | INTEGER | DEFAULT 0 | Size of response in bytes |
-| status_code | INTEGER | - | HTTP response status code |
-| latency_ms | INTEGER | - | Request latency in milliseconds |
-| created_at | DATETIME | DEFAULT CURRENT_TIMESTAMP | Log creation timestamp |
+| api_key_id | TEXT | NOT NULL, FOREIGN KEY → api_keys(id) | API key that made the request |
+| prompt_tokens | INTEGER | DEFAULT 0 | Input tokens sent to the model |
+| completion_tokens | INTEGER | DEFAULT 0 | Output tokens generated by the model |
+| total_tokens | INTEGER | DEFAULT 0 | Total tokens (prompt + completion) |
+| duration_ms | INTEGER | DEFAULT 0 | Request processing time in milliseconds |
+| timestamp | TEXT | NOT NULL | Request timestamp |
+| idempotency_key | TEXT | - | Optional idempotency key from request |
+| cache_creation_input_tokens | INTEGER | DEFAULT 0 | Tokens used for cache creation (vLLM KV cache) |
+| cache_read_input_tokens | INTEGER | DEFAULT 0 | Tokens served from cache (vLLM KV cache) |
 
-**Token Estimation:**
-- Input tokens are estimated from the request body (1 token ≈ 4 characters)
-- Output tokens are taken from the LLM provider's response usage field when available
+**Indexes:**
+- `idx_api_key_id` on `api_key_id`
+- `idx_usage_timestamp` on `timestamp`
+- `idx_usage_api_key` on `api_key_id` (duplicate of idx_api_key_id)
 
-### rate_limits
+## Session Storage
 
-Stores rate limiting data per user (not currently implemented).
-
-```sql
-CREATE TABLE rate_limits (
-    user_id TEXT PRIMARY KEY,
-    requests_count INTEGER DEFAULT 0,
-    window_start DATETIME,
-    requests_per_minute INTEGER DEFAULT 60,
-    requests_per_hour INTEGER DEFAULT 1000,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-);
-```
-
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| user_id | TEXT | PRIMARY KEY, FOREIGN KEY | User identifier |
-| requests_count | INTEGER | DEFAULT 0 | Number of requests in current window |
-| window_start | DATETIME | - | Start time of the rate limit window |
-| requests_per_minute | INTEGER | DEFAULT 60 | Rate limit configuration |
-| requests_per_hour | INTEGER | DEFAULT 1000 | Rate limit configuration |
+User sessions are managed by [express-session](https://www.npmjs.com/package/express-session) using in-memory storage. Sessions are **not** stored in the database. Session data includes:
+- User authentication state
+- Session cookie with `httpOnly`, `sameSite: 'lax'`, and dynamic `secure` flag
+- Configurable expiry via `SESSION_EXPIRY_HOURS` env var
 
 ## Indexes
 
-Recommended indexes for query performance:
-
 ```sql
+CREATE INDEX idx_users_email ON users(email);
+CREATE UNIQUE INDEX idx_users_email_lower ON users(LOWER(email));
 CREATE INDEX idx_api_keys_user_id ON api_keys(user_id);
-CREATE INDEX idx_api_keys_hash ON api_keys(key_hash);
-CREATE INDEX idx_usage_logs_user_id ON usage_logs(user_id);
-CREATE INDEX idx_usage_logs_api_key ON usage_logs(api_key);
-CREATE INDEX idx_usage_logs_created_at ON usage_logs(created_at);
-CREATE INDEX idx_usage_logs_model ON usage_logs(model);
+CREATE UNIQUE INDEX idx_api_key_hash ON api_keys(key_hash);
+CREATE INDEX idx_api_key_id ON usage_logs(api_key_id);
+CREATE INDEX idx_usage_timestamp ON usage_logs(timestamp);
+CREATE INDEX idx_usage_api_key ON usage_logs(api_key_id);
 ```
 
 ## Sample Data
 
 ### Creating a test user
 ```javascript
-const userId = crypto.randomUUID();
+const userId = `user-${crypto.randomUUID()}`;
 db.prepare(`
-    INSERT INTO users (id, email, name) 
-    VALUES (?, ?, ?)
-`).run(userId, 'test@example.com', 'Test User');
+    INSERT INTO users (id, email, name, oauth_provider, created_at) 
+    VALUES (?, ?, ?, ?, ?)
+`).run(userId, 'test@example.com', 'Test User', 'test', new Date().toISOString());
 ```
 
 ### Creating an API key
@@ -185,42 +149,49 @@ const key = `lf_${crypto.randomBytes(32).toString('base64')}`;
 const keyHash = crypto.createHash('sha256').update(key).digest('hex');
 
 db.prepare(`
-    INSERT INTO api_keys (id, name, key_hash, user_id, expires_at)
-    VALUES (?, ?, ?, ?, datetime('now', '+365 days'))
-`).run(keyId, 'My API Key', keyHash, userId);
+    INSERT INTO api_keys (id, name, key_hash, description, user_id, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+`).run(keyId, 'My API Key', keyHash, null, userId, new Date().toISOString());
 ```
 
 ## API Response Formats
 
-### Usage Log Entry
+### Usage Log Entry (from `/api/metrics/usage`)
 ```json
 {
   "id": 1,
-  "user_id": "uuid-here",
-  "api_key": "sha256-hash-here",
-  "model": "gpt-3.5-turbo",
-  "endpoint": "/v1/chat/completions",
-  "method": "POST",
-  "input_tokens": 100,
-  "output_tokens": 50,
+  "api_key_id": "uuid-here",
+  "prompt_tokens": 100,
+  "completion_tokens": 50,
   "total_tokens": 150,
-  "request_size": 512,
-  "response_size": 256,
-  "status_code": 200,
-  "latency_ms": 1500,
-  "created_at": "2026-03-28T10:30:00.000Z"
+  "duration_ms": 1500,
+  "timestamp": "2026-03-28T10:30:00.000Z",
+  "idempotency_key": null,
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 0
 }
 ```
 
-### API Key Stats
+### API Key Stats (from `/api/api-keys/:id/stats`)
 ```json
 {
   "key_id": "uuid-here",
   "name": "My API Key",
   "total_requests": 1000,
-  "total_input_tokens": 50000,
-  "total_output_tokens": 25000,
+  "total_prompt_tokens": 50000,
+  "total_completion_tokens": 25000,
   "total_tokens": 75000,
-  "average_latency_ms": 1234.56
+  "average_duration_ms": 1234.56
+}
+```
+
+### Usage Summary (from `/api/metrics/usage/summary`)
+```json
+{
+  "total_requests": 5000,
+  "total_tokens": 750000,
+  "total_prompt_tokens": 500000,
+  "total_completion_tokens": 250000,
+  "total_duration_ms": 6000000
 }
 ```

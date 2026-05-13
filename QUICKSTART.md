@@ -8,16 +8,17 @@ This guide provides a fast track to getting the Local LLM Gateway up and running
 
 ## Setup & Start (Automated)
 
-### Option 1: Use Unified Dev Command (Recommended)
+### Option 1: Use Root Dev Command (Recommended)
 
 ```bash
-npm run dev
+npm run install:all   # Install dependencies for both backend and frontend
+npm run dev:backend   # Start backend (in terminal 1)
+npm run dev:frontend  # Start frontend (in terminal 2)
 ```
 
 This will:
 1. Start backend server on http://localhost:3000
 2. Start frontend server on http://localhost:5173
-3. Run both with colored, filtered output
 
 ### Option 2: Manual Setup
 
@@ -34,6 +35,12 @@ npm install
 ```
 
 **Step 2: Configure Environment Variables**
+
+Copy the example file and edit with your settings:
+
+```bash
+cp backend/.env.example backend/.env
+```
 
 Backend (`backend/.env`):
 ```env
@@ -70,11 +77,22 @@ cd frontend
 npm run dev
 ```
 
+## Docker Deployment
+
+```bash
+docker-compose up --build
+```
+
+This starts:
+- Backend service on port 3000 (internal)
+- Frontend proxy (nginx) on port 80
+
+Set environment variables via `.env` file or shell before running.
+
 ## Accessing the Application
 
-- **Frontend**: http://localhost:5173
+- **Frontend**: http://localhost:5173 (development) or http://localhost (Docker)
 - **Backend API**: http://localhost:3000
-- **API Docs**: http://localhost:3000/docs (Swagger - if enabled)
 
 ## Development Login
 
@@ -86,7 +104,7 @@ This adds a "Test Login" button on the login page that bypasses OAuth.
 ### Create an API Key
 
 1. Login to frontend
-2. Go to Dashboard $\rightarrow$ "Create API Key"
+2. Go to Dashboard → "Create API Key"
 3. Copy the generated key (shown once!)
 
 ### Test Proxy Endpoint
@@ -117,20 +135,28 @@ local-llm-gateway/
 ├── backend/                    # Node.js/Express backend (TypeScript)
 │   ├── index.ts              # Express app entry point
 │   ├── config.ts             # Configuration
-│   ├── database.ts           # SQLite with sql.js
+│   ├── database.ts           # SQLite with better-sqlite3
 │   ├── middleware/
+│   │   └── auth.ts           # API key validation
 │   ├── routes/               # API routes
+│   │   ├── apiKeys.ts        # API key management
+│   │   ├── chat.ts           # Chat session routes
+│   │   ├── metrics.ts        # Usage metrics and logs
+│   │   ├── proxy.ts          # LLM proxy forwarding
+│   │   └── serverStats.ts    # Server health stats
 │   ├── types/                # TypeScript types
-│   └── utils/
-├── frontend/                   # React/Vite frontend (TypeScript)
+│   └── utils/                # Helper functions
+├── frontend/                   # React/Vite frontend (TypeScript + MUI)
 │   ├── src/
-│   │   ├── components/
-│   │   ├── context/
-│   │   ├── pages/
-│   │   ├── types/
-│   │   └── utils/
+│   │   ├── components/       # Reusable UI components
+│   │   ├── context/          # Auth and theme context
+│   │   ├── pages/            # Dashboard, Login, API Keys, Usage
+│   │   ├── theme/            # MUI theme configuration
+│   │   ├── types/            # TypeScript types
+│   │   └── utils/            # Helper functions
 │   ├── vite.config.js
 │   └── package.json
+├── docker-compose.yml          # Docker deployment
 ├── package.json                # Root package
 └── README.md                   # Project documentation
 ```
@@ -138,27 +164,24 @@ local-llm-gateway/
 ## Features Implemented
 
 ### Backend
-- ✅ Express.js server with CORS
-- ✅ SQLite database with sql.js
-- ✅ API key management (create, list, revoke, stats)
+- ✅ Express.js server with CORS and session auth
+- ✅ SQLite database with better-sqlite3
+- ✅ API key management (create, list, update, revoke, stats)
 - ✅ API key validation middleware (Bearer token)
 - ✅ User-specific API keys
-- ✅ Usage tracking with user_id
-- ✅ Metrics endpoints with user filtering
-- ✅ Proxy forwarding to LLM
+- ✅ Usage tracking with token-level metrics
+- ✅ Metrics endpoints with user/API key filtering
+- ✅ Proxy forwarding to LLM (OpenAI-compatible)
+- ✅ Google OAuth authentication
+- ✅ Server health monitoring
 
 ### Frontend
 - ✅ Google OAuth authentication
 - ✅ Test login button for development
-- ✅ Polished desktop-style UI
-- ✅ Dashboard with metrics and charts
+- ✅ Polished desktop-style UI with MUI
+- ✅ Dashboard with metrics and progressive charts
 - ✅ API key management UI
-- ✅ Usage logs with filtering
-- ✅ CSV export
+- ✅ Usage logs with filtering and CSV export
+- ✅ Insights views (scatter plot, heat map)
+- ✅ Dark/light theme support
 - ✅ Responsive layout
-- ✅ Auth context with loading states
-
-## Next Steps
-
-See [PROGRESS.md](PROGRESS.md) and [PLAN.md](PLAN.md) for detailed next steps and architecture notes.
-

@@ -6,11 +6,11 @@ import {
   Box,
   Button,
   Typography,
-  Container,
   Paper,
   Divider,
   Stack,
   CircularProgress,
+  useTheme,
 } from "@mui/material";
 import GoogleIcon from "@mui/icons-material/Google";
 
@@ -20,6 +20,8 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const { testLogin } = useAuth();
   const navigate = useNavigate();
+  const { palette } = useTheme();
+  const isDark = palette.mode === 'dark';
 
   const handleGoogleLogin = () => {
     setLoading(true);
@@ -43,152 +45,113 @@ function Login() {
       sx={{
         minHeight: "100vh",
         display: "flex",
-        flexDirection: { xs: "column", lg: "row" },
-        bgcolor: "white",
+        alignItems: "center",
+        justifyContent: "center",
+        bgcolor: "background.default",
+        p: 2,
       }}
     >
-      {/* Left Side: Branding/Visual */}
-      <Box
+      <Paper
+        elevation={3}
         sx={{
-          display: { xs: "none", lg: "flex" },
-          width: "60%",
-          background:
-            "linear-gradient(to bottom right, #4f46e5, #7e22ce, #312e81)",
-          p: 6,
-          flexDirection: "column",
-          justifyContent: "space-between",
-          position: "relative",
-          overflow: "hidden",
-          color: "white",
+          p: { xs: 3, sm: 5 },
+          borderRadius: 3,
+          border: "1px solid",
+          borderColor: "divider",
+          maxWidth: 420,
+          width: "100%",
         }}
       >
-        {/* Abstract background elements */}
-        <Box
-          sx={{
-            position: "absolute",
-            top: "-10%",
-            left: "-10%",
-            width: "40%",
-            height: "40%",
-            bgcolor: "rgba(255,255,255,0.1)",
-            borderRadius: "50%",
-            filter: "blur(64px)",
-            animation: "pulse 4s infinite",
-          }}
-        />
-        <Box
-          sx={{
-            position: "absolute",
-            bottom: "-10%",
-            right: "-10%",
-            width: "40%",
-            height: "40%",
-            bgcolor: "rgba(126,34,206,0.2)",
-            borderRadius: "50%",
-            filter: "blur(64px)",
-            animation: "pulse 4s infinite 2s",
-          }}
-        />
+        <Stack spacing={4}>
+          <Box sx={{ textAlign: "center" }}>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1.5, mb: 1 }}>
+              <svg width="32" height="32" viewBox="-2 -2 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#BB22ff" />
+                    <stop offset="100%" stopColor="#1166ff" />
+                  </linearGradient>
+                </defs>
+                <path
+                  d="M 16,-2.2 L 31.75,6.9 L 31.75,25.1 L 16,34.2 L 0.25,25.1 L 0.25,6.9 Z
+                     M 16,3 L 4.74,9.5 L 4.74,22.5 L 16,29 L 27.26,22.5 L 27.26,9.5 Z"
+                  fill="url(#purpleGrad)"
+                  fillOpacity="0.7"
+                  fillRule="evenodd"
+                />
+                <polygon
+                  points="16,6 24.66,11 24.66,21 16,26 7.34,21 7.34,11"
+                  fill="url(#purpleGrad)"
+                  fillOpacity="1"
+                />
+              </svg>
+              <Typography variant="h5" fontWeight="bold" sx={{ color: "text.primary" }}>
+                LLM Gateway
+              </Typography>
+            </Box>
+            <Typography variant="body2" color="text.secondary">
+              Sign in to continue
+            </Typography>
+          </Box>
 
-      </Box>
+          <Stack spacing={2}>
+            <Button
+              fullWidth
+              variant="outlined"
+              size="large"
+              startIcon={loading ? <CircularProgress size={20} /> : <GoogleIcon />}
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              sx={{
+                py: 1.5,
+                textTransform: "none",
+                fontSize: "1rem",
+                borderColor: "divider",
+                color: "text.primary",
+                "&:hover": { bgcolor: "action.hover", borderColor: "text.secondary" },
+              }}
+            >
+              {loading ? "Signing in..." : "Sign in with Google"}
+            </Button>
 
-      {/* Right Side: Login Form */}
-      <Box
-        sx={{
-          flex: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-            p: { xs: 2, lg: 6 },
-          bgcolor: "#f9fafb",
-        }}
-      >
-        <Container maxWidth="xs">
-          <Paper
-            elevation={3}
-            sx={{
-              p: { xs: 3, sm: 4 },
-              borderRadius: 4,
-              border: "1px solid",
-              borderColor: "divider",
-            }}
-          >
-            <Stack spacing={4}>
-              <Box sx={{ textAlign: "center" }}>
-                <Typography variant="h5" fontWeight="bold" gutterBottom>
-                  LLM Gateway
-                </Typography>
-              </Box>
+            {VITE_DEV_TEST_LOGIN && (
+              <>
+                <Divider sx={{ my: 2 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    or
+                  </Typography>
+                </Divider>
 
-              <Stack spacing={2}>
                 <Button
                   fullWidth
-                  variant="outlined"
+                  variant="contained"
                   size="large"
                   startIcon={
-                    loading ? <CircularProgress size={20} /> : <GoogleIcon />
+                    loading ? (
+                      <CircularProgress size={20} color="inherit" />
+                    ) : (
+                      <User size={20} />
+                    )
                   }
-                  onClick={handleGoogleLogin}
+                  onClick={handleTestLogin}
                   disabled={loading}
                   sx={{
                     py: 1.5,
                     textTransform: "none",
                     fontSize: "1rem",
-                    borderColor: "divider",
-                    color: "text.primary",
-                    "&:hover": { bgcolor: "#f9fafb", borderColor: "gray" },
+                    bgcolor: isDark ? 'rgba(245, 158, 11, 0.12)' : '#fff7ed',
+                    color: isDark ? '#fbbf24' : '#c2410c',
+                    "&:hover": { bgcolor: isDark ? 'rgba(245, 158, 11, 0.2)' : '#ffedd5' },
+                    boxShadow: "none",
                   }}
                 >
-                  {loading ? "Signing in..." : "Sign in with Google"}
+                  {loading ? "Testing..." : "Dev: Test Account"}
                 </Button>
-
-                {VITE_DEV_TEST_LOGIN && (
-                  <>
-                    <Divider sx={{ my: 2 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        or
-                      </Typography>
-                    </Divider>
-
-                    <Button
-                      fullWidth
-                      variant="contained"
-                      size="large"
-                      startIcon={
-                        loading ? (
-                          <CircularProgress size={20} color="inherit" />
-                        ) : (
-                          <User size={20} />
-                        )
-                      }
-                      onClick={handleTestLogin}
-                      disabled={loading}
-                      sx={{
-                        py: 1.5,
-                        textTransform: "none",
-                        fontSize: "1rem",
-                        bgcolor: "#fff7ed",
-                        color: "#c2410c",
-                        "&:hover": { bgcolor: "#ffedd5" },
-                        boxShadow: "none",
-                      }}
-                    >
-                      {loading ? "Testing..." : "Dev: Test Account"}
-                    </Button>
-                  </>
-                )}
-              </Stack>
-            </Stack>
-          </Paper>
-        </Container>
-      </Box>
-
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
-      `}</style>
+              </>
+            )}
+          </Stack>
+        </Stack>
+      </Paper>
     </Box>
   );
 }
