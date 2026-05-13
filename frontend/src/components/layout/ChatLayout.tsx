@@ -9,11 +9,7 @@ import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 
 export const ChatLayout = () => {
-  const {
-    messages,
-    selectedKeyId,
-    scrollState,
-  } = useChat();
+  const { messages, selectedKeyId, scrollState } = useChat();
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
 
   const scrollToUserMessage = useCallback(
@@ -98,7 +94,7 @@ export const ChatLayout = () => {
               ...sharedGlassStyle,
             }}
           >
-            <Tooltip title="Previous User Message">
+            <Tooltip title="Next User Message">
               <IconButton
                 sx={{ width: 40, height: 40 }}
                 onClick={() => scrollToUserMessage("next")}
@@ -106,7 +102,7 @@ export const ChatLayout = () => {
                 <KeyboardArrowDownIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Next User Message">
+            <Tooltip title="Previous User Message">
               <IconButton
                 sx={{ width: 40, height: 40 }}
                 onClick={() => scrollToUserMessage("prev")}
@@ -141,9 +137,7 @@ export const ChatLayout = () => {
       {/* Setup modal overlay */}
       {!selectedKeyId && <ChatSetupModal open={true} />}
       {/* Input TODO */}
-      <ChatInput
-        scrollToUserMessage={scrollToUserMessage}
-      />
+      <ChatInput scrollToUserMessage={scrollToUserMessage} />
     </Box>
   );
 };

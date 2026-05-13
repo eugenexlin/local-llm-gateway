@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import {
   Box,
   TextField,
@@ -6,10 +6,15 @@ import {
   InputAdornment,
   Typography,
   Tooltip,
+  Chip,
+  Fab,
 } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
+import AddIcon from "@mui/icons-material/Add";
+import CloseIcon from "@mui/icons-material/Close";
 import { useChat } from "../../context/ChatContext";
-import { sharedGlassStyle } from "../../utils/styles";
+import { sharedFabStyle, sharedGlassStyle } from "../../utils/styles";
+import { formatTokenCount } from "../../utils/format";
 import ListAltIcon from "@mui/icons-material/ListAlt";
 
 interface ChatInputProps {
@@ -24,6 +29,7 @@ const ChatInput: React.FC<ChatInputProps> = (props: ChatInputProps) => {
     selectedKeyId,
     inputContent,
     setInputContent,
+    estimatedContextTokens,
   } = useChat();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -43,6 +49,11 @@ const ChatInput: React.FC<ChatInputProps> = (props: ChatInputProps) => {
     await sendMessage(message);
   };
 
+  const handleClear = () => {
+    setInputContent("");
+    textareaRef.current?.focus();
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -54,11 +65,50 @@ const ChatInput: React.FC<ChatInputProps> = (props: ChatInputProps) => {
     setInputContent(e.target.value);
   };
 
+  const hasContent = inputContent.trim().length > 0;
+  const canSend = hasContent && !isLoading;
+
+  const contextPct =
+    estimatedContextTokens > 0 ? (estimatedContextTokens / 128000) * 100 : 0;
+  const contextBgColor =
+    contextPct > 90
+      ? "rgba(239, 68, 68, 0.1)"
+      : contextPct > 70
+        ? "rgba(245, 158, 11, 0.1)"
+        : "rgba(139, 92, 246, 0.1)";
+  const contextColor =
+    contextPct > 90 ? "#dc2626" : contextPct > 70 ? "#d97706" : "#8b5cf6";
+
   return (
     <Box
       sx={{
+        ...sharedGlassStyle,
         position: "sticky",
         bottom: 0,
+        borderRadius: "16px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 1,
+        p: 1,
+        backgroundColor:
+          "color-mix(in oklab, var(--mui-palette-background-default) 32%, transparent)",
+        boxShadow:
+          "0px 0px 0px 1px color-mix(in oklab, var(--mui-palette-primary-contrastText) 20%, transparent)",
+        "&:hover": {
+          boxShadow:
+            "0px 0px 3px 1px color-mix(in oklab, var(--mui-palette-primary-contrastText) 50%, transparent)",
+        },
+        "&:active": {
+          boxShadow:
+            "0px 0px 0px 2px var(--mui-palette-primary-light)",
+        },
+        "&:focus-within": {
+          boxShadow:
+            "0px 0px 0px 2px var(--mui-palette-primary-light)",
+        },
+      }}
+      onClick={() => {
+        textareaRef.current?.focus();
       }}
     >
       {!selectedKeyId && (
@@ -75,88 +125,125 @@ const ChatInput: React.FC<ChatInputProps> = (props: ChatInputProps) => {
         </Typography>
       )}
 
-      <TextField
-        fullWidth
-        multiline
-        maxRows={6}
-        value={inputContent}
-        onChange={handleInputChange}
-        onKeyDown={handleKeyDown}
-        placeholder={
-          selectedKeyId ? "Type a message..." : "Select an API key to chat"
-        }
-        disabled={isLoading || !selectedKeyId}
-        variant="outlined"
-        size="small"
-        inputProps={{ ref: textareaRef as any }}
-        sx={{
-          "& .MuiOutlinedInput-root": {
-            borderRadius: "16px",
-            "& fieldset": {
-              borderColor: "#e2e8f0",
-            },
-            "&:hover fieldset": {
-              borderColor: "#cbd5e1",
-            },
-            "&.Mui-focused fieldset": {
-              borderColor: "#8b5cf6",
-            },
-          },
-        }}
-        slotProps={{
-          input: {
-            sx: {
-              ...sharedGlassStyle,
-              backgroundColor: "color-mix(in oklab, var(--mui-palette-background-default) 32%, transparent)",
-            },
-            endAdornment: (
-              <InputAdornment position="end">
-                <IconButton
-                  onClick={handleSubmit}
-                  disabled={!inputContent.trim() || isLoading}
-                  sx={{
-                    color:
-                      inputContent.trim() && !isLoading
-                        ? "primary.main"
-                        : "#94a3b8",
-                  }}
-                >
-                  <SendIcon fontSize="small" />
-                </IconButton>
-              </InputAdornment>
-            ),
-          },
-        }}
-      />
-      {/* Navigation Controls */}
       <Box
         sx={{
-          position: "sticky",
-          zIndex: 1200,
-          top: 0,
-          left: 0,
-          right: 0,
-          textAlign: "center",
-          gap: 1,
+          display: "flex",
+          flexDirection: "row",
         }}
       >
-        <Box
+        {/* Textarea */}
+        <TextField
+          fullWidth
+          multiline
+          maxRows={6}
+          value={inputContent}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
+          inputRef={textareaRef}
+          placeholder={
+            selectedKeyId ? "Type a message..." : "Select an API key to chat"
+          }
+          disabled={isLoading || !selectedKeyId}
+          size="small"
           sx={{
-            display: "inline-block",
-            borderRadius: "20px",
-            ...sharedGlassStyle,
+            "& fieldset": { border: "none" },
           }}
-        >
-          {props.onConversationListClick && (
-            <Tooltip title="Conversations">
+        />
+        {/* Clear button - top right of textarea area */}
+        {hasContent && (
+          <Box
+            sx={{
+              flex: 0,
+            }}
+          >
+            <Tooltip title="Clear text">
               <IconButton
-                sx={{ width: 40, height: 40 }}
-                onClick={() => props.onConversationListClick!()}
+                sx={{
+                  ...sharedGlassStyle,
+                  width: 40,
+                  height: 40,
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleClear();
+                }}
               >
-                <ListAltIcon fontSize="small" />
+                <CloseIcon />
               </IconButton>
             </Tooltip>
-          )}
+          </Box>
+        )}
+      </Box>
+
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "row",
+          position: "relative",
+        }}
+      >
+        {/* Plus button - bottom left */}
+
+        <Box
+          sx={{
+            flex: 1,
+          }}
+        >
+          <Tooltip title="Attach file">
+            <IconButton
+              sx={{
+                ...sharedGlassStyle,
+                width: 40,
+                height: 40,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <AddIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
+        {/* Context chip - left of send button */}
+        {estimatedContextTokens > 0 && (
+          <Chip
+            label={`${formatTokenCount(estimatedContextTokens)} / ${formatTokenCount(128000)}`}
+            size="small"
+            sx={{
+              position: "absolute",
+              bottom: 6,
+              right: 48,
+              bgcolor: contextBgColor,
+              color: contextColor,
+              fontSize: "0.625rem",
+              height: 22,
+              fontWeight: 600,
+              letterSpacing: 0.02,
+            }}
+            title={`Estimated context: ${estimatedContextTokens} tokens (of 128k max)`}
+          />
+        )}
+
+        {/* Send button - bottom right */}
+        <Box
+          sx={{
+            bottom: 8,
+            right: 8,
+          }}
+        >
+          <Tooltip title="Send message">
+            <IconButton
+              sx={{
+                ...sharedGlassStyle,
+                width: 40,
+                height: 40,
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSubmit();
+              }}
+            >
+              <SendIcon />
+            </IconButton>
+          </Tooltip>
         </Box>
       </Box>
     </Box>

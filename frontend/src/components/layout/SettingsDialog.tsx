@@ -14,7 +14,6 @@ import {
   Tab,
   Menu,
   MenuItem,
-  Chip,
 } from "@mui/material";
 import KeyIcon from "@mui/icons-material/Key";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
@@ -26,24 +25,17 @@ interface SettingsDialogProps {
   onClose: () => void;
 }
 
-const formatTokenCount = (count: number): string => {
-  if (count >= 1000) {
-    return (count / 1000).toFixed(1).replace(/\.0$/, "") + "k";
-  }
-  return count.toString();
-};
-
 const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
   const {
     apiKeys,
     selectedKeyId,
     setSelectedApiKeyId,
-    lastUsage,
     chatSettings,
     setChatSettings,
     includeReasoningInContext,
     setIncludeReasoningInContext,
   } = useChat();
+
   const { mode, toggleTheme } = useThemeContext();
 
   const [activeTab, setActiveTab] = useState(0);
@@ -65,40 +57,17 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
     handleKeyMenuClose();
   };
 
-  const getTokenChip = (): React.ReactNode => {
-    if (!lastUsage || lastUsage.totalTokens === 0) return null;
-
-    const maxContext = 128000;
-    const usagePercent = Math.round((lastUsage.totalTokens / maxContext) * 100);
-
-    return (
-      <Chip
-        label={`${formatTokenCount(lastUsage.totalTokens)} / ${formatTokenCount(maxContext)}`}
-        size="small"
-        sx={{
-          bgcolor:
-            usagePercent > 90
-              ? "rgba(239, 68, 68, 0.1)"
-              : usagePercent > 70
-                ? "rgba(245, 158, 11, 0.1)"
-                : "rgba(139, 92, 246, 0.1)",
-          color:
-            usagePercent > 90
-              ? "#dc2626"
-              : usagePercent > 70
-                ? "#d97706"
-                : "#8b5cf6",
-          fontSize: "0.625rem",
-          height: 20,
-          fontWeight: 600,
-          ml: 1,
-        }}
-      />
-    );
-  };
-
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      onClick={(e) => {
+        // this prevents the nav drawer from opening if the click event propogates all the way up
+        e.stopPropagation();
+      }}
+    >
       <Typography
         variant="h6"
         sx={{
@@ -204,7 +173,6 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
                   >
                     {selectedKey ? selectedKey.name : "No key selected"}
                   </Typography>
-                  {getTokenChip()}
                 </Box>
                 {activeKeys.length > 0 && (
                   <KeyboardArrowDownIcon

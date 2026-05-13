@@ -13,7 +13,6 @@ import {
   Menu,
   MenuItem,
   IconButton,
-  Chip,
 } from "@mui/material";
 import KeyIcon from "@mui/icons-material/Key";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
@@ -29,13 +28,6 @@ interface ChatSettingsModalProps {
   onToggleReasoning?: (checked: boolean) => void;
 }
 
-const formatTokenCount = (count: number): string => {
-  if (count >= 1000) {
-    return (count / 1000).toFixed(1).replace(/\.0$/, "") + "k";
-  }
-  return count.toString();
-};
-
 const  ChatSettingsModal: React.FC<ChatSettingsModalProps> = ({
   open,
   onClose,
@@ -48,7 +40,6 @@ const  ChatSettingsModal: React.FC<ChatSettingsModalProps> = ({
     apiKeys,
     selectedKeyId,
     setSelectedApiKeyId,
-    lastUsage,
   } = useChat();
 
   const [keyMenuAnchor, setKeyMenuAnchor] = useState<null | HTMLElement>(null);
@@ -69,36 +60,6 @@ const  ChatSettingsModal: React.FC<ChatSettingsModalProps> = ({
   };
 
   const selectedKey = apiKeys.find((k) => k.id == selectedKeyId);
-
-  const getTokenChip = (): React.ReactNode => {
-    if (!lastUsage || lastUsage.totalTokens === 0) return null;
-
-    const maxContext = 128000;
-    const usagePercent = Math.round((lastUsage.totalTokens / maxContext) * 100);
-
-    return (
-      <Chip
-        label={`${formatTokenCount(lastUsage.totalTokens)} / ${formatTokenCount(maxContext)}`}
-        size="small"
-        sx={{
-          bgcolor: usagePercent > 90
-            ? "rgba(239, 68, 68, 0.1)"
-            : usagePercent > 70
-            ? "rgba(245, 158, 11, 0.1)"
-            : "rgba(139, 92, 246, 0.1)",
-          color: usagePercent > 90
-            ? "#dc2626"
-            : usagePercent > 70
-            ? "#d97706"
-            : "#8b5cf6",
-          fontSize: "0.625rem",
-          height: 20,
-          fontWeight: 600,
-          ml: 1,
-        }}
-      />
-    );
-  };
 
   const isExternal = settings !== undefined && onChange !== undefined;
 
@@ -149,7 +110,6 @@ const  ChatSettingsModal: React.FC<ChatSettingsModalProps> = ({
               >
                 {selectedKey ? selectedKey.name : "No key selected"}
               </Typography>
-              {getTokenChip()}
             </Box>
             {activeKeys.length > 0 && (
               <KeyboardArrowDownIcon sx={{ fontSize: 18, color: "#94a3b8" }} />

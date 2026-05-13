@@ -6,6 +6,7 @@ import {
   useCallback,
   ReactNode,
   useRef,
+  useMemo,
 } from "react";
 import { useAuth } from "./AuthContext";
 import { useAPIKeys } from "./APIKeyContext";
@@ -52,6 +53,7 @@ interface ChatContextType {
   streamingConversationId: string | null;
   error: string | null;
   lastUsage: TokenUsage | null;
+  estimatedContextTokens: number;
   apiKeys: ApiKey[];
   apiKeyLoading: boolean;
   selectedKeyId: string;
@@ -246,6 +248,17 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const activeConversation = conversations[activeConversationId] || null;
   const messages = activeConversation?.messages || [];
+
+  const estimatedContextTokens = useMemo(() => {
+    let totalChars = 0;
+    for (const msg of messages) {
+      totalChars += msg.content.length;
+      if (includeReasoningInContext && msg.thinking) {
+        totalChars += msg.thinking.length;
+      }
+    }
+    return Math.max(0, Math.round(totalChars / 4));
+  }, [messages, includeReasoningInContext]);
 
   useEffect(() => {
     if (Object.keys(conversations).length > 0) {
@@ -708,6 +721,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         streamingConversationId,
         error,
         lastUsage,
+        estimatedContextTokens,
         apiKeys,
         apiKeyLoading,
         selectedKeyId: selectedKeyId,

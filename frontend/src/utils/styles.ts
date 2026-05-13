@@ -1,13 +1,20 @@
-import { keyframes } from "@mui/material/styles";
+import { keyframes, SxProps, Theme } from "@mui/material/styles";
 
 export const sharedFabStyle: React.CSSProperties = {
   position: "fixed",
   zIndex: 1100,
 };
-export const sharedGlassStyle: React.CSSProperties = {
-  boxShadow: "1px 1px 3px rgba(0,0,0,.1), -1px -1px 3px rgba(255,255,255,.5)",
+export const sharedGlassStyle: SxProps<Theme> = {
+  boxShadow:
+    "1px 1px 3px rgba(0,0,0,.1), inset 0.5px 0.5px 1px rgba(255,255,255,.2)",
   background: "transparent",
   backdropFilter: "blur(6px)",
+};
+
+export const sharedIconButtonOverrideStyle: SxProps<Theme> = { 
+  "&:hover": {
+    filter: "brightness(1.2)",
+  },
 };
 
 export const highlightPulse = keyframes`

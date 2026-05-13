@@ -5,7 +5,6 @@ import {
   IconButton,
   Menu,
   MenuItem,
-  Chip,
   Divider,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
@@ -21,13 +20,6 @@ interface ChatHeaderProps {
   onOpenSidebar?: () => void;
 }
 
-const formatTokenCount = (count: number): string => {
-  if (count >= 1000) {
-    return (count / 1000).toFixed(1).replace(/\.0$/, "") + "k";
-  }
-  return count.toString();
-};
-
 const ChatHeader: React.FC<ChatHeaderProps> = ({ onClose, onToggleSidebar, onOpenSidebar }) => {
   const {
     conversations,
@@ -36,7 +28,6 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ onClose, onToggleSidebar, onOpe
     setSelectedApiKeyId,
     apiKeys,
     apiKeyLoading,
-    lastUsage,
     includeReasoningInContext,
     setIncludeReasoningInContext,
     chatSettings,
@@ -75,37 +66,6 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ onClose, onToggleSidebar, onOpe
   };
 
   const selectedKey = getKeyInfoById(selectedKeyId);
-
-  const getTokenChip = (): React.ReactNode => {
-    if (!lastUsage || lastUsage.totalTokens === 0) return null;
-
-    const maxContext = 128000; // Default max context length
-    const usagePercent = Math.round((lastUsage.totalTokens / maxContext) * 100);
-
-    return (
-      <Chip
-        label={`${formatTokenCount(lastUsage.totalTokens)} / ${formatTokenCount(maxContext)}`}
-        size="small"
-        sx={{
-          bgcolor: usagePercent > 90
-            ? "rgba(239, 68, 68, 0.1)"
-            : usagePercent > 70
-            ? "rgba(245, 158, 11, 0.1)"
-            : "rgba(139, 92, 246, 0.1)",
-          color: usagePercent > 90
-            ? "#dc2626"
-            : usagePercent > 70
-            ? "#d97706"
-            : "#8b5cf6",
-          fontSize: "0.625rem",
-          height: 22,
-          fontWeight: 600,
-          letterSpacing: 0.02,
-        }}
-        title={`Prompt: ${lastUsage.promptTokens} | Completion: ${lastUsage.completionTokens} | Total: ${lastUsage.totalTokens}`}
-      />
-    );
-  };
 
   return (
     <Box
@@ -227,8 +187,6 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ onClose, onToggleSidebar, onOpe
           </Box>
         </Box>
 
-        {/* Token usage chip */}
-        {getTokenChip()}
       </Box>
 
       <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, ml: 1 }}>

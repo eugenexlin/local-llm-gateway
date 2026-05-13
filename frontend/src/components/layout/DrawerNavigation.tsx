@@ -4,10 +4,11 @@ import {
   Drawer,
   Divider,
   Typography,
-  Fab,
   Avatar,
   useMediaQuery,
   useTheme,
+  Tooltip,
+  IconButton,
 } from "@mui/material";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import KeyIcon from "@mui/icons-material/Key";
@@ -21,7 +22,12 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import ConversationList from "../chat/ConversationSidebar";
 import SettingsDialog from "./SettingsDialog";
-import { sharedFabStyle, sharedGlassStyle, sidebarItemBase, sidebarIconContainer } from "../../utils/styles";
+import {
+  sharedFabStyle,
+  sharedGlassStyle,
+  sidebarItemBase,
+  sidebarIconContainer,
+} from "../../utils/styles";
 
 const drawerWidth = 300;
 const collapsedWidth = 56; // 40 + 8 + 8
@@ -159,9 +165,7 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
             sx={{
               ...sidebarItemBase,
               backgroundColor:
-                location.pathname === item.path
-                  ? ui.activeBg
-                  : "transparent",
+                location.pathname === item.path ? ui.activeBg : "transparent",
               "&:hover": { backgroundColor: ui.hoverBg },
             }}
           >
@@ -169,9 +173,7 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
               sx={{
                 ...sidebarIconContainer,
                 color:
-                  location.pathname === item.path
-                    ? ui.activeColor
-                    : "inherit",
+                  location.pathname === item.path ? ui.activeColor : "inherit",
               }}
             >
               {item.icon}
@@ -227,10 +229,14 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
           >
             <SettingsIcon />
           </Box>
-          {showLabels && <Typography sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>Settings</Typography>}
+          {showLabels && (
+            <Typography sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
+              Settings
+            </Typography>
+          )}
         </Box>
         <Divider />
-       <Box
+        <Box
           onClick={(e) => {
             e.stopPropagation();
             handleLogout();
@@ -248,7 +254,11 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
           >
             <LogoutIcon />
           </Box>
-          {showLabels && <Typography sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>Logout</Typography>}
+          {showLabels && (
+            <Typography sx={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
+              Logout
+            </Typography>
+          )}
         </Box>
         <Divider />
         <Box
@@ -297,7 +307,10 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
           )}
         </Box>
       </Box>
-      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsDialog
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+      />
     </Box>
   );
 
@@ -305,6 +318,7 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
     <Box
       sx={{
         ...sharedFabStyle,
+        ...sharedGlassStyle,
         background: "transparent",
         position: "absolute",
         top: 8,
@@ -358,19 +372,23 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
           {drawerContent}
           {collapseToggleButton}
         </Drawer>
-        <Fab
-          size="small"
-          onClick={handleCollapsedToggle}
+        <Box
           sx={{
             ...sharedFabStyle,
             ...sharedGlassStyle,
             top: 8,
             left: 8,
           }}
-          aria-label="menu"
         >
-          <MenuIcon />
-        </Fab>
+          <Tooltip title="Navigation">
+            <IconButton
+              sx={{ width: 40, height: 40 }}
+              onClick={handleCollapsedToggle}
+            >
+              <MenuIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
       </>
     );
   } else if (isMedium) {

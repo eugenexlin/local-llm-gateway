@@ -22,7 +22,7 @@ const spin = keyframes({
   "100%": { transform: "rotate(360deg)" },
 });
 import RefreshIcon from "@mui/icons-material/Refresh";
-import GpuIcon from "../components/gauges/GpuIcon";
+import GpuIcon from "../components/icons/GpuIcon";
 import CpuIcon from "../components/icons/CpuIcon";
 import RamIcon from "../components/icons/RamIcon";
 import InfoIcon from "@mui/icons-material/Info";
