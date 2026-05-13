@@ -76,16 +76,18 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
         label={`${formatTokenCount(lastUsage.totalTokens)} / ${formatTokenCount(maxContext)}`}
         size="small"
         sx={{
-          bgcolor: usagePercent > 90
-            ? "rgba(239, 68, 68, 0.1)"
-            : usagePercent > 70
-            ? "rgba(245, 158, 11, 0.1)"
-            : "rgba(139, 92, 246, 0.1)",
-          color: usagePercent > 90
-            ? "#dc2626"
-            : usagePercent > 70
-            ? "#d97706"
-            : "#8b5cf6",
+          bgcolor:
+            usagePercent > 90
+              ? "rgba(239, 68, 68, 0.1)"
+              : usagePercent > 70
+                ? "rgba(245, 158, 11, 0.1)"
+                : "rgba(139, 92, 246, 0.1)",
+          color:
+            usagePercent > 90
+              ? "#dc2626"
+              : usagePercent > 70
+                ? "#d97706"
+                : "#8b5cf6",
           fontSize: "0.625rem",
           height: 20,
           fontWeight: 600,
@@ -97,7 +99,15 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Settings</DialogTitle>
+      <Typography
+        variant="h6"
+        sx={{
+          px: 2,
+          py: 1,
+        }}
+      >
+        Settings
+      </Typography>
       <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
         <Tabs
           value={activeTab}
@@ -116,7 +126,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
               <FormControlLabel
                 control={
                   <Switch
-                    checked={mode === 'dark'}
+                    checked={mode === "dark"}
                     onChange={() => toggleTheme()}
                     size="small"
                   />
@@ -124,7 +134,11 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
                 label="Dark mode"
                 sx={{ mb: 1 }}
               />
-              <Typography variant="body2" color="text.secondary" sx={{ ml: 3.5 }}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ ml: 3.5 }}
+              >
                 Switch between light and dark theme
               </Typography>
             </Box>
@@ -159,12 +173,25 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
                   bgcolor: "#f8fafc",
                   borderRadius: 1,
                   cursor: activeKeys.length > 0 ? "pointer" : "default",
-                  "&:hover": activeKeys.length > 0 ? { bgcolor: "#ffffff" } : {},
+                  "&:hover":
+                    activeKeys.length > 0 ? { bgcolor: "#ffffff" } : {},
                 }}
                 onClick={activeKeys.length > 0 ? handleKeyMenuOpen : undefined}
               >
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
-                  <KeyIcon sx={{ fontSize: 16, color: selectedKey ? "#8b5cf6" : "#94a3b8" }} />
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    minWidth: 0,
+                  }}
+                >
+                  <KeyIcon
+                    sx={{
+                      fontSize: 16,
+                      color: selectedKey ? "#8b5cf6" : "#94a3b8",
+                    }}
+                  />
                   <Typography
                     variant="body2"
                     sx={{
@@ -180,7 +207,9 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
                   {getTokenChip()}
                 </Box>
                 {activeKeys.length > 0 && (
-                  <KeyboardArrowDownIcon sx={{ fontSize: 18, color: "#94a3b8" }} />
+                  <KeyboardArrowDownIcon
+                    sx={{ fontSize: 18, color: "#94a3b8" }}
+                  />
                 )}
               </Box>
             </Box>
@@ -193,14 +222,20 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
                 control={
                   <Switch
                     checked={includeReasoningInContext ?? false}
-                    onChange={(e) => setIncludeReasoningInContext?.(e.target.checked)}
+                    onChange={(e) =>
+                      setIncludeReasoningInContext?.(e.target.checked)
+                    }
                     size="small"
                   />
                 }
                 label="Send reasoning to model"
                 sx={{ mb: 1 }}
               />
-              <Typography variant="body2" color="text.secondary" sx={{ ml: 3.5 }}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ ml: 3.5 }}
+              >
                 Include thinking steps in subsequent messages
               </Typography>
             </Box>
@@ -214,7 +249,10 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
                   <Switch
                     checked={chatSettings.showThinkingBlocks}
                     onChange={(e) =>
-                      setChatSettings({ ...chatSettings, showThinkingBlocks: e.target.checked })
+                      setChatSettings({
+                        ...chatSettings,
+                        showThinkingBlocks: e.target.checked,
+                      })
                     }
                     size="small"
                   />
@@ -222,7 +260,11 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
                 label="Show thinking blocks"
                 sx={{ mb: 1 }}
               />
-              <Typography variant="body2" color="text.secondary" sx={{ ml: 3.5 }}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ ml: 3.5 }}
+              >
                 Display reasoning/thinking content from assistant messages
               </Typography>
             </Box>
@@ -235,7 +277,10 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
                   <Switch
                     checked={chatSettings.defaultThinkingCollapsed}
                     onChange={(e) =>
-                      setChatSettings({ ...chatSettings, defaultThinkingCollapsed: e.target.checked })
+                      setChatSettings({
+                        ...chatSettings,
+                        defaultThinkingCollapsed: e.target.checked,
+                      })
                     }
                     size="small"
                   />
@@ -243,7 +288,11 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
                 label="Collapse thinking blocks by default"
                 sx={{ mb: 1 }}
               />
-              <Typography variant="body2" color="text.secondary" sx={{ ml: 3.5 }}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ ml: 3.5 }}
+              >
                 Start thinking blocks in collapsed state
               </Typography>
             </Box>

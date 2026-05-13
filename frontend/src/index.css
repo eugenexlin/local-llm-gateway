@@ -111,3 +111,9 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  color: color-mix(in srgb, currentColor 80%, transparent);
+  opacity: 0.7;
+}

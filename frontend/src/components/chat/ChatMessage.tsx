@@ -302,9 +302,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
               mb: 1,
               minWidth: "240px",
               borderRadius: "8px",
-              bgcolor: "#f5f3ff",
+              bgcolor: "color-mix(in oklab, var(--mui-palette-primary-dark) 16%, var(--mui-palette-background-default))",
               overflow: "hidden",
-              border: "1px solid #8b5cf6",
+              border: "1px solid var(--mui-palette-primary-main)",
             }}
           >
             <details open={!chatSettings.defaultThinkingCollapsed}>
@@ -312,7 +312,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                 style={{
                   cursor: "pointer",
                   fontSize: "0.8rem",
-                  color: "#6d28d9",
+                  color: "var(--mui-palette-primary-main)",
                   fontWeight: 600,
                   listStyle: "none",
                   marginTop: "4px",
@@ -334,7 +334,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                       height: 8,
                       marginRight: 0.5,
                       borderRadius: "100%",
-                      bgcolor: "#8b5cf6",
+                      bgcolor: "primary.main",
                       display: "inline-block",
                     }}
                   />
@@ -345,9 +345,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                 ref={thinkingRef}
                 sx={{
                   p: 1.5,
-                  bgcolor: "#ede9fe",
+                  bgcolor: "",
                   fontSize: "0.8125rem",
-                  color: "#3b0764",
+                  color: "primary.main",
                   maxHeight: 300,
                   overflow: "auto",
                   whiteSpace: "pre-wrap",
@@ -368,8 +368,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
             borderRadius: isUser
               ? { xs: "16px 16px 4px 16px", sm: "16px 16px 4px 16px" }
               : { xs: "16px 16px 16px 4px", sm: "16px 16px 16px 4px" },
-            bgcolor: isUser ? "primary.main" : "#ffffff",
-            color: isUser ? "white" : "#1e293b",
+            bgcolor: isUser ? "primary.main" : "background.paper",
+            color: isUser ? "white" : "color-mix(in oklab, currentColor 80%, transparent)",
             transition: "box-shadow 1s ease-out, filter 1s ease-out",
             ...(triggerHighlightAction
               ? {

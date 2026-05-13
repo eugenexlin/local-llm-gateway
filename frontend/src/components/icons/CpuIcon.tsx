@@ -16,7 +16,7 @@ export default function CpuIcon() {
         width="16"
         height="16"
         rx="1"
-        fill="white"
+        fill="var(--mui-palette-background-paper)"
         opacity="0.40"
       />
       {/* Die center */}
@@ -26,7 +26,7 @@ export default function CpuIcon() {
         width="6"
         height="6"
         rx="0.5"
-        fill="white"
+        fill="var(--mui-palette-background-paper)"
       />
       {/* Top pins */}
       <rect x="9" y="2" width="2" height="3" rx="0.3" />

@@ -107,7 +107,7 @@ const ChatInput: React.FC<ChatInputProps> = (props: ChatInputProps) => {
           input: {
             sx: {
               ...sharedGlassStyle,
-              backgroundColor: "rgba(255,255,255,0.4)",
+              backgroundColor: "color-mix(in oklab, var(--mui-palette-background-default) 32%, transparent)",
             },
             endAdornment: (
               <InputAdornment position="end">

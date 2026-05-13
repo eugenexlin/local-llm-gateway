@@ -4,6 +4,7 @@ export function getTheme(mode: 'light' | 'dark') {
   const isDark = mode === 'dark';
 
   const theme = createTheme({
+    cssVariables: true,
     palette: {
       mode,
       primary: {

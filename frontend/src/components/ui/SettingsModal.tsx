@@ -55,14 +55,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Graph Data Settings</DialogTitle>
+      <Typography variant="h6" sx={{ px: 2, py: 1 }}>
+        Graph Data Settings
+      </Typography>
       <DialogContent dividers sx={{ minWidth: 320 }}>
         <Box sx={{ mb: 3 }}>
           <FormControlLabel
             control={
               <Switch
                 checked={autoAdjustGranularityOnZoom}
-                onChange={(e) => onToggleAutoAdjustGranularityOnZoom(e.target.checked)}
+                onChange={(e) =>
+                  onToggleAutoAdjustGranularityOnZoom(e.target.checked)
+                }
                 size="small"
               />
             }
