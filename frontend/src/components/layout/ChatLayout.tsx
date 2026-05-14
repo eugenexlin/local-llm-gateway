@@ -121,6 +121,13 @@ export const ChatLayout = () => {
           justifyContent: "center",
         }}
       >
+        {/* padding for input box overlap */}
+        <Box
+          sx={{
+            flex: 0,
+            minHeight: "32px",
+          }}
+        ></Box>
         <Box
           sx={{
             flex: 1,
@@ -132,6 +139,14 @@ export const ChatLayout = () => {
           {/* main chat window */}
           <ChatMessageList highlightIndex={highlightIndex} />
         </Box>
+
+        {/* padding for input box overlap */}
+        <Box
+          sx={{
+            flex: 0,
+            minHeight: "32px",
+          }}
+        ></Box>
       </Box>
 
       {/* Setup modal overlay */}
