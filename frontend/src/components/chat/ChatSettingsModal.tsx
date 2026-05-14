@@ -13,7 +13,12 @@ import {
   Menu,
   MenuItem,
   IconButton,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
 } from "@mui/material";
+import { DEFAULT_SYSTEM_PROMPT } from "../../utils/constants";
 import KeyIcon from "@mui/icons-material/Key";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { ChatSettings } from "../../context/ChatContext";
@@ -183,6 +188,111 @@ const  ChatSettingsModal: React.FC<ChatSettingsModalProps> = ({
               />
               <Typography variant="body2" color="text.secondary" sx={{ ml: 3.5 }}>
                 Start thinking blocks in collapsed state
+              </Typography>
+            </Box>
+
+            <Divider sx={{ my: 2 }} />
+
+            <Box sx={{ mb: 3 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "#64748b",
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.05,
+                  display: "block",
+                  mb: 0.5,
+                }}
+              >
+                Display Mode
+              </Typography>
+              <FormControl fullWidth size="small">
+                <Select
+                  value={settings.displayMode || "markdown"}
+                  onChange={(e) =>
+                    onChange({
+                      ...settings,
+                      displayMode: e.target.value as "markdown" | "monospace",
+                    })
+                  }
+                  sx={{ fontSize: "0.8125rem" }}
+                >
+                  <MenuItem value="markdown">Markdown</MenuItem>
+                  <MenuItem value="monospace">Monospace</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+
+            <Divider sx={{ my: 2 }} />
+
+            <Box sx={{ mb: 3 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "#64748b",
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.05,
+                  display: "block",
+                  mb: 0.5,
+                }}
+              >
+                Thinking Display Mode
+              </Typography>
+              <FormControl fullWidth size="small">
+                <Select
+                  value={settings.thinkingDisplayMode || "monospace"}
+                  onChange={(e) =>
+                    onChange({
+                      ...settings,
+                      thinkingDisplayMode: e.target.value as "markdown" | "monospace",
+                    })
+                  }
+                  sx={{ fontSize: "0.8125rem" }}
+                >
+                  <MenuItem value="markdown">Markdown</MenuItem>
+                  <MenuItem value="monospace">Monospace</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+
+            <Divider sx={{ my: 2 }} />
+
+            <Box sx={{ mb: 2 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "#64748b",
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.05,
+                  display: "block",
+                  mb: 0.5,
+                }}
+              >
+                System Prompt
+              </Typography>
+              <TextField
+                fullWidth
+                multiline
+                rows={4}
+                value={settings.systemPrompt || DEFAULT_SYSTEM_PROMPT}
+                onChange={(e) =>
+                  onChange({
+                    ...settings,
+                    systemPrompt: e.target.value,
+                  })
+                }
+                placeholder={DEFAULT_SYSTEM_PROMPT}
+                sx={{
+                  mt: 0.5,
+                  fontSize: "0.8125rem",
+                  "& .MuiInputBase-input": { fontSize: "0.8125rem" },
+                }}
+              />
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, ml: 0 }}>
+                The system prompt is sent with every request. It controls how the model behaves.
               </Typography>
             </Box>
           </>

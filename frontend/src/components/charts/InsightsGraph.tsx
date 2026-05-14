@@ -436,11 +436,9 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
 
   const handleViewModeChange = (
     _: React.MouseEvent<HTMLElement>,
-    mode: "scatter" | "heatmap" | null,
+    mode: string,
   ) => {
-    if (mode === "scatter" || mode === "heatmap") {
-      onConfigChange({ ...config, viewMode: mode });
-    }
+    onConfigChange({ ...config, viewMode: mode });
   };
 
   const handlePointClick = async (point: any) => {
@@ -497,6 +495,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
           value={config.viewMode}
           onChange={handleViewModeChange}
           size="small"
+          exclusive
         >
           <ToggleButton value="scatter">Scatter</ToggleButton>
           <ToggleButton value="heatmap">Heat Map</ToggleButton>

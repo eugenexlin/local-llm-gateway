@@ -90,6 +90,6 @@ export type BarGrouping = 'side-by-side' | 'stacked';
 export interface InsightsConfig {
   xAxis: AxisType | null;
   yAxis: AxisType | null;
-  viewMode: 'scatter' | 'heatmap';
+  viewMode: string;
   presetId?: string;
 }

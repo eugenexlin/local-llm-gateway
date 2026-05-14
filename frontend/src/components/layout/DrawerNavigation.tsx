@@ -27,6 +27,7 @@ import {
   sharedGlassStyle,
   sidebarItemBase,
   sidebarIconContainer,
+  sharedFrostGlassStyle,
 } from "../../utils/styles";
 
 const drawerWidth = 300;
@@ -376,6 +377,7 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
           sx={{
             ...sharedFabStyle,
             ...sharedGlassStyle,
+            borderRadius: "50%",
             top: 8,
             left: 8,
           }}

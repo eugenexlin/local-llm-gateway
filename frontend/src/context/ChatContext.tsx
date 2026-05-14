@@ -11,10 +11,14 @@ import {
 import { useAuth } from "./AuthContext";
 import { useAPIKeys } from "./APIKeyContext";
 import { ApiKey } from "../models/ApiKey";
+import { DEFAULT_SYSTEM_PROMPT } from "../utils/constants";
 
 export interface ChatSettings {
   showThinkingBlocks: boolean;
   defaultThinkingCollapsed: boolean;
+  displayMode: "markdown" | "monospace";
+  thinkingDisplayMode: "markdown" | "monospace";
+  systemPrompt: string;
 }
 
 export interface ChatMessageItem {
@@ -73,6 +77,7 @@ interface ChatContextType {
   clearHistory: () => void;
   setError: (error: string | null) => void;
   scrollState: ChatScrollState;
+  abortCurrentRequest: () => void;
 }
 
 export interface ChatScrollState {
@@ -135,6 +140,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const isLoading = streamingConversationId !== null;
   const streamStartTimeRef = useRef<number>(0);
   const firstTokenTimeRef = useRef<number>(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const readerRef = useRef<ReadableStreamDefaultReader | null>(null);
   const [lastUsage, setLastUsage] = useState<TokenUsage | null>(null);
   const [includeReasoningInContext, setIncludeReasoningInContextState] =
     useState<boolean>(() => {
@@ -154,6 +161,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         return {
           showThinkingBlocks: parsed.showThinkingBlocks ?? true,
           defaultThinkingCollapsed: parsed.defaultThinkingCollapsed ?? false,
+          displayMode: parsed.displayMode ?? "markdown",
+          thinkingDisplayMode: parsed.thinkingDisplayMode ?? "monospace",
+          systemPrompt: parsed.systemPrompt ?? DEFAULT_SYSTEM_PROMPT,
         };
       }
     } catch {
@@ -162,6 +172,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     return {
       showThinkingBlocks: true,
       defaultThinkingCollapsed: false,
+      displayMode: "markdown",
+      thinkingDisplayMode: "monospace",
+      systemPrompt: DEFAULT_SYSTEM_PROMPT,
     };
   });
 
@@ -461,6 +474,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           });
         };
 
+        const messagesToSend = [
+          { role: "system" as const, content: chatSettings.systemPrompt },
+          ...formatMessages(conversationHistory),
+        ];
+
+        const abortController = new AbortController();
+        abortControllerRef.current = abortController;
+
         const response = await fetch(`${pubUrl}/api/chat/completions`, {
           method: "POST",
           headers: {
@@ -470,10 +491,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           body: JSON.stringify({
             key_id: selectedKeyId,
             model: "default",
-            messages: formatMessages(conversationHistory),
+            messages: messagesToSend,
             stream: true,
             max_tokens: 4096,
           }),
+          signal: abortController.signal,
         });
 
         if (!response.ok) {
@@ -487,6 +509,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         if (!reader) {
           throw new Error("Streaming not supported");
         }
+        readerRef.current = reader;
 
         const decoder = new TextDecoder();
         let buffer = "";
@@ -662,31 +685,60 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         firstTokenTimeRef.current = 0;
         streamStartTimeRef.current = 0;
       } catch (e: any) {
-        setError(e.message || "Failed to send message");
-        setConversations((prev) => {
-          const conv = prev[convId];
-          if (!conv) return prev;
-          const updatedMessages = [...conv.messages];
-          const lastIdx = updatedMessages.length - 1;
-          if (
-            updatedMessages[lastIdx]?.role === "assistant" &&
-            !updatedMessages[lastIdx].content
-          ) {
-            updatedMessages[lastIdx] = {
-              ...updatedMessages[lastIdx],
-              content: "Sorry, I encountered an error. Please try again.",
+        if (e.name === "AbortError") {
+          // User aborted - don't show error, just clean up
+          setConversations((prev) => {
+            const conv = prev[convId];
+            if (!conv) return prev;
+            const updatedMessages = [...conv.messages];
+            const lastIdx = updatedMessages.length - 1;
+            if (
+              updatedMessages[lastIdx]?.role === "assistant" &&
+              !updatedMessages[lastIdx].content
+            ) {
+              updatedMessages[lastIdx] = {
+                ...updatedMessages[lastIdx],
+                content: "Generation cancelled.",
+              };
+            }
+            return {
+              ...prev,
+              [convId]: {
+                ...conv,
+                messages: updatedMessages,
+                updatedAt: Date.now(),
+              },
             };
-          }
-          return {
-            ...prev,
-            [convId]: {
-              ...conv,
-              messages: updatedMessages,
-              updatedAt: Date.now(),
-            },
-          };
-        });
+          });
+        } else {
+          setError(e.message || "Failed to send message");
+          setConversations((prev) => {
+            const conv = prev[convId];
+            if (!conv) return prev;
+            const updatedMessages = [...conv.messages];
+            const lastIdx = updatedMessages.length - 1;
+            if (
+              updatedMessages[lastIdx]?.role === "assistant" &&
+              !updatedMessages[lastIdx].content
+            ) {
+              updatedMessages[lastIdx] = {
+                ...updatedMessages[lastIdx],
+                content: "Sorry, I encountered an error. Please try again.",
+              };
+            }
+            return {
+              ...prev,
+              [convId]: {
+                ...conv,
+                messages: updatedMessages,
+                updatedAt: Date.now(),
+              },
+            };
+          });
+        }
       } finally {
+        abortControllerRef.current = null;
+        readerRef.current = null;
         setStreamingConversationId(null);
       }
     },
@@ -704,6 +756,21 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       deleteConversation(activeConversationId);
     }
   }, [activeConversationId, deleteConversation]);
+
+  const abortCurrentRequest = useCallback(() => {
+    // Abort the fetch request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    // Close the stream reader
+    if (readerRef.current) {
+      readerRef.current.releaseLock();
+      readerRef.current = null;
+    }
+    // Clear the streaming state
+    setStreamingConversationId(null);
+  }, []);
 
   const scrollState: ChatScrollState = {
     targetMessageIndex: 0,
@@ -742,6 +809,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         clearHistory,
         setError,
         scrollState,
+        abortCurrentRequest,
       }}
     >
       {children}

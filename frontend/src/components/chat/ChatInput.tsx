@@ -1,21 +1,19 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect } from "react";
 import {
   Box,
   TextField,
   IconButton,
-  InputAdornment,
   Typography,
   Tooltip,
   Chip,
-  Fab,
 } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
+import StopIcon from "@mui/icons-material/Stop";
 import AddIcon from "@mui/icons-material/Add";
 import CloseIcon from "@mui/icons-material/Close";
 import { useChat } from "../../context/ChatContext";
-import { sharedFabStyle, sharedGlassStyle } from "../../utils/styles";
+import { sharedFrostGlassStyle, sharedGlassStyle } from "../../utils/styles";
 import { formatTokenCount } from "../../utils/format";
-import ListAltIcon from "@mui/icons-material/ListAlt";
 
 interface ChatInputProps {
   onConversationListClick?: () => void;
@@ -30,6 +28,7 @@ const ChatInput: React.FC<ChatInputProps> = (props: ChatInputProps) => {
     inputContent,
     setInputContent,
     estimatedContextTokens,
+    abortCurrentRequest,
   } = useChat();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -59,6 +58,10 @@ const ChatInput: React.FC<ChatInputProps> = (props: ChatInputProps) => {
       e.preventDefault();
       handleSubmit();
     }
+    if (e.key === "Escape" && isLoading) {
+      e.preventDefault();
+      abortCurrentRequest();
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -82,7 +85,8 @@ const ChatInput: React.FC<ChatInputProps> = (props: ChatInputProps) => {
   return (
     <Box
       sx={{
-        ...sharedGlassStyle,
+        ...sharedFrostGlassStyle,
+        backdropFilter: "blur(12px)",
         position: "sticky",
         bottom: 0,
         borderRadius: "16px",
@@ -90,21 +94,17 @@ const ChatInput: React.FC<ChatInputProps> = (props: ChatInputProps) => {
         flexDirection: "column",
         gap: 1,
         p: 1,
-        backgroundColor:
-          "color-mix(in oklab, var(--mui-palette-background-default) 32%, transparent)",
         boxShadow:
-          "0px 0px 0px 1px color-mix(in oklab, var(--mui-palette-primary-contrastText) 20%, transparent)",
+          "0px 0px 0px 1px color-mix(in oklab, var(--mui-palette-primary-contrastText) 40%, transparent)",
         "&:hover": {
           boxShadow:
             "0px 0px 3px 1px color-mix(in oklab, var(--mui-palette-primary-contrastText) 50%, transparent)",
         },
         "&:active": {
-          boxShadow:
-            "0px 0px 0px 2px var(--mui-palette-primary-light)",
+          boxShadow: "0px 0px 0px 2px var(--mui-palette-primary-light)",
         },
         "&:focus-within": {
-          boxShadow:
-            "0px 0px 0px 2px var(--mui-palette-primary-light)",
+          boxShadow: "0px 0px 0px 2px var(--mui-palette-primary-light)",
         },
       }}
       onClick={() => {
@@ -143,7 +143,7 @@ const ChatInput: React.FC<ChatInputProps> = (props: ChatInputProps) => {
           placeholder={
             selectedKeyId ? "Type a message..." : "Select an API key to chat"
           }
-          disabled={isLoading || !selectedKeyId}
+          disabled={!selectedKeyId}
           size="small"
           sx={{
             "& fieldset": { border: "none" },
@@ -222,14 +222,14 @@ const ChatInput: React.FC<ChatInputProps> = (props: ChatInputProps) => {
           />
         )}
 
-        {/* Send button - bottom right */}
+        {/* Send/Abort button - bottom right */}
         <Box
           sx={{
             bottom: 8,
             right: 8,
           }}
         >
-          <Tooltip title="Send message">
+          <Tooltip title={isLoading ? "Stop generating" : "Send message"}>
             <IconButton
               sx={{
                 ...sharedGlassStyle,
@@ -238,10 +238,14 @@ const ChatInput: React.FC<ChatInputProps> = (props: ChatInputProps) => {
               }}
               onClick={(e) => {
                 e.stopPropagation();
-                handleSubmit();
+                if (isLoading) {
+                  abortCurrentRequest();
+                } else {
+                  handleSubmit();
+                }
               }}
             >
-              <SendIcon />
+              {isLoading ? <StopIcon /> : <SendIcon />}
             </IconButton>
           </Tooltip>
         </Box>

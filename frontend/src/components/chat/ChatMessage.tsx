@@ -10,6 +10,9 @@ import {
 } from "@mui/material";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 import { ChatMessageItem, useChat } from "../../context/ChatContext";
 import ChatDots from "./ChatDots";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
@@ -115,18 +118,29 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
     window.innerWidth < theme.breakpoints.values.sm;
 
   const renderContent = (content: string) => {
-    const parts = content.split(/(```[\s\S]*?```)/g);
+    if (chatSettings.displayMode === "monospace") {
+      return (
+        <Box
+          sx={{
+            fontFamily: '"Fira Code", "Cascadia Code", "Consolas", monospace',
+            fontSize: "0.8125rem",
+            lineHeight: 1.5,
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+          }}
+        >
+          {content}
+        </Box>
+      );
+    }
 
-    return parts.map((part, index) => {
-      if (part.startsWith("```") && part.endsWith("```")) {
-        const codeContent = part.slice(3, -3);
-        const newlineIdx = codeContent.indexOf("\n");
-        if (newlineIdx !== -1) {
-          const lang = codeContent.slice(0, newlineIdx).trim();
-          const code = codeContent.slice(newlineIdx + 1);
-          return (
+    return (
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeRaw]}
+        components={{
+          pre: ({ children }) => (
             <Box
-              key={index}
               sx={{
                 bgcolor: "#1e1e2e",
                 borderRadius: 1,
@@ -136,66 +150,207 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                 overflow: "auto",
               }}
             >
-              {lang && lang.match(/^[a-z]+$/i) && (
-                <Typography
-                  variant="caption"
-                  sx={{
-                    position: "absolute",
-                    top: 4,
-                    right: 8,
-                    color: "#888",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {lang}
-                </Typography>
-              )}
-              <Box
-                component="pre"
-                sx={{
-                  m: 0,
+              {children}
+            </Box>
+          ),
+          code: ({ className, children, ...props }) => {
+            const match = /language-(\w+)/.exec(className || "");
+            const lang = match ? match[1] : "";
+            const text = String(children).replace(/\n$/, "");
+
+            if (lang) {
+              return (
+                <Box>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      position: "absolute",
+                      top: 4,
+                      right: 8,
+                      color: "#888",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {lang}
+                  </Typography>
+                  <Box
+                    component="pre"
+                    sx={{
+                      m: 0,
+                      fontSize: "0.8125rem",
+                      fontFamily:
+                        '"Fira Code", "Cascadia Code", "Consolas", monospace',
+                      lineHeight: 1.5,
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                      color: "#cdd6f4",
+                    }}
+                  >
+                    <code className={className} {...props}>
+                      {text}
+                    </code>
+                  </Box>
+                </Box>
+              );
+            }
+
+            return (
+              <code className={className} {...props}>
+                {children}
+              </code>
+            );
+          },
+          p: ({ children }) => (
+            <Typography
+              variant="body2"
+              sx={{
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+                mb: 0.5,
+              }}
+            >
+              {children}
+            </Typography>
+          ),
+          table: ({ children }) => (
+            <Box
+              sx={{
+                overflow: "auto",
+                my: 1,
+                border: "1px solid var(--mui-palette-divider)",
+                borderRadius: 1,
+              }}
+            >
+              <table
+                style={{
+                  borderCollapse: "collapse",
+                  width: "100%",
                   fontSize: "0.8125rem",
-                  fontFamily:
-                    '"Fira Code", "Cascadia Code", "Consolas", monospace',
-                  lineHeight: 1.5,
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                  color: "#cdd6f4",
-                  "& code": { display: "block" },
                 }}
               >
-                <code>{code}</code>
-              </Box>
+                {children}
+              </table>
             </Box>
-          );
-        }
-      }
+          ),
+          th: ({ children }) => (
+            <th
+              style={{
+                padding: "6px 12px",
+                border: "1px solid var(--mui-palette-divider)",
+                backgroundColor:
+                  "color-mix(in oklab, var(--mui-palette-text-primary) 8%, var(--mui-palette-background-paper))",
+                fontWeight: 600,
+                textAlign: "left",
+                color: "var(--mui-palette-text-primary)",
+              }}
+            >
+              {children}
+            </th>
+          ),
+          td: ({ children }) => (
+            <td
+              style={{
+                padding: "6px 12px",
+                border: "1px solid var(--mui-palette-divider)",
+                fontSize: "0.8125rem",
+                color: "var(--mui-palette-text-primary)",
+              }}
+            >
+              {children}
+            </td>
+          ),
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    );
+  };
 
-      if (part.includes("\n")) {
-        return (
-          <Box
-            key={index}
-            sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
-          >
-            {part.split("\n").map((line, lineIdx) => (
-              <React.Fragment key={lineIdx}>
-                {lineIdx > 0 && <br />}
-                {line}
-              </React.Fragment>
-            ))}
-          </Box>
-        );
-      }
-
+  const renderThinking = (content: string) => {
+    if (chatSettings.thinkingDisplayMode === "monospace") {
       return (
         <Box
-          key={index}
-          sx={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+          ref={thinkingRef}
+          sx={{
+            p: 1.5,
+            fontSize: "0.8125rem",
+            color: "primary.main",
+            maxHeight: 300,
+            overflow: "auto",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            fontFamily: '"Fira Code", "Cascadia Code", "Consolas", monospace',
+            lineHeight: 1.5,
+          }}
         >
-          {part}
+          {content}
         </Box>
       );
-    });
+    }
+
+    return (
+      <Box
+        ref={thinkingRef}
+        sx={{
+          p: 1.5,
+          fontSize: "0.8125rem",
+          color: "primary.main",
+          maxHeight: 300,
+          overflow: "auto",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+          lineHeight: 1.5,
+        }}
+      >
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeRaw]}
+          components={{
+            p: ({ children }) => (
+              <Typography
+                variant="body2"
+                sx={{
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                  mb: 0.5,
+                }}
+              >
+                {children}
+              </Typography>
+            ),
+            code: ({ children }) => (
+              <code
+                style={{
+                  fontFamily:
+                    '"Fira Code", "Cascadia Code", "Consolas", monospace',
+                  fontSize: "inherit",
+                  backgroundColor: "rgba(139, 92, 246, 0.1)",
+                  borderRadius: 0.5,
+                  padding: 0.5,
+                }}
+              >
+                {children}
+              </code>
+            ),
+            pre: ({ children }) => (
+              <Box
+                sx={{
+                  bgcolor: "rgba(139, 92, 246, 0.08)",
+                  borderRadius: 1,
+                  p: 1.5,
+                  my: 0.5,
+                  overflow: "auto",
+                }}
+              >
+                {children}
+              </Box>
+            ),
+          }}
+        >
+          {content}
+        </ReactMarkdown>
+      </Box>
+    );
   };
 
   const vertButton = (
@@ -302,7 +457,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
               mb: 1,
               minWidth: "240px",
               borderRadius: "8px",
-              bgcolor: "color-mix(in oklab, var(--mui-palette-primary-dark) 16%, var(--mui-palette-background-default))",
+              bgcolor:
+                "color-mix(in oklab, var(--mui-palette-primary-dark) 16%, var(--mui-palette-background-default))",
               overflow: "hidden",
               border: "1px solid var(--mui-palette-primary-main)",
             }}
@@ -341,35 +497,21 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                   Thinking
                 </Box>
               </summary>
-              <Box
-                ref={thinkingRef}
-                sx={{
-                  p: 1.5,
-                  bgcolor: "",
-                  fontSize: "0.8125rem",
-                  color: "primary.main",
-                  maxHeight: 300,
-                  overflow: "auto",
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                  fontFamily:
-                    '"Fira Code", "Cascadia Code", "Consolas", monospace',
-                  lineHeight: 1.5,
-                }}
-              >
-                {message.thinking}
-              </Box>
+              {renderThinking(message.thinking)}
             </details>
           </Box>
         )}
         <Box
           sx={{
-            p: { xs: 1, sm: 2 },
+            py: 1,
+            px: { xs: 1.5, sm: 2 },
             borderRadius: isUser
               ? { xs: "16px 16px 4px 16px", sm: "16px 16px 4px 16px" }
               : { xs: "16px 16px 16px 4px", sm: "16px 16px 16px 4px" },
-            bgcolor: isUser ? "primary.main" : "background.paper",
-            color: isUser ? "white" : "color-mix(in oklab, currentColor 80%, transparent)",
+            bgcolor: isUser ? "primary.main" : "transparent",
+            color: isUser
+              ? "white"
+              : "color-mix(in oklab, currentColor 80%, transparent)",
             transition: "box-shadow 1s ease-out, filter 1s ease-out",
             ...(triggerHighlightAction
               ? {
@@ -420,9 +562,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                         <Box
                           sx={{
                             display: "inline-flex",
-                            bgcolor: "rgba(0,0,0,0.2)",
+                            bgcolor:
+                              "color-mix(in oklab, var(--mui-palette-common-onBackground) 10%, transparent)",
                             borderRadius: "8px",
-                            boxShadow: "inset 1px 1px 2px rgba(0,0,0,0.2)",
+                            boxShadow: "inset 1px 1px 2px rgba(0,0,0,0.4)",
                             p: "2px",
                           }}
                         >
@@ -433,7 +576,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                               sx={{
                                 bgcolor:
                                   showTokenView === "prompt"
-                                    ? "white"
+                                    ? "var(--mui-palette-background-default)"
                                     : "transparent",
                                 color:
                                   showTokenView === "prompt"
@@ -441,15 +584,15 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                                     : "rgba(127,127,127,0.8)",
                                 boxShadow:
                                   showTokenView === "prompt"
-                                    ? "1px 1px 2px rgba(0,0,0,0.2)"
-                                    : "#64748b",
+                                    ? "1px 1px 2px rgba(0,0,0,0.4)"
+                                    : "transparent",
                                 borderRadius: "6px",
                                 p: 0.35,
                                 minWidth: 22,
                                 "&:hover": {
                                   bgcolor:
                                     showTokenView === "prompt"
-                                      ? "#ffffff"
+                                      ? "var(--mui-palette-background-paper)"
                                       : "rgba(255,255,255,0.04)",
                                 },
                               }}
@@ -464,7 +607,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                               sx={{
                                 bgcolor:
                                   showTokenView === "completion"
-                                    ? "white"
+                                    ? "var(--mui-palette-background-default)"
                                     : "transparent",
                                 color:
                                   showTokenView === "completion"
@@ -472,15 +615,15 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                                     : "rgba(127,127,127,0.8)",
                                 boxShadow:
                                   showTokenView === "completion"
-                                    ? "1px 1px 2px rgba(0,0,0,0.2)"
-                                    : "#64748b",
+                                    ? "1px 1px 2px rgba(0,0,0,0.4)"
+                                    : "transparent",
                                 borderRadius: "6px",
                                 p: 0.35,
                                 minWidth: 22,
                                 "&:hover": {
                                   bgcolor:
                                     showTokenView === "completion"
-                                      ? "#ffffff"
+                                      ? "var(--mui-palette-background-paper)"
                                       : "rgba(255,255,255,0.04)",
                                 },
                               }}

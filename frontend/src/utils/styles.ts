@@ -11,7 +11,13 @@ export const sharedGlassStyle: SxProps<Theme> = {
   backdropFilter: "blur(6px)",
 };
 
-export const sharedIconButtonOverrideStyle: SxProps<Theme> = { 
+export const sharedFrostGlassStyle: SxProps<Theme> = {
+  ...sharedGlassStyle,
+  backgroundColor:
+    "color-mix(in oklab, var(--mui-palette-common-background) 60%, transparent)",
+};
+
+export const sharedIconButtonOverrideStyle: SxProps<Theme> = {
   "&:hover": {
     filter: "brightness(1.2)",
   },

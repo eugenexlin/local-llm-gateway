@@ -8,15 +8,15 @@ export function getTheme(mode: 'light' | 'dark') {
     palette: {
       mode,
       primary: {
-        main: '#8b5cf6',
-        light: '#a78bfa',
-        dark: '#7c3aed',
+        main: '#a05ce0',
+        light: '#b78bef',
+        dark: '#9c3ae0',
         contrastText: '#ffffff',
       },
       secondary: {
-        main: '#f59e0b',
-        light: '#fbbf24',
-        dark: '#d97706',
+        main: '#5ce0df',
+        light: '#9beff0',
+        dark: '#31b8b7',
         contrastText: '#000000',
       },
       background: {

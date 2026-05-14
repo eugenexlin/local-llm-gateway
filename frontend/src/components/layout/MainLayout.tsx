@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef } from "react";
-import { Box } from "@mui/material";
+import { Box, useMediaQuery } from "@mui/material";
 import DrawerNavigation from "./DrawerNavigation";
+import theme from "../../theme";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -9,6 +10,7 @@ interface MainLayoutProps {
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [mainMargin, setMainMargin] = useState("0px");
   const [firstRender, setFirstRender] = useState<boolean>(true);
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const handleMarginChange = useCallback((margin: string) => {
     setMainMargin(margin);
@@ -33,7 +35,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           overflow: "auto",
           display: "flex",
           flexGrow: 1,
-          p: 1,
+          p: isMobile ? 1 : 3,
           ml: mainMargin,
           transition: firstRender ? "" : "margin-left 0.2s ease",
         }}

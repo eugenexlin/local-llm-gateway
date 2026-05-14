@@ -175,4 +175,20 @@ export function proxyRequestToLlama(
 
   upstreamReq.write(JSON.stringify(body));
   upstreamReq.end();
+
+  // Detect client disconnect and abort upstream request
+  res.on("close", () => {
+    if (!res.headersSent) {
+      upstreamReq.destroy();
+    }
+  });
+
+  // Log if client disconnected during streaming
+  if (process.env.SUPPRESS_CONSOLE !== "true") {
+    res.on("finish", () => {
+      if (res.writableEnded && !metrics.usageFound) {
+        console.log("[ABORTED] Client disconnected before stream completed");
+      }
+    });
+  }
 }
