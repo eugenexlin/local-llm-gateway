@@ -85,7 +85,7 @@ export interface ChatScrollState {
   previousScrollTop: number;
 }
 
-const pubUrl = import.meta.env.PUBLIC_URL || "";
+const pubUrl = "";
 const STORAGE_CONVERSATIONS_KEY = "llm_conversations";
 const STORAGE_ACTIVE_KEY_KEY = "llm_active_conversation_id";
 const STORAGE_REASONING_KEY = "llm_include_reasoning_in_context";

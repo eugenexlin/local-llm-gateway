@@ -56,12 +56,96 @@ GOOGLE_CLIENT_ID=your-client-id
 GOOGLE_CLIENT_SECRET=your-client-secret
 ```
 
-**Note:** `PUBLIC_URL` is used for OAuth redirects. In production, set this to your public domain (e.g., `https://yourdomain.com`).
+**Note:** `PUBLIC_URL` is kept as a fallback but is no longer used for OAuth redirects in multi-domain mode. See [Multi-Domain Configuration](#multi-domain-configuration) below.
 
 Frontend (`frontend/.env`):
 ```env
 VITE_DEV_TEST_LOGIN=false
 ```
+
+## Multi-Domain Configuration
+
+The gateway supports serving the same frontend from multiple domains (e.g., local network IP and Tailscale IP). All API calls use relative URLs, so the browser automatically uses whichever domain it connected to. The backend dynamically detects the requesting domain for CORS and OAuth redirects.
+
+### How URL Detection Works
+
+The backend uses this precedence order to determine the public-facing URL:
+
+1. **`X-Forwarded-Host` / `X-Forwarded-Proto` headers** (highest priority) — set by reverse proxies like nginx. Used for both CORS validation and OAuth redirects when behind a proxy.
+
+2. **`Host` header** — fallback when no proxy headers are present. Used for CORS validation.
+
+3. **Static config fallback** — `FRONTEND_BASE_URL` for OAuth redirects, `PUBLIC_URL` for other fallbacks. Used when no proxy headers are present (dev mode).
+
+### Environment Variables
+
+| Variable | Purpose | Precedence | Default |
+|---|---|---|---|
+| `FRONTEND_BASE_URL` | Frontend URL for OAuth redirects (dev mode) | Fallback when no `X-Forwarded-Host` | `http://localhost:5173` |
+| `BACKEND_BASE_URL` | Backend URL (used by Vite dev proxy) | N/A | `http://localhost:3000` |
+| `PUBLIC_URL` | Legacy fallback for OAuth redirects | Lowest | `http://localhost:5173` |
+| `ALLOWED_DOMAINS` | Comma-separated whitelist for CORS | Optional | Empty (allow all) |
+
+### Development Mode (No Reverse Proxy)
+
+In dev, the frontend (`localhost:5173`) and backend (`localhost:3000`) run on separate ports. The Vite dev server proxies `/api/`, `/v1/`, and `/auth/` requests to the backend.
+
+- OAuth redirects use `FRONTEND_BASE_URL` (default: `http://localhost:5173`)
+- CORS accepts any origin (no `X-Forwarded-Host` header present)
+- No `ALLOWED_DOMAINS` needed
+
+```env
+# backend/.env
+FRONTEND_BASE_URL=http://localhost:5173
+BACKEND_BASE_URL=http://localhost:3000
+# ALLOWED_DOMAINS not needed for dev
+```
+
+### Production Mode (With Nginx Reverse Proxy)
+
+In production, nginx serves the frontend static files and proxies API requests to the backend. Nginx sets `X-Forwarded-Host` and `X-Forwarded-Proto` headers automatically.
+
+- OAuth redirects use the domain from `X-Forwarded-Host` (e.g., `mygateway.ts.net`)
+- CORS validates against the `Origin` header, optionally checking `ALLOWED_DOMAINS`
+- All domains hitting nginx port 80 work automatically
+
+```env
+# backend/.env (docker-compose environment)
+FRONTEND_BASE_URL=http://localhost:5173  # Only used as fallback
+# ALLOWED_DOMAINS optional - comma-separated list
+# ALLOWED_DOMAINS=192.168.1.100:80,mygateway.ts.net:80
+```
+
+No `PUBLIC_URL` or `FRONTEND_BASE_URL` changes needed — the gateway auto-detects the requesting domain.
+
+### Optional Domain Whitelist
+
+Set `ALLOWED_DOMAINS` to restrict which domains can make CORS requests. When set, only origins matching the whitelist are accepted.
+
+```env
+# backend/.env
+ALLOWED_DOMAINS=192.168.1.100:80,mygateway.ts.net:80,localhost:5173
+```
+
+Format: comma-separated `host:port` values. Port is optional — if omitted, any port on that host is allowed.
+
+- `ALLOWED_DOMAINS=localhost` → allows `localhost` on any port
+- `ALLOWED_DOMAINS=localhost:5173` → allows only `localhost:5173`
+- `ALLOWED_DOMAINS=` (empty) → allows all origins (default)
+
+### Docker Deployment
+
+The docker-compose setup works out of the box with multiple domains. Just expose your server on port 80 and access it via any configured hostname/IP:
+
+```bash
+# Access via local network
+curl http://192.168.1.100/
+
+# Access via Tailscale
+curl http://mygateway.ts.net
+```
+
+Both work without any configuration changes. Nginx's `server_name _` directive acts as a catch-all, and the backend auto-detects each domain via `X-Forwarded-Host`.
 
 **Step 3: Start Backend Server**
 
@@ -76,18 +160,6 @@ npm run dev
 cd frontend
 npm run dev
 ```
-
-## Docker Deployment
-
-```bash
-docker-compose up --build
-```
-
-This starts:
-- Backend service on port 3000 (internal)
-- Frontend proxy (nginx) on port 80
-
-Set environment variables via `.env` file or shell before running.
 
 ## Accessing the Application
 
@@ -164,7 +236,7 @@ local-llm-gateway/
 ## Features Implemented
 
 ### Backend
-- ✅ Express.js server with CORS and session auth
+- ✅ Express.js server with dynamic CORS (auto-detects requesting domain)
 - ✅ SQLite database with better-sqlite3
 - ✅ API key management (create, list, update, revoke, stats)
 - ✅ API key validation middleware (Bearer token)
@@ -172,8 +244,10 @@ local-llm-gateway/
 - ✅ Usage tracking with token-level metrics
 - ✅ Metrics endpoints with user/API key filtering
 - ✅ Proxy forwarding to LLM (OpenAI-compatible)
-- ✅ Google OAuth authentication
+- ✅ Google OAuth authentication with dynamic redirect URLs
 - ✅ Server health monitoring
+- ✅ Multi-domain support (local network, Tailscale, custom domains)
+- ✅ Optional domain whitelist via `ALLOWED_DOMAINS`
 
 ### Frontend
 - ✅ Google OAuth authentication
@@ -185,3 +259,4 @@ local-llm-gateway/
 - ✅ Insights views (scatter plot, heat map)
 - ✅ Dark/light theme support
 - ✅ Responsive layout
+- ✅ Relative URLs for API calls (works with any domain)

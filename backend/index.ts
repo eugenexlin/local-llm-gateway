@@ -14,7 +14,7 @@ import proxy from './routes/proxy';
 import serverStats from './routes/serverStats';
 import { startStatsHistoryCollector } from './utils/systemMetrics';
 import chat from './routes/chat';
-import config from './config';
+import config, { getBaseUrl, getFrontendUrl } from './config';
 import './utils/passport';
 
 interface SessionRequest extends Request {
@@ -40,7 +40,31 @@ const shouldUseSecureCookies = (req: express.Request): boolean => {
 
 // Middleware
 app.use(cors({
-  origin: config.frontendBaseUrl,
+  origin: (origin: string | undefined, callback: (err: Error | null, origin?: boolean | string) => void) => {
+    if (!origin) {
+      callback(null, false);
+      return;
+    }
+    
+    if (config.allowedDomains.length > 0) {
+      try {
+        const url = new URL(origin);
+        const host = url.host;
+        const matches = config.allowedDomains.some(domain => {
+          const domainHost = domain.includes(':') ? domain.split(':')[0] : domain;
+          const domainPort = domain.includes(':') ? domain.split(':')[1] : '';
+          return host === domainHost && (!domainPort || url.port === domainPort);
+        });
+        callback(null, matches ? origin : false);
+        return;
+      } catch {
+        callback(null, false);
+        return;
+      }
+    }
+    
+    callback(null, origin);
+  },
   credentials: true
 }));
 app.use(cookieParser());
@@ -143,27 +167,31 @@ app.get('/auth/google', passport.authenticate('google', {
 }));
 
 app.get('/auth/google/callback', 
-  passport.authenticate('google', {
-    failureRedirect: `${config.publicUrl}/login?error=authentication_failed`,
-    session: false
-  }),
-  (req: SessionRequest, res: Response) => {
-    const user = req.user as database.User;
-    
-    const sessionUser = {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      oauthProvider: user.oauth_provider || 'google',
-    };
-
- req.login(sessionUser, (err: any) => {
+  (req: SessionRequest, res: Response, next: NextFunction) => {
+    passport.authenticate('google', { session: false }, (err, user, info) => {
       if (err) {
-        console.error('OAuth login error:', err);
-        return res.redirect(`${config.publicUrl}/login?error=session_error`);
+        console.error('OAuth error:', err);
+        return res.redirect(`${getFrontendUrl(req)}/login?error=session_error`);
       }
-      res.redirect(`${config.publicUrl}/?authenticated=true`);
-    });
+      if (!user) {
+        return res.redirect(`${getFrontendUrl(req)}/login?error=authentication_failed`);
+      }
+      
+      const sessionUser = {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        oauthProvider: user.oauth_provider || 'google',
+      };
+
+      req.login(sessionUser, (loginErr: any) => {
+        if (loginErr) {
+          console.error('OAuth login error:', loginErr);
+          return res.redirect(`${getFrontendUrl(req)}/login?error=session_error`);
+        }
+        res.redirect(`${getFrontendUrl(req)}/?authenticated=true`);
+      });
+    })(req, res, next);
   }
 );
 
