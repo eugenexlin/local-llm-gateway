@@ -47,7 +47,7 @@ Backend (`backend/.env`):
 PORT=3000
 BACKEND_BASE_URL=http://localhost:3000
 FRONTEND_BASE_URL=http://localhost:5173
-PUBLIC_URL=http://localhost:5173
+
 LLAMA_CPP_URL=http://localhost:8080/v1
 DATABASE_PATH=./local_llm_gateway.db
 SESSION_SECRET=your-secret-key-here
@@ -55,8 +55,6 @@ SESSION_EXPIRY_HOURS=24
 GOOGLE_CLIENT_ID=your-client-id
 GOOGLE_CLIENT_SECRET=your-client-secret
 ```
-
-**Note:** `PUBLIC_URL` is kept as a fallback but is no longer used for OAuth redirects in multi-domain mode. See [Multi-Domain Configuration](#multi-domain-configuration) below.
 
 Frontend (`frontend/.env`):
 ```env
@@ -75,7 +73,7 @@ The backend uses this precedence order to determine the public-facing URL:
 
 2. **`Host` header** — fallback when no proxy headers are present. Used for CORS validation.
 
-3. **Static config fallback** — `FRONTEND_BASE_URL` for OAuth redirects, `PUBLIC_URL` for other fallbacks. Used when no proxy headers are present (dev mode).
+3. **Static config fallback** — `FRONTEND_BASE_URL` for OAuth redirects. Used when no proxy headers are present (dev mode).
 
 ### Environment Variables
 
@@ -83,7 +81,6 @@ The backend uses this precedence order to determine the public-facing URL:
 |---|---|---|---|
 | `FRONTEND_BASE_URL` | Frontend URL for OAuth redirects (dev mode) | Fallback when no `X-Forwarded-Host` | `http://localhost:5173` |
 | `BACKEND_BASE_URL` | Backend URL (used by Vite dev proxy) | N/A | `http://localhost:3000` |
-| `PUBLIC_URL` | Legacy fallback for OAuth redirects | Lowest | `http://localhost:5173` |
 | `ALLOWED_DOMAINS` | Comma-separated whitelist for CORS | Optional | Empty (allow all) |
 
 ### Development Mode (No Reverse Proxy)
@@ -116,7 +113,7 @@ FRONTEND_BASE_URL=http://localhost:5173  # Only used as fallback
 # ALLOWED_DOMAINS=192.168.1.100:80,mygateway.ts.net:80
 ```
 
-No `PUBLIC_URL` or `FRONTEND_BASE_URL` changes needed — the gateway auto-detects the requesting domain.
+No `FRONTEND_BASE_URL` changes needed — the gateway auto-detects the requesting domain.
 
 ### Optional Domain Whitelist
 
