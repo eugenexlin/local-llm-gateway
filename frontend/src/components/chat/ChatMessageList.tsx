@@ -149,7 +149,7 @@ const ChatMessageList: React.FC<ChatMessageListProps> = (
             Start a conversation
           </Typography>
           <Typography variant="body2" sx={{ color: "#94a3b8", maxWidth: 280 }}>
-            Select an API key, then type a message to chat with the LLM.
+            Type a message to chat with the LLM.
           </Typography>
         </Box>
       ) : (

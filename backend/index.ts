@@ -112,7 +112,7 @@ app.get('/auth/session', (req: SessionRequest, res: Response) => {
   if (req.user) {
     res.json({ user: req.user });
   } else {
-    res.status(401).json({ error: 'Not authenticated' });
+    res.json({ user: null });
   }
 });
 

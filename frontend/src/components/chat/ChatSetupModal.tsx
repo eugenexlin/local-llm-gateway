@@ -5,16 +5,29 @@ import {
   Button,
 } from "@mui/material";
 import KeyIcon from "@mui/icons-material/Key";
-import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import { useNavigate } from "react-router-dom";
 import { sharedFrostGlassStyle } from "../../utils/styles";
+import type { ApiKey } from "../../models/ApiKey";
+import ApiKeyDropdown from "../ui/ApiKeyDropdown";
 
 interface ChatSetupModalProps {
   open: boolean;
+  apiKeys: ApiKey[];
+  selectedKeyId: string;
+  onSelectKey: (id: string) => void;
 }
 
-const ChatSetupModal: React.FC<ChatSetupModalProps> = ({ open }) => {
+const ChatSetupModal: React.FC<ChatSetupModalProps> = ({
+  open,
+  apiKeys,
+  selectedKeyId,
+  onSelectKey,
+}) => {
   const navigate = useNavigate();
+
+  const activeKeys = apiKeys.filter((k) => k.is_active);
+  const hasAvailableKeys = activeKeys.length > 0;
+  const hasSelectedKey = !!selectedKeyId;
 
   if (!open) return null;
 
@@ -41,7 +54,7 @@ const ChatSetupModal: React.FC<ChatSetupModalProps> = ({ open }) => {
           p: 4,
           boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
           textAlign: "center",
-          maxWidth: 360,
+          maxWidth: 400,
           width: "100%",
         }}
       >
@@ -61,19 +74,67 @@ const ChatSetupModal: React.FC<ChatSetupModalProps> = ({ open }) => {
           <KeyIcon sx={{ fontSize: 28, color: "#8b5cf6" }} />
         </Box>
 
-        <Typography
-          variant="h6"
-          sx={{ fontWeight: 600, color: "#1e293b", mb: 1 }}
-        >
-          No API Key Selected
-        </Typography>
+        {!hasSelectedKey && hasAvailableKeys ? (
+          <>
+            <Typography
+              variant="h6"
+              sx={{ fontWeight: 600, color: "#1e293b", mb: 0.5 }}
+            >
+              Select an API Key
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{ color: "#64748b", mb: 2, fontSize: "0.875rem" }}
+            >
+              Choose an API key to start chatting
+            </Typography>
 
-        <Typography
-          variant="body2"
-          sx={{ color: "#64748b", mb: 3, fontSize: "0.875rem" }}
-        >
-          Select an API key in the API Keys page to start chatting
-        </Typography>
+            <Box sx={{ mb: 2, justifyContent: "center", display: "flex" }}>
+              <ApiKeyDropdown
+                apiKeys={apiKeys}
+                selectedKeyId={selectedKeyId}
+                onSelectKey={onSelectKey}
+              />
+            </Box>
+
+            <Typography
+              variant="caption"
+              sx={{ color: "#94a3b8", display: "block", mb: 2 }}
+            >
+              You can change this later in Settings
+            </Typography>
+          </>
+        ) : !hasAvailableKeys ? (
+          <>
+            <Typography
+              variant="h6"
+              sx={{ fontWeight: 600, color: "#1e293b", mb: 0.5 }}
+            >
+              No API Key Available
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{ color: "#64748b", mb: 3, fontSize: "0.875rem" }}
+            >
+              You need an API key to chat. Create one on the API Keys page.
+            </Typography>
+          </>
+        ) : (
+          <>
+            <Typography
+              variant="h6"
+              sx={{ fontWeight: 600, color: "#1e293b", mb: 0.5 }}
+            >
+              API Key Selected
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{ color: "#64748b", mb: 2, fontSize: "0.875rem" }}
+            >
+              You can change this later in Settings
+            </Typography>
+          </>
+        )}
 
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
           <Button
@@ -86,7 +147,6 @@ const ChatSetupModal: React.FC<ChatSetupModalProps> = ({ open }) => {
               fontWeight: 600,
               py: 1,
             }}
-            endIcon={<OpenInNewIcon fontSize="small" />}
           >
             Go to API Keys
           </Button>

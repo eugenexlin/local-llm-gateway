@@ -9,7 +9,7 @@ import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 
 export const ChatLayout = () => {
-  const { messages, selectedKeyId, scrollState } = useChat();
+  const { messages, selectedKeyId, scrollState, apiKeys, setSelectedApiKeyId } = useChat();
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null);
 
   const scrollToUserMessage = useCallback(
@@ -150,7 +150,14 @@ export const ChatLayout = () => {
       </Box>
 
       {/* Setup modal overlay */}
-      {!selectedKeyId && <ChatSetupModal open={true} />}
+      {!selectedKeyId && (
+        <ChatSetupModal
+          open={true}
+          apiKeys={apiKeys}
+          selectedKeyId={selectedKeyId}
+          onSelectKey={setSelectedApiKeyId}
+        />
+      )}
       {/* Input TODO */}
       <ChatInput scrollToUserMessage={scrollToUserMessage} />
     </Box>

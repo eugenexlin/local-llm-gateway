@@ -37,9 +37,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       if (response.ok) {
         const data = await response.json();
-        setUser(data.user);
-        setLastUserId(data.user.id);
-        migrateLegacyKeys(data.user.id);
+        if (data.user) {
+          setUser(data.user);
+          setLastUserId(data.user.id);
+          migrateLegacyKeys(data.user.id);
+        } else {
+          setUser(null);
+        }
       } else {
         setUser(null);
       }

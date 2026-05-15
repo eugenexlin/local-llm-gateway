@@ -121,7 +121,7 @@ const ChatInput: React.FC<ChatInputProps> = (props: ChatInputProps) => {
             px: 1,
           }}
         >
-          Please select an API key to start chatting
+          Select an API key to start chatting (popup will appear)
         </Typography>
       )}
 

@@ -90,45 +90,45 @@ function AppContent() {
 
   return (
     <ThemeContextProvider userId={user?.id ?? null}>
-      <APIKeyProvider>
-        <ChatProvider>
-          <Routes>
-            <Route
-              path="/login"
-              element={
-                <PublicRoute>
-                  <Login />
-                </PublicRoute>
-              }
-            />
-            <Route
-              path="/authcallback"
-              element={
-                <RootRoute>
-                  <AuthCallback />
-                </RootRoute>
-              }
-            />
-            <Route
-              path="/"
-              element={
-                <PrivateRoute>
+      <Routes>
+        <Route
+          path="/login"
+          element={
+            <PublicRoute>
+              <Login />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/authcallback"
+          element={
+            <RootRoute>
+              <AuthCallback />
+            </RootRoute>
+          }
+        />
+        <Route
+          path="/"
+          element={
+            <PrivateRoute>
+              <APIKeyProvider>
+                <ChatProvider>
                   <MainLayout>
                     <Outlet />
                   </MainLayout>
-                </PrivateRoute>
-              }
-            >
-              <Route index element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/api-keys" element={<APIKeys />} />
-              <Route path="/server-stats" element={<ServerStats />} />
-              <Route path="/chat" element={<ChatPage />} />
-            </Route>
-            <Route path="*" element={<NotFoundRoute />} />
-          </Routes>
-        </ChatProvider>
-      </APIKeyProvider>
+                </ChatProvider>
+              </APIKeyProvider>
+            </PrivateRoute>
+          }
+        >
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/api-keys" element={<APIKeys />} />
+          <Route path="/server-stats" element={<ServerStats />} />
+          <Route path="/chat" element={<ChatPage />} />
+        </Route>
+        <Route path="*" element={<NotFoundRoute />} />
+      </Routes>
     </ThemeContextProvider>
   );
 }

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { ThemeProvider as MuiThemeProvider, CssBaseline } from '@mui/material';
 import { getTheme } from '../theme';
 import { getItem, setItem, getLastUserId } from '../utils/storage';
@@ -33,14 +33,20 @@ function loadInitialTheme(userId: string | null): ThemeMode {
 
 export function ThemeContextProvider({ userId, children }: { userId: string | null; children: ReactNode }) {
   const [mode, setMode] = useState<ThemeMode>(() => loadInitialTheme(userId));
+  const userIdRef = useRef(userId);
+  userIdRef.current = userId;
 
   const theme = getTheme(mode);
 
   useEffect(() => {
-    if (userId) {
-      setItem(userId, 'theme', mode);
+    if (userIdRef.current) {
+      setItem(userIdRef.current, 'theme', mode);
     }
-  }, [mode, userId]);
+  }, [mode]);
+
+  useEffect(() => {
+    setMode(loadInitialTheme(userId));
+  }, [userId]);
 
   const toggleTheme = useCallback(() => {
     setMode((prev) => (prev === 'light' ? 'dark' : 'light'));

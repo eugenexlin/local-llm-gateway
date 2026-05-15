@@ -58,14 +58,8 @@ export function APIKeyProvider({ children }: { children: ReactNode }) {
             const found = keys.find((k: any) => k.id === storedKey);
             if (found) {
               setSelectedKeyIdState(found.id);
-            } else if (keys.length > 0) {
-              setSelectedKeyIdState(keys[0].id);
             }
-          } else if (keys.length > 0) {
-            setSelectedKeyIdState(keys[0].id);
           }
-        } else if (keys.length > 0) {
-          setSelectedKeyIdState(keys[0].id);
         }
       }
     } catch (e) {
