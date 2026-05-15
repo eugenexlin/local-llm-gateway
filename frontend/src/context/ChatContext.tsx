@@ -12,6 +12,7 @@ import { useAuth } from "./AuthContext";
 import { useAPIKeys } from "./APIKeyContext";
 import { ApiKey } from "../models/ApiKey";
 import { DEFAULT_SYSTEM_PROMPT } from "../utils/constants";
+import { getItem, setItem } from "../utils/storage";
 
 export interface ChatSettings {
   showThinkingBlocks: boolean;
@@ -107,7 +108,8 @@ function truncateTitle(title: string, maxLength: number = 40): string {
 }
 
 export function ChatProvider({ children }: { children: ReactNode }) {
-  useAuth();
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
 
   const { apiKeys, apiKeyLoading, selectedKeyId, setSelectedApiKeyId } =
     useAPIKeys();
@@ -116,7 +118,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     Record<string, Conversation>
   >(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_CONVERSATIONS_KEY);
+      if (!userId) return {};
+      const stored = getItem(userId, STORAGE_CONVERSATIONS_KEY);
       return stored ? JSON.parse(stored) : {};
     } catch {
       return {};
@@ -126,7 +129,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [activeConversationId, setActiveConversationIdState] = useState<string>(
     () => {
       try {
-        return localStorage.getItem(STORAGE_ACTIVE_KEY_KEY) || "";
+        if (!userId) return "";
+        return getItem(userId, STORAGE_ACTIVE_KEY_KEY) || "";
       } catch {
         return "";
       }
@@ -146,7 +150,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [includeReasoningInContext, setIncludeReasoningInContextState] =
     useState<boolean>(() => {
       try {
-        const stored = localStorage.getItem(STORAGE_REASONING_KEY);
+        if (!userId) return false;
+        const stored = getItem(userId, STORAGE_REASONING_KEY);
         return stored === "true";
       } catch {
         return false;
@@ -155,7 +160,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const [chatSettings, setChatSettingsState] = useState<ChatSettings>(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_SETTINGS_KEY);
+      if (!userId) throw new Error("No user");
+      const stored = getItem(userId, STORAGE_SETTINGS_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
         return {
@@ -274,9 +280,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   }, [messages, includeReasoningInContext]);
 
   useEffect(() => {
-    if (Object.keys(conversations).length > 0) {
+    if (Object.keys(conversations).length > 0 && userId) {
       try {
-        localStorage.setItem(
+        setItem(
+          userId,
           STORAGE_CONVERSATIONS_KEY,
           JSON.stringify(conversations),
         );
@@ -284,36 +291,41 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         // Storage full or unavailable
       }
     }
-  }, [conversations]);
+  }, [conversations, userId]);
 
   useEffect(() => {
-    if (activeConversationId) {
+    if (activeConversationId && userId) {
       try {
-        localStorage.setItem(STORAGE_ACTIVE_KEY_KEY, activeConversationId);
+        setItem(userId, STORAGE_ACTIVE_KEY_KEY, activeConversationId);
       } catch {
         // Storage unavailable
       }
     }
-  }, [activeConversationId]);
+  }, [activeConversationId, userId]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(
-        STORAGE_REASONING_KEY,
-        String(includeReasoningInContext),
-      );
-    } catch {
-      // Storage unavailable
+    if (userId) {
+      try {
+        setItem(
+          userId,
+          STORAGE_REASONING_KEY,
+          String(includeReasoningInContext),
+        );
+      } catch {
+        // Storage unavailable
+      }
     }
-  }, [includeReasoningInContext]);
+  }, [includeReasoningInContext, userId]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(chatSettings));
-    } catch {
-      // Storage unavailable
+    if (userId) {
+      try {
+        setItem(userId, STORAGE_SETTINGS_KEY, JSON.stringify(chatSettings));
+      } catch {
+        // Storage unavailable
+      }
     }
-  }, [chatSettings]);
+  }, [chatSettings, userId]);
 
   const setIncludeReasoningInContext = useCallback((val: boolean) => {
     setIncludeReasoningInContextState(val);

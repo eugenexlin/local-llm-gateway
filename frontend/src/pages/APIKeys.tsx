@@ -91,7 +91,6 @@ function APIKeys() {
   const copyToClipboard = async (key: string, keyId?: string) => {
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        console.info("saving to clipboard with navigator");
         await navigator.clipboard.writeText(key);
       } else {
         console.info("saving to clipboard with textarea");
@@ -500,7 +499,6 @@ function APIKeys() {
                       variant="outlined"
                       sx={{
                         p: 0.75,
-                        bgcolor: "#f5f5f5",
                         borderRadius: 1,
                         fontFamily: "monospace",
                         fontSize: "12px",
@@ -615,7 +613,6 @@ function APIKeys() {
             variant="outlined"
             sx={{
               p: 2,
-              bgcolor: "#f5f5f5",
               borderRadius: 1,
               fontFamily: "monospace",
               fontSize: "12px",

@@ -6,7 +6,9 @@ import {
   useCallback,
   ReactNode,
 } from "react";
+import { useAuth } from "./AuthContext";
 import { ApiKey } from "../models/ApiKey";
+import { getItem, setItem, removeItem } from "../utils/storage";
 
 interface APIKeyContextType {
   apiKeys: ApiKey[];
@@ -24,11 +26,14 @@ const STORAGE_API_KEY_ID_KEY = "llm_selected_api_key_id";
 const APIKeyContext = createContext<APIKeyContextType | null>(null);
 
 export function APIKeyProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [apiKeyLoading, setApiKeyLoading] = useState(true);
   const [selectedKeyId, setSelectedKeyIdState] = useState<string>(() => {
     try {
-      return localStorage.getItem(STORAGE_API_KEY_ID_KEY) || "";
+      if (!userId) return "";
+      return getItem(userId, STORAGE_API_KEY_ID_KEY) || "";
     } catch {
       return "";
     }
@@ -47,11 +52,15 @@ export function APIKeyProvider({ children }: { children: ReactNode }) {
         const keys = await response.json();
         setApiKeys(keys);
 
-        const storedKey = localStorage.getItem(STORAGE_API_KEY_ID_KEY);
-        if (storedKey) {
-          const found = keys.find((k: any) => k.id === storedKey);
-          if (found) {
-            setSelectedKeyIdState(found.id);
+        if (userId) {
+          const storedKey = getItem(userId, STORAGE_API_KEY_ID_KEY);
+          if (storedKey) {
+            const found = keys.find((k: any) => k.id === storedKey);
+            if (found) {
+              setSelectedKeyIdState(found.id);
+            } else if (keys.length > 0) {
+              setSelectedKeyIdState(keys[0].id);
+            }
           } else if (keys.length > 0) {
             setSelectedKeyIdState(keys[0].id);
           }
@@ -64,7 +73,7 @@ export function APIKeyProvider({ children }: { children: ReactNode }) {
     } finally {
       setApiKeyLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   const setSelectedApiKeyId = useCallback(
     (id: string) => {
@@ -72,13 +81,15 @@ export function APIKeyProvider({ children }: { children: ReactNode }) {
       if (found) {
         setSelectedKeyIdState(found.id);
       }
-      try {
-        localStorage.setItem(STORAGE_API_KEY_ID_KEY, id);
-      } catch {
-        // Storage unavailable
+      if (userId) {
+        try {
+          setItem(userId, STORAGE_API_KEY_ID_KEY, id);
+        } catch {
+          // Storage unavailable
+        }
       }
     },
-    [apiKeys],
+    [apiKeys, userId],
   );
 
   const createKey = useCallback(
@@ -138,17 +149,21 @@ export function APIKeyProvider({ children }: { children: ReactNode }) {
               const activeKey = updatedKeys.find((k) => k.is_active === 1);
               if (activeKey) {
                 setSelectedKeyIdState(activeKey.id);
-                try {
-                  localStorage.setItem(STORAGE_API_KEY_ID_KEY, activeKey.id);
-                } catch {
-                  // Storage unavailable
+                if (userId) {
+                  try {
+                    setItem(userId, STORAGE_API_KEY_ID_KEY, activeKey.id);
+                  } catch {
+                    // Storage unavailable
+                  }
                 }
               } else {
                 setSelectedKeyIdState("");
-                try {
-                  localStorage.removeItem(STORAGE_API_KEY_ID_KEY);
-                } catch {
-                  // Storage unavailable
+                if (userId) {
+                  try {
+                    removeItem(userId, STORAGE_API_KEY_ID_KEY);
+                  } catch {
+                    // Storage unavailable
+                  }
                 }
               }
             }

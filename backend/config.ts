@@ -122,7 +122,9 @@ export const getFrontendUrl = (req: Request): string => {
   const hostHeader = req.headers["host"];
   if (hostHeader) {
     const host = Array.isArray(hostHeader) ? hostHeader[0] : hostHeader;
-    return `${req.protocol}://${host}`;
+    if (!host.includes(":")) {
+      return `${req.protocol}://${host}`;
+    }
   }
 
   return config.frontendBaseUrl;

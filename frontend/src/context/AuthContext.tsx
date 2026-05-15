@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { setLastUserId, migrateLegacyKeys } from '../utils/storage';
 
 export interface User {
   id: string;
@@ -37,6 +38,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (response.ok) {
         const data = await response.json();
         setUser(data.user);
+        setLastUserId(data.user.id);
+        migrateLegacyKeys(data.user.id);
       } else {
         setUser(null);
       }
@@ -54,6 +57,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const login = (userData: User) => {
     setUser(userData);
+    setLastUserId(userData.id);
+    migrateLegacyKeys(userData.id);
   };
 
   const logout = async () => {
@@ -86,6 +91,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (response.ok) {
         const data = await response.json();
         login(data.user);
+        setLastUserId(data.user.id);
+        migrateLegacyKeys(data.user.id);
       }
     } catch (e) {
       console.error('Test login failed:', e);

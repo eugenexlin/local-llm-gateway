@@ -117,6 +117,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
     theme.breakpoints.values.sm > 0 &&
     window.innerWidth < theme.breakpoints.values.sm;
 
+  const subMenuBarColor =
+    "color-mix(in oklab, var(--mui-palette-text-primary) 50%, var(--mui-palette-background-paper))";
+
   const renderContent = (content: string) => {
     if (chatSettings.displayMode === "monospace") {
       return (
@@ -363,7 +366,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
           size="small"
           onClick={handleActionClick}
           sx={{
-            color: "#94a3b8",
+            color: subMenuBarColor,
             p: 0.5,
             "&:hover": { bgcolor: "rgba(0,0,0,0.04)" },
           }}
@@ -390,7 +393,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
           size="small"
           onClick={handleCopy}
           sx={{
-            color: "#94a3b8",
+            color: subMenuBarColor,
             "&:hover": { bgcolor: "rgba(0,0,0,0.04)" },
           }}
         >
@@ -403,7 +406,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
             size="small"
             onClick={handleForkClick}
             sx={{
-              color: "#94a3b8",
+              color: subMenuBarColor,
               "&:hover": { bgcolor: "rgba(0,0,0,0.04)" },
             }}
           >
@@ -417,7 +420,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
             size="small"
             onClick={handleRevertClick}
             sx={{
-              color: "#94a3b8",
+              color: subMenuBarColor,
               "&:hover": { bgcolor: "rgba(0,0,0,0.04)" },
             }}
           >
@@ -532,7 +535,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
             justifyContent: isUser ? "right" : "left",
             gap: 0.5,
             mt: 0.5,
-            color: "#94a3b8",
+            color: subMenuBarColor,
             px: 0.5,
           }}
         >
@@ -630,7 +633,10 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                             </IconButton>
                           </Tooltip>
                         </Box>
-                        <Typography variant="caption" sx={{ color: "#94a3b8" }}>
+                        <Typography
+                          variant="caption"
+                          sx={{ color: subMenuBarColor }}
+                        >
                           {showTokenView === "prompt"
                             ? formatTokenStat(
                                 message.promptTokens ?? 0,
@@ -647,7 +653,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                       <Typography
                         variant="caption"
                         sx={{
-                          color: "#94a3b8",
+                          color: subMenuBarColor,
                           display: "inline-flex",
                           alignItems: "center",
                           gap: "8px",
@@ -657,7 +663,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                         <Tooltip title="Prompt Tokens">
                           <MenuBookIcon
                             fontSize="small"
-                            sx={{ color: "#94a3b8" }}
+                            sx={{ color: subMenuBarColor }}
                           />
                         </Tooltip>
 
@@ -668,7 +674,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                         <Tooltip title="Completion Tokens">
                           <AutoAwesomeIcon
                             fontSize="small"
-                            sx={{ color: "#94a3b8" }}
+                            sx={{ color: subMenuBarColor }}
                           />
                         </Tooltip>
                         {formatTokenStat(

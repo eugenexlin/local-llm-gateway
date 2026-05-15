@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { ThemeProvider as MuiThemeProvider, CssBaseline } from '@mui/material';
 import { getTheme } from '../theme';
+import { getItem, setItem, getLastUserId } from '../utils/storage';
 
 type ThemeMode = 'light' | 'dark';
 
@@ -11,18 +12,35 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
-export function ThemeContextProvider({ children }: { children: ReactNode }) {
-  const [mode, setMode] = useState<ThemeMode>(() => {
-    const stored = localStorage.getItem('theme') as ThemeMode | null;
-    if (stored === 'light' || stored === 'dark') return stored;
+function loadInitialTheme(userId: string | null): ThemeMode {
+  try {
+    if (userId) {
+      const stored = getItem(userId, 'theme') as ThemeMode | null;
+      if (stored === 'light' || stored === 'dark') return stored;
+    }
+    
+    const lastUserId = getLastUserId();
+    if (lastUserId && lastUserId !== userId) {
+      const stored = getItem(lastUserId, 'theme') as ThemeMode | null;
+      if (stored === 'light' || stored === 'dark') return stored;
+    }
+    
     return 'light';
-  });
+  } catch {
+    return 'light';
+  }
+}
+
+export function ThemeContextProvider({ userId, children }: { userId: string | null; children: ReactNode }) {
+  const [mode, setMode] = useState<ThemeMode>(() => loadInitialTheme(userId));
 
   const theme = getTheme(mode);
 
   useEffect(() => {
-    localStorage.setItem('theme', mode);
-  }, [mode]);
+    if (userId) {
+      setItem(userId, 'theme', mode);
+    }
+  }, [mode, userId]);
 
   const toggleTheme = useCallback(() => {
     setMode((prev) => (prev === 'light' ? 'dark' : 'light'));

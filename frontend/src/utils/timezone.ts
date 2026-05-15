@@ -2,6 +2,8 @@
  * Timezone utilities for handling user timezone detection and UTC conversions
  */
 
+import { getItem, setItem, removeItem } from './storage';
+
 // Storage key for timezone preference
 export const TIMEZONE_STORAGE_KEY = 'llm-gateway-timezone';
 
@@ -16,9 +18,16 @@ export function detectUserTimezone(): string {
 /**
  * Save user's timezone preference to localStorage
  */
-export function saveTimezonePreference(timezone: string): void {
+export function saveTimezonePreference(timezone: string, userId: string | null = null): void {
   try {
-    localStorage.setItem(TIMEZONE_STORAGE_KEY, timezone);
+    if (userId) {
+      setItem(userId, TIMEZONE_STORAGE_KEY, timezone);
+    } else {
+      const stored = localStorage.getItem(TIMEZONE_STORAGE_KEY);
+      if (stored) {
+        localStorage.setItem(TIMEZONE_STORAGE_KEY, timezone);
+      }
+    }
   } catch (error) {
     console.warn('Failed to save timezone preference:', error);
   }
@@ -28,9 +37,14 @@ export function saveTimezonePreference(timezone: string): void {
  * Get user's saved timezone preference
  * Falls back to detecting browser timezone if not saved
  */
-export function getTimezonePreference(): string {
+export function getTimezonePreference(userId: string | null = null): string {
   try {
-    const saved = localStorage.getItem(TIMEZONE_STORAGE_KEY);
+    let saved: string | null = null;
+    if (userId) {
+      saved = getItem(userId, TIMEZONE_STORAGE_KEY);
+    } else {
+      saved = localStorage.getItem(TIMEZONE_STORAGE_KEY);
+    }
     if (saved) {
       return saved;
     }
@@ -44,9 +58,13 @@ export function getTimezonePreference(): string {
 /**
  * Clear user's timezone preference
  */
-export function clearTimezonePreference(): void {
+export function clearTimezonePreference(userId: string | null = null): void {
   try {
-    localStorage.removeItem(TIMEZONE_STORAGE_KEY);
+    if (userId) {
+      removeItem(userId, TIMEZONE_STORAGE_KEY);
+    } else {
+      localStorage.removeItem(TIMEZONE_STORAGE_KEY);
+    }
   } catch (error) {
     console.warn('Failed to clear timezone preference:', error);
   }

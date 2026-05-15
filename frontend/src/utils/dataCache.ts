@@ -1,4 +1,5 @@
 import type { ProgressiveDataPoint } from "../types/metrics";
+import { getItem, setItem } from "./storage";
 
 const CACHE_STORAGE_KEY = "llm-gateway-cache-enabled";
 
@@ -16,18 +17,27 @@ export function clearCache(): void {
   cache.clear();
 }
 
-export function getCacheEnabled(): boolean {
+export function getCacheEnabled(userId: string | null = null): boolean {
   try {
-    const saved = localStorage.getItem(CACHE_STORAGE_KEY);
+    let saved: string | null = null;
+    if (userId) {
+      saved = getItem(userId, CACHE_STORAGE_KEY);
+    } else {
+      saved = localStorage.getItem(CACHE_STORAGE_KEY);
+    }
     return saved !== "false";
   } catch {
     return true;
   }
 }
 
-export function setCacheEnabled(enabled: boolean): void {
+export function setCacheEnabled(enabled: boolean, userId: string | null = null): void {
   try {
-    localStorage.setItem(CACHE_STORAGE_KEY, String(enabled));
+    if (userId) {
+      setItem(userId, CACHE_STORAGE_KEY, String(enabled));
+    } else {
+      localStorage.setItem(CACHE_STORAGE_KEY, String(enabled));
+    }
   } catch {
     // silently fail
   }

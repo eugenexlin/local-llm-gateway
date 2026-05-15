@@ -20,6 +20,7 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import KeyboardArrowLeftIcon from "@mui/icons-material/KeyboardArrowLeft";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { getItem, setItem } from "../../utils/storage";
 import ConversationList from "../chat/ConversationSidebar";
 import SettingsDialog from "./SettingsDialog";
 import {
@@ -46,12 +47,19 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isMedium = useMediaQuery(theme.breakpoints.between("sm", "md"));
   const { user, logout } = useAuth();
+  const userId = user?.id ?? null;
 
   const ui = theme.custom.ui;
 
   const [collapsed, setCollapsed] = useState(() => {
-    const stored = localStorage.getItem("drawer-collapsed");
-    if (stored !== null) return stored === "true";
+    try {
+      if (userId) {
+        const stored = getItem(userId, "drawer-collapsed");
+        if (stored !== null) return stored === "true";
+      }
+    } catch {
+      // ignore
+    }
     return false;
   });
 
@@ -74,8 +82,10 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
   }, [collapsed, isMobile, isMedium, onMarginChange]);
 
   useEffect(() => {
-    localStorage.setItem("drawer-collapsed", String(collapsed));
-  }, [collapsed]);
+    if (userId) {
+      setItem(userId, "drawer-collapsed", String(collapsed));
+    }
+  }, [collapsed, userId]);
 
   const handleCollapsedToggle = () => {
     setCollapsed(!collapsed);

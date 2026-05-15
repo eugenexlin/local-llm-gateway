@@ -3,11 +3,11 @@ import {
   Box,
   Typography,
   Button,
-  IconButton,
 } from "@mui/material";
 import KeyIcon from "@mui/icons-material/Key";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import { useNavigate } from "react-router-dom";
+import { sharedFrostGlassStyle } from "../../utils/styles";
 
 interface ChatSetupModalProps {
   open: boolean;
@@ -26,8 +26,7 @@ const ChatSetupModal: React.FC<ChatSetupModalProps> = ({ open }) => {
         left: 0,
         right: 0,
         bottom: 0,
-        bgcolor: "rgba(248, 250, 252, 0.85)",
-        backdropFilter: "blur(4px)",
+        ...sharedFrostGlassStyle,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -90,20 +89,6 @@ const ChatSetupModal: React.FC<ChatSetupModalProps> = ({ open }) => {
             endIcon={<OpenInNewIcon fontSize="small" />}
           >
             Go to API Keys
-          </Button>
-
-          <Button
-            variant="outlined"
-            onClick={() => {}}
-            sx={{
-              textTransform: "none",
-              fontWeight: 500,
-              py: 1,
-              color: "#64748b",
-              borderColor: "#e2e8f0",
-            }}
-          >
-            Dismiss
           </Button>
         </Box>
       </Box>

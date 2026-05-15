@@ -85,7 +85,7 @@ const DashboardStats: React.FC = () => {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const abortControllerRef = useRef<AbortController | null>(null);
   const debounceTimerRef = useRef<number | null>(null);
-  const [cacheEnabled, setCacheEnabledState] = useState(getCacheEnabled());
+  const [cacheEnabled, setCacheEnabledState] = useState(() => getCacheEnabled(user?.id ?? null));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedPresetIndex, setSelectedPresetIndex] = useState(2);
   const [lastFetchTime, setLastFetchTime] = useState<number | null>(null);
@@ -691,7 +691,7 @@ const DashboardStats: React.FC = () => {
 
   const handleToggleCache = (enabled: boolean) => {
     setCacheEnabledState(enabled);
-    setCacheEnabled(enabled);
+    setCacheEnabled(enabled, user?.id ?? null);
   };
 
   const handlePurgeCache = () => {
