@@ -4,7 +4,6 @@ import { Request } from "express";
 
 interface Config {
   port: number;
-  backendBaseUrl: string;
   frontendBaseUrl: string;
   llamaCppUrl: string;
   databasePath: string;
@@ -21,7 +20,6 @@ const generateSecureSecret = (): string => {
 
 const config: Config = {
   port: parseInt(process.env.PORT || "3000", 10),
-  backendBaseUrl: process.env.BACKEND_BASE_URL || "http://localhost:3000",
   frontendBaseUrl: process.env.FRONTEND_BASE_URL || "http://localhost:5173",
   llamaCppUrl: process.env.LLAMA_CPP_URL || "http://localhost:8080/v1",
   databasePath: process.env.DATABASE_PATH || "./local_llm_gateway.db",

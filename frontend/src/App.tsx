@@ -1,4 +1,10 @@
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  Outlet,
+} from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { APIKeyProvider } from "./context/APIKeyContext";
 import { ChatProvider } from "./context/ChatContext";
@@ -24,12 +30,12 @@ function PrivateRoute({ children }: PrivateRouteProps) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div >
-      </div >
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
     );
   }
 
-  return user ? (children || <Outlet />) : <Navigate to="/login" replace />;
+  return user ? children || <Outlet /> : <Navigate to="/login" replace />;
 }
 
 function PublicRoute({ children }: PublicRouteProps) {
@@ -38,8 +44,8 @@ function PublicRoute({ children }: PublicRouteProps) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div >
-      </div >
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
     );
   }
 
@@ -52,8 +58,8 @@ function RootRoute({ children }: { children: React.ReactNode }) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div >
-      </div >
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
     );
   }
 
@@ -66,12 +72,16 @@ function NotFoundRoute() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div >
-      </div >
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
     );
   }
 
-  return user ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />;
+  return user ? (
+    <Navigate to="/dashboard" replace />
+  ) : (
+    <Navigate to="/login" replace />
+  );
 }
 
 function App() {
@@ -80,41 +90,41 @@ function App() {
       <AuthProvider>
         <APIKeyProvider>
           <ChatProvider>
-          <Routes>
-          <Route
-            path="/login"
-            element={
-              <PublicRoute>
-                <Login />
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/authcallback"
-            element={
-              <RootRoute>
-                <AuthCallback />
-              </RootRoute>
-            }
-          />
-          <Route
-            path="/"
-            element={
-              <PrivateRoute>
-                <MainLayout>
-                  <Outlet />
-                </MainLayout>
-              </PrivateRoute>
-            }
-          >
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/api-keys" element={<APIKeys />} />
-            <Route path="/server-stats" element={<ServerStats />} />
-            <Route path="/chat" element={<ChatPage />} />
-          </Route>
-          <Route path="*" element={<NotFoundRoute />} />
-        </Routes>
+            <Routes>
+              <Route
+                path="/login"
+                element={
+                  <PublicRoute>
+                    <Login />
+                  </PublicRoute>
+                }
+              />
+              <Route
+                path="/authcallback"
+                element={
+                  <RootRoute>
+                    <AuthCallback />
+                  </RootRoute>
+                }
+              />
+              <Route
+                path="/"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <Outlet />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              >
+                <Route index element={<Navigate to="/dashboard" replace />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/api-keys" element={<APIKeys />} />
+                <Route path="/server-stats" element={<ServerStats />} />
+                <Route path="/chat" element={<ChatPage />} />
+              </Route>
+              <Route path="*" element={<NotFoundRoute />} />
+            </Routes>
           </ChatProvider>
         </APIKeyProvider>
       </AuthProvider>

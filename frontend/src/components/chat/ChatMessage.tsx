@@ -142,7 +142,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
           pre: ({ children }) => (
             <Box
               sx={{
-                bgcolor: "#1e1e2e",
+                bgcolor: "color-mix(in oklab, currentColor 20%, transparent);",
                 borderRadius: 1,
                 p: 1.5,
                 my: 1,
@@ -167,7 +167,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                       position: "absolute",
                       top: 4,
                       right: 8,
-                      color: "#888",
                       textTransform: "uppercase",
                     }}
                   >
@@ -183,7 +182,6 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
                       lineHeight: 1.5,
                       whiteSpace: "pre-wrap",
                       wordBreak: "break-word",
-                      color: "#cdd6f4",
                     }}
                   >
                     <code className={className} {...props}>
