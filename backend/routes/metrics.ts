@@ -407,7 +407,7 @@ router.get("/insights/log/:id", (req: Request, res: Response) => {
     const logRow = db
       ?.prepare(
         `
-      SELECT 
+      SELECT
         ul.id,
         ul.api_key_id,
         ul.prompt_tokens,
@@ -418,6 +418,8 @@ router.get("/insights/log/:id", (req: Request, res: Response) => {
         ul.idempotency_key,
         ul.cache_creation_input_tokens,
         ul.cache_read_input_tokens,
+        ul.ttft_ms,
+        ul.stream_duration_ms,
         ak.name as api_key_name,
         ak.description as api_key_description,
         u.name as user_name,

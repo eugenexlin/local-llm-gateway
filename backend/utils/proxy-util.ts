@@ -8,6 +8,7 @@ import { extractTokensFromStream } from "./streaming-token-parser";
 interface StreamMetrics {
   statusCode: number | null;
   startTime: number;
+  firstTokenTime: number;
   error: string | null;
   promptTokens: number;
   completionTokens: number;
@@ -40,6 +41,7 @@ export function proxyRequestToLlama(
   const metrics: StreamMetrics = {
     statusCode: null,
     startTime: Date.now(),
+    firstTokenTime: 0,
     error: null,
     promptTokens: 0,
     completionTokens: 0,
@@ -75,10 +77,38 @@ export function proxyRequestToLlama(
 
       response.on("data", (chunk: Buffer) => {
         metrics.chunks.push(chunk);
+        if (metrics.firstTokenTime === 0) {
+          const text = chunk.toString('utf8');
+          const lines = text.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') continue;
+              try {
+                const parsed = JSON.parse(data);
+                const delta = parsed.choices?.[0]?.delta;
+                if (delta && (delta.content || delta.reasoning || delta.reasoning_content)) {
+                  metrics.firstTokenTime = Date.now();
+                  break;
+                }
+              } catch {
+                // Not valid JSON, skip
+              }
+            }
+          }
+        }
       });
 
       response.on("end", () => {
         const duration = Date.now() - metrics.startTime;
+        const endTime = Date.now();
+        let ttftMs: number | null = null;
+        let streamDurationMs: number | null = null;
+
+        if (metrics.firstTokenTime > 0) {
+          ttftMs = metrics.firstTokenTime - metrics.startTime;
+          streamDurationMs = endTime - metrics.firstTokenTime;
+        }
 
         if (metrics.idempotencyKey) {
           const existing = database
@@ -123,6 +153,8 @@ export function proxyRequestToLlama(
                 cache_creation_input_tokens:
                   tokenResult?.cacheCreationInputTokens || 0,
                 cache_read_input_tokens: tokenResult?.cacheReadInputTokens || 0,
+                ttft_ms: ttftMs,
+                stream_duration_ms: streamDurationMs,
               });
 
               database.incrementApiKeyStats(apiKeyId);
@@ -135,7 +167,7 @@ export function proxyRequestToLlama(
         });
 
         console.log(
-          `[${metrics.statusCode}] ${duration}ms | Prompt:${metrics.promptTokens} Completion:${metrics.completionTokens} Total:${metrics.totalTokens}`,
+          `[${metrics.statusCode}] ${duration}ms | Prompt:${metrics.promptTokens} Completion:${metrics.completionTokens} Total:${metrics.totalTokens}${ttftMs !== null ? ` TTFT:${ttftMs}ms Stream:${streamDurationMs}ms` : ''}`,
         );
       });
     },

@@ -42,6 +42,8 @@ export interface UsageLog {
   idempotency_key?: string | null;
   cache_creation_input_tokens?: number;
   cache_read_input_tokens?: number;
+  ttft_ms?: number | null;
+  stream_duration_ms?: number | null;
 }
 
 export interface AggregatedUsage {
@@ -177,6 +179,10 @@ function createSchema(): void {
       FOREIGN KEY (api_key_id) REFERENCES api_keys(id) ON DELETE CASCADE
     )
   `);
+
+  // Migrate: add timing columns if they don't exist (safe, no data loss)
+  try { db!.exec(`ALTER TABLE usage_logs ADD COLUMN ttft_ms INTEGER DEFAULT NULL`); } catch {}
+  try { db!.exec(`ALTER TABLE usage_logs ADD COLUMN stream_duration_ms INTEGER DEFAULT NULL`); } catch {}
 
   db!.exec(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
   db!.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower ON users(LOWER(email))`);
@@ -360,7 +366,9 @@ export function logUsage({
   timestamp,
   idempotency_key = null,
   cache_creation_input_tokens = 0,
-  cache_read_input_tokens = 0
+  cache_read_input_tokens = 0,
+  ttft_ms = null,
+  stream_duration_ms = null
 }: {
   api_key_id: string;
   prompt_tokens: number;
@@ -371,9 +379,11 @@ export function logUsage({
   idempotency_key?: string | null;
   cache_creation_input_tokens?: number;
   cache_read_input_tokens?: number;
+  ttft_ms?: number | null;
+  stream_duration_ms?: number | null;
 }): void {
   db!.prepare(
-    'INSERT INTO usage_logs (api_key_id, prompt_tokens, completion_tokens, total_tokens, duration_ms, timestamp, idempotency_key, cache_creation_input_tokens, cache_read_input_tokens) VALUES (:api_key_id, :prompt_tokens, :completion_tokens, :total_tokens, :duration_ms, :timestamp, :idempotency_key, :cache_creation_input_tokens, :cache_read_input_tokens)'
+    'INSERT INTO usage_logs (api_key_id, prompt_tokens, completion_tokens, total_tokens, duration_ms, timestamp, idempotency_key, cache_creation_input_tokens, cache_read_input_tokens, ttft_ms, stream_duration_ms) VALUES (:api_key_id, :prompt_tokens, :completion_tokens, :total_tokens, :duration_ms, :timestamp, :idempotency_key, :cache_creation_input_tokens, :cache_read_input_tokens, :ttft_ms, :stream_duration_ms)'
   ).run({
     api_key_id,
     prompt_tokens,
@@ -384,6 +394,8 @@ export function logUsage({
     idempotency_key: idempotency_key || null,
     cache_creation_input_tokens,
     cache_read_input_tokens,
+    ttft_ms: ttft_ms || null,
+    stream_duration_ms: stream_duration_ms || null,
   });
 }
 
@@ -398,7 +410,7 @@ export function getUsageLogs({ limit = 100, offset = 0 }: {
   offset?: number;
 }): UsageLog[] {
   return db!.prepare(
-    `SELECT ul.id, ul.api_key_id, ul.prompt_tokens, ul.completion_tokens, ul.total_tokens, ul.duration_ms, ul.timestamp, ak.name as api_key_name, ul.idempotency_key, ul.cache_creation_input_tokens, ul.cache_read_input_tokens
+    `SELECT ul.id, ul.api_key_id, ul.prompt_tokens, ul.completion_tokens, ul.total_tokens, ul.duration_ms, ul.timestamp, ak.name as api_key_name, ul.idempotency_key, ul.cache_creation_input_tokens, ul.cache_read_input_tokens, ul.ttft_ms, ul.stream_duration_ms
      FROM usage_logs ul 
      JOIN api_keys ak ON ul.api_key_id = ak.id 
      ORDER BY ul.timestamp DESC 
@@ -515,6 +527,8 @@ interface _AggregatedMetricsResult {
   cacheCreationTokens: number;
   cacheReadTokens: number;
   totalDurationMs: number;
+  totalTtftMs: number;
+  totalStreamDurationMs: number;
 }
 
 function _buildAggregatedMetrics(
@@ -528,7 +542,9 @@ function _buildAggregatedMetrics(
       SUM(prompt_tokens) as total_input_tokens,
       SUM(completion_tokens) as total_output_tokens,
       SUM(cache_creation_input_tokens) as cache_creation_tokens,
-      SUM(cache_read_input_tokens) as cache_read_tokens
+      SUM(cache_read_input_tokens) as cache_read_tokens,
+      SUM(ttft_ms) as total_ttft_ms,
+      SUM(stream_duration_ms) as total_stream_duration_ms
     FROM usage_logs
   `;
 
@@ -580,6 +596,8 @@ function _buildAggregatedMetrics(
       cacheCreationTokens: 0,
       cacheReadTokens: 0,
       totalDurationMs: 0,
+      totalTtftMs: 0,
+      totalStreamDurationMs: 0,
     };
   }
 
@@ -642,6 +660,8 @@ function _buildAggregatedMetrics(
     cacheCreationTokens: Number(data.cache_creation_tokens || 0),
     cacheReadTokens: Number(data.cache_read_tokens || 0),
     totalDurationMs,
+    totalTtftMs: Number(data.total_ttft_ms || 0),
+    totalStreamDurationMs: Number(data.total_stream_duration_ms || 0),
   };
 }
 
@@ -649,7 +669,7 @@ function _buildMetricsFromResult(
   result: _AggregatedMetricsResult,
   extraFields: Record<string, number> = {},
 ): LifetimeMetrics {
-  const { requestCount, totalInputTokens, totalOutputTokens, totalDurationMs, cacheCreationTokens, cacheReadTokens } = result;
+  const { requestCount, totalInputTokens, totalOutputTokens, totalDurationMs, cacheCreationTokens, cacheReadTokens, totalTtftMs, totalStreamDurationMs } = result;
   const totalTokens = totalInputTokens + totalOutputTokens;
 
   let tokensPerSec = 0;
@@ -657,8 +677,16 @@ function _buildMetricsFromResult(
   let outputTokensPerSec = 0;
   if (totalDurationMs > 0) {
     tokensPerSec = totalTokens * 1000 / totalDurationMs;
-    inputTokensPerSec = totalInputTokens * 1000 / totalDurationMs;
-    outputTokensPerSec = totalOutputTokens * 1000 / totalDurationMs;
+    if (totalTtftMs > 0) {
+      inputTokensPerSec = totalInputTokens * 1000 / totalTtftMs;
+    } else {
+      inputTokensPerSec = totalInputTokens * 1000 / totalDurationMs;
+    }
+    if (totalStreamDurationMs > 0) {
+      outputTokensPerSec = totalOutputTokens * 1000 / totalStreamDurationMs;
+    } else {
+      outputTokensPerSec = totalOutputTokens * 1000 / totalDurationMs;
+    }
   }
 
   return {
@@ -728,7 +756,7 @@ export function getProgressiveDataWithInterpolation(
     const bucketStartIndex = batchIndex * batchSize;
     const bucketEndIndex = Math.min(bucketStartIndex + batchSize, totalBuckets);
     
-    // Build SQL SELECT clause based on metric
+   // Build SQL SELECT clause based on metric
     const getMetricSelect = (metric: string): string => {
       switch (metric) {
         case 'total_tokens':
@@ -742,9 +770,9 @@ export function getProgressiveDataWithInterpolation(
         case 'tokens_per_sec':
           return `CASE WHEN COUNT(*) = 0 THEN NULL ELSE COALESCE(CASE WHEN SUM(duration_ms) > 0 THEN ROUND(SUM(prompt_tokens + completion_tokens) * 1000.0 / SUM(duration_ms), 2) ELSE NULL END, 0) END`;
         case 'input_tokens_per_sec':
-          return `CASE WHEN COUNT(*) = 0 THEN NULL ELSE COALESCE(CASE WHEN SUM(duration_ms) > 0 THEN ROUND(SUM(prompt_tokens) * 1000.0 / SUM(duration_ms), 2) ELSE NULL END, 0) END`;
+          return `CASE WHEN COUNT(*) = 0 THEN NULL WHEN SUM(ttft_ms) > 0 THEN ROUND(SUM(prompt_tokens) * 1000.0 / SUM(ttft_ms), 2) WHEN SUM(duration_ms) > 0 THEN ROUND(SUM(prompt_tokens) * 1000.0 / SUM(duration_ms), 2) ELSE 0 END`;
         case 'output_tokens_per_sec':
-          return `CASE WHEN COUNT(*) = 0 THEN NULL ELSE COALESCE(CASE WHEN SUM(duration_ms) > 0 THEN ROUND(SUM(completion_tokens) * 1000.0 / SUM(duration_ms), 2) ELSE NULL END, 0) END`;
+          return `CASE WHEN COUNT(*) = 0 THEN NULL WHEN SUM(stream_duration_ms) > 0 THEN ROUND(SUM(completion_tokens) * 1000.0 / SUM(stream_duration_ms), 2) WHEN SUM(duration_ms) > 0 THEN ROUND(SUM(completion_tokens) * 1000.0 / SUM(duration_ms), 2) ELSE 0 END`;
         default:
           return 'COALESCE(SUM(prompt_tokens + completion_tokens), 0)';
       }
@@ -878,18 +906,20 @@ export function getInsightsData(
        u.id as user_id,
        u.name as user_name,
        u.email as user_email,
-       CASE 
-         WHEN ul.duration_ms > 0 THEN ROUND(ul.total_tokens * 1000.0 / ul.duration_ms, 2)
-         ELSE NULL 
-       END as tokens_per_sec,
-       CASE 
-         WHEN ul.duration_ms > 0 THEN ROUND(ul.prompt_tokens * 1000.0 / ul.duration_ms, 2)
-         ELSE NULL 
-       END as input_tokens_per_sec,
-       CASE 
-         WHEN ul.duration_ms > 0 THEN ROUND(ul.completion_tokens * 1000.0 / ul.duration_ms, 2)
-         ELSE NULL 
-       END as output_tokens_per_sec
+      CASE
+          WHEN ul.duration_ms > 0 THEN ROUND(ul.total_tokens * 1000.0 / ul.duration_ms, 2)
+          ELSE NULL
+        END as tokens_per_sec,
+        CASE
+          WHEN ul.ttft_ms > 0 THEN ROUND(ul.prompt_tokens * 1000.0 / ul.ttft_ms, 2)
+          WHEN ul.duration_ms > 0 THEN ROUND(ul.prompt_tokens * 1000.0 / ul.duration_ms, 2)
+          ELSE NULL
+        END as input_tokens_per_sec,
+        CASE
+          WHEN ul.stream_duration_ms > 0 THEN ROUND(ul.completion_tokens * 1000.0 / ul.stream_duration_ms, 2)
+          WHEN ul.duration_ms > 0 THEN ROUND(ul.completion_tokens * 1000.0 / ul.duration_ms, 2)
+          ELSE NULL
+        END as output_tokens_per_sec
      FROM usage_logs ul
      LEFT JOIN api_keys ak ON ul.api_key_id = ak.id
      LEFT JOIN users u ON ak.user_id = u.id
@@ -961,10 +991,10 @@ function getHeatMapColumnExpr(type: string): string {
     return "CASE WHEN ul.duration_ms > 0 THEN ROUND(ul.total_tokens * 1000.0 / ul.duration_ms, 2) ELSE NULL END";
   }
   if (type === 'input_tokens_per_sec') {
-    return "CASE WHEN ul.duration_ms > 0 THEN ROUND(ul.prompt_tokens * 1000.0 / ul.duration_ms, 2) ELSE NULL END";
+    return "CASE WHEN ul.ttft_ms > 0 THEN ROUND(ul.prompt_tokens * 1000.0 / ul.ttft_ms, 2) WHEN ul.duration_ms > 0 THEN ROUND(ul.prompt_tokens * 1000.0 / ul.duration_ms, 2) ELSE NULL END";
   }
   if (type === 'output_tokens_per_sec') {
-    return "CASE WHEN ul.duration_ms > 0 THEN ROUND(ul.completion_tokens * 1000.0 / ul.duration_ms, 2) ELSE NULL END";
+    return "CASE WHEN ul.stream_duration_ms > 0 THEN ROUND(ul.completion_tokens * 1000.0 / ul.stream_duration_ms, 2) WHEN ul.duration_ms > 0 THEN ROUND(ul.completion_tokens * 1000.0 / ul.duration_ms, 2) ELSE NULL END";
   }
   return 'ul.' + type;
 }
