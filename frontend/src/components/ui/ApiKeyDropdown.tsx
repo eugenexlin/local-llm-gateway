@@ -41,6 +41,8 @@ const ApiKeyDropdown: React.FC<ApiKeyDropdownProps> = ({
     handleMenuClose();
   };
 
+  const fadedText = "color-mix(in oklab, var(--mui-palette-text-primary) 50%, transparent)"
+
   return (
     <>
       <Box
@@ -50,10 +52,8 @@ const ApiKeyDropdown: React.FC<ApiKeyDropdownProps> = ({
           justifyContent: "space-between",
           px: variant === "compact" ? 1.5 : 1.5,
           py: variant === "compact" ? 1 : 1,
-          bgcolor: "#f8fafc",
           borderRadius: 1,
           cursor: activeKeys.length > 0 ? "pointer" : "default",
-          "&:hover": activeKeys.length > 0 ? { bgcolor: "#ffffff" } : {},
           ...sx,
         }}
         onClick={activeKeys.length > 0 ? handleMenuOpen : undefined}
@@ -62,13 +62,15 @@ const ApiKeyDropdown: React.FC<ApiKeyDropdownProps> = ({
           sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}
         >
           <KeyIcon
-            sx={{ fontSize: 16, color: selectedKey ? "#8b5cf6" : "#94a3b8" }}
+            sx={{ fontSize: 16, color: selectedKey ? "#8b5cf6" : fadedText }}
           />
           <Typography
             variant="body2"
             sx={{
               fontSize: "0.8125rem",
-              color: selectedKey ? "#1e293b" : "#94a3b8",
+              color: selectedKey
+                ? "color-mix(in oklab, var(--mui-palette-primary-main) 50%, var(--mui-palette-text-primary))"
+                : fadedText,
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -78,7 +80,7 @@ const ApiKeyDropdown: React.FC<ApiKeyDropdownProps> = ({
           </Typography>
         </Box>
         {activeKeys.length > 0 && (
-          <KeyboardArrowDownIcon sx={{ fontSize: 18, color: "#94a3b8" }} />
+          <KeyboardArrowDownIcon sx={{ fontSize: 18, color: fadedText}} />
         )}
       </Box>
 
@@ -90,11 +92,11 @@ const ApiKeyDropdown: React.FC<ApiKeyDropdownProps> = ({
         transformOrigin={{ vertical: "top", horizontal: "left" }}
         sx={{ "& .MuiPaper-root": { minWidth: 240, maxHeight: 320 } }}
       >
-        <Box sx={{ px: 2, py: 1, bgcolor: "#f8fafc" }}>
+        <Box sx={{ px: 2, py: 1 }}>
           <Typography
             variant="caption"
             sx={{
-              color: "#64748b",
+              color: fadedText,
               fontWeight: 600,
               textTransform: "uppercase",
               letterSpacing: 0.05,
@@ -106,7 +108,7 @@ const ApiKeyDropdown: React.FC<ApiKeyDropdownProps> = ({
         <Divider />
         {activeKeys.length === 0 ? (
           <Box sx={{ px: 2, py: 2, textAlign: "center" }}>
-            <Typography variant="body2" sx={{ color: "#94a3b8" }}>
+            <Typography variant="body2" sx={{ color: fadedText}}>
               No API keys found. Create one in API Keys settings.
             </Typography>
           </Box>
@@ -138,7 +140,7 @@ const ApiKeyDropdown: React.FC<ApiKeyDropdownProps> = ({
                   sx={{
                     fontSize: 18,
                     color:
-                      selectedKeyId === key.id ? "primary.main" : "#94a3b8",
+                      selectedKeyId === key.id ? "primary.main" : fadedText,
                     flexShrink: 0,
                   }}
                 />
@@ -147,7 +149,6 @@ const ApiKeyDropdown: React.FC<ApiKeyDropdownProps> = ({
                     variant="body2"
                     sx={{
                       fontWeight: 500,
-                      color: "#1e293b",
                       whiteSpace: "nowrap",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
@@ -157,7 +158,7 @@ const ApiKeyDropdown: React.FC<ApiKeyDropdownProps> = ({
                   </Typography>
                   <Typography
                     variant="caption"
-                    sx={{ color: "#94a3b8", fontFamily: "monospace" }}
+                    sx={{ color: fadedText, fontFamily: "monospace" }}
                   >
                     {key.id}
                   </Typography>

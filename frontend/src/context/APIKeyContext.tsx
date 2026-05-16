@@ -16,9 +16,16 @@ interface APIKeyContextType {
   selectedKeyId: string;
   setSelectedApiKeyId: (id: string) => void;
   fetchApiKeys: () => Promise<void>;
-  createKey: (name: string, description?: string | null) => Promise<ApiKey | null>;
+  createKey: (
+    name: string,
+    description?: string | null,
+  ) => Promise<ApiKey | null>;
   revokeKey: (keyId: string) => Promise<{ action: string } | null>;
-  updateKey: (keyId: string, name: string, description?: string | null) => Promise<ApiKey | null>;
+  updateKey: (
+    keyId: string,
+    name: string,
+    description?: string | null,
+  ) => Promise<ApiKey | null>;
 }
 
 const STORAGE_API_KEY_ID_KEY = "llm_selected_api_key_id";
@@ -126,7 +133,7 @@ export function APIKeyProvider({ children }: { children: ReactNode }) {
         if (response.ok) {
           const data = await response.json();
           const isCurrentlySelected = selectedKeyId === keyId;
-          
+
           setApiKeys((prev) => {
             let updatedKeys: ApiKey[];
             if (data.action === "deleted") {
@@ -134,30 +141,22 @@ export function APIKeyProvider({ children }: { children: ReactNode }) {
             } else {
               updatedKeys = prev.map((key) =>
                 key.id === keyId
-                  ? { ...key, is_active: 0, revoked_at: new Date().toISOString() }
+                  ? {
+                      ...key,
+                      is_active: 0,
+                      revoked_at: new Date().toISOString(),
+                    }
                   : key,
               );
             }
 
             if (isCurrentlySelected) {
-              const activeKey = updatedKeys.find((k) => k.is_active === 1);
-              if (activeKey) {
-                setSelectedKeyIdState(activeKey.id);
-                if (userId) {
-                  try {
-                    setItem(userId, STORAGE_API_KEY_ID_KEY, activeKey.id);
-                  } catch {
-                    // Storage unavailable
-                  }
-                }
-              } else {
-                setSelectedKeyIdState("");
-                if (userId) {
-                  try {
-                    removeItem(userId, STORAGE_API_KEY_ID_KEY);
-                  } catch {
-                    // Storage unavailable
-                  }
+              setSelectedKeyIdState("");
+              if (userId) {
+                try {
+                  removeItem(userId, STORAGE_API_KEY_ID_KEY);
+                } catch {
+                  // Storage unavailable
                 }
               }
             }

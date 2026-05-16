@@ -2,10 +2,8 @@ import React from "react";
 import {
   Box,
   Typography,
-  Button,
 } from "@mui/material";
 import KeyIcon from "@mui/icons-material/Key";
-import { useNavigate } from "react-router-dom";
 import { sharedFrostGlassStyle } from "../../utils/styles";
 import type { ApiKey } from "../../models/ApiKey";
 import ApiKeyDropdown from "../ui/ApiKeyDropdown";
@@ -23,8 +21,6 @@ const ChatSetupModal: React.FC<ChatSetupModalProps> = ({
   selectedKeyId,
   onSelectKey,
 }) => {
-  const navigate = useNavigate();
-
   const activeKeys = apiKeys.filter((k) => k.is_active);
   const hasAvailableKeys = activeKeys.length > 0;
   const hasSelectedKey = !!selectedKeyId;
@@ -78,13 +74,13 @@ const ChatSetupModal: React.FC<ChatSetupModalProps> = ({
           <>
             <Typography
               variant="h6"
-              sx={{ fontWeight: 600, color: "#1e293b", mb: 0.5 }}
+              sx={{ fontWeight: 600,  mb: 0.5 }}
             >
               Select an API Key
             </Typography>
             <Typography
               variant="body2"
-              sx={{ color: "#64748b", mb: 2, fontSize: "0.875rem" }}
+              sx={{ color: "color-mix(in oklab, var(--mui-palette-text-primary) 50%, var(--mui-palette-background-paper))", mb: 2, fontSize: "0.875rem" }}
             >
               Choose an API key to start chatting
             </Typography>
@@ -99,7 +95,7 @@ const ChatSetupModal: React.FC<ChatSetupModalProps> = ({
 
             <Typography
               variant="caption"
-              sx={{ color: "#94a3b8", display: "block", mb: 2 }}
+              sx={{ color: "color-mix(in oklab, var(--mui-palette-text-primary) 50%, var(--mui-palette-background-paper))", display: "block", mb: 2 }}
             >
               You can change this later in Settings
             </Typography>
@@ -108,13 +104,13 @@ const ChatSetupModal: React.FC<ChatSetupModalProps> = ({
           <>
             <Typography
               variant="h6"
-              sx={{ fontWeight: 600, color: "#1e293b", mb: 0.5 }}
+              sx={{ fontWeight: 600, mb: 0.5 }}
             >
               No API Key Available
             </Typography>
             <Typography
               variant="body2"
-              sx={{ color: "#64748b", mb: 3, fontSize: "0.875rem" }}
+              sx={{ color: "color-mix(in oklab, var(--mui-palette-text-primary) 50%, var(--mui-palette-background-paper))", mb: 3, fontSize: "0.875rem" }}
             >
               You need an API key to chat. Create one on the API Keys page.
             </Typography>
@@ -123,34 +119,18 @@ const ChatSetupModal: React.FC<ChatSetupModalProps> = ({
           <>
             <Typography
               variant="h6"
-              sx={{ fontWeight: 600, color: "#1e293b", mb: 0.5 }}
+              sx={{ fontWeight: 600,  mb: 0.5 }}
             >
               API Key Selected
             </Typography>
             <Typography
               variant="body2"
-              sx={{ color: "#64748b", mb: 2, fontSize: "0.875rem" }}
+              sx={{ color: "color-mix(in oklab, var(--mui-palette-text-primary) 50%, var(--mui-palette-background-paper))", mb: 2, fontSize: "0.875rem" }}
             >
               You can change this later in Settings
             </Typography>
           </>
         )}
-
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-          <Button
-            variant="contained"
-            onClick={() => navigate("/api-keys")}
-            sx={{
-              bgcolor: "#8b5cf6",
-              "&:hover": { bgcolor: "#7c3aed" },
-              textTransform: "none",
-              fontWeight: 600,
-              py: 1,
-            }}
-          >
-            Go to API Keys
-          </Button>
-        </Box>
       </Box>
     </Box>
   );
