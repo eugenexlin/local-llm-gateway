@@ -20,6 +20,7 @@ import { DEFAULT_SYSTEM_PROMPT } from "../../utils/constants";
 import { useChat } from "../../context/ChatContext";
 import { useThemeContext } from "../../context/ThemeContext";
 import ApiKeyDropdown from "../ui/ApiKeyDropdown";
+import { halfFadeColor } from "../../utils/styles";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -105,7 +106,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
               <Typography
                 variant="caption"
                 sx={{
-                  color: "#64748b",
+                  color: halfFadeColor,
                   fontWeight: 600,
                   textTransform: "uppercase",
                   letterSpacing: 0.05,
@@ -214,7 +215,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
               <Typography
                 variant="caption"
                 sx={{
-                  color: "#64748b",
+                  color: halfFadeColor,
                   fontWeight: 600,
                   textTransform: "uppercase",
                   letterSpacing: 0.05,
@@ -247,7 +248,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
               <Typography
                 variant="caption"
                 sx={{
-                  color: "#64748b",
+                  color: halfFadeColor,
                   fontWeight: 600,
                   textTransform: "uppercase",
                   letterSpacing: 0.05,
@@ -282,7 +283,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
               <Typography
                 variant="caption"
                 sx={{
-                  color: "#64748b",
+                  color: halfFadeColor,
                   fontWeight: 600,
                   textTransform: "uppercase",
                   letterSpacing: 0.05,

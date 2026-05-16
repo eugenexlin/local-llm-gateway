@@ -216,6 +216,11 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
                 navigate("/chat");
               }, 1);
             }}
+            onNewConversation={() => {
+              if (location.pathname !== "/chat") {
+                navigate("/chat");
+              }
+            }}
           />
         )}
       </Box>

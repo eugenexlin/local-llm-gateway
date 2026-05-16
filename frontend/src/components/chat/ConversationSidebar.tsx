@@ -21,6 +21,7 @@ interface ConversationSidebarProps {
   onSuggestClose: () => void;
   highlightActive?: boolean;
   onConversationSelect?: (convId: string) => void;
+  onNewConversation?: () => void;
 }
 
 const ConversationList: React.FC<ConversationSidebarProps> = (
@@ -36,6 +37,16 @@ const ConversationList: React.FC<ConversationSidebarProps> = (
     renameConversation,
   } = useChat();
 
+ const sortedConversations = Object.values(conversations).sort(
+    (a, b) => b.updatedAt - a.updatedAt,
+  );
+
+  const handleNewChat = () => {
+    createConversation();
+    props.onSuggestClose();
+    props.onNewConversation?.();
+  };
+
   const theme = useTheme();
   const ui = theme.custom.ui;
 
@@ -44,15 +55,6 @@ const ConversationList: React.FC<ConversationSidebarProps> = (
   const [editValue, setEditValue] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
-
-  const sortedConversations = Object.values(conversations).sort(
-    (a, b) => b.updatedAt - a.updatedAt,
-  );
-
-  const handleNewChat = () => {
-    createConversation();
-    props.onSuggestClose();
-  };
 
   const handleOpenMenu = (event: React.MouseEvent<HTMLElement>, id: string) => {
     setAnchorEl(event.currentTarget);

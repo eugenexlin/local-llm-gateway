@@ -1,9 +1,17 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, Typography, Menu, MenuItem, Divider } from "@mui/material";
+import {
+  FormControl,
+  Select,
+  MenuItem,
+  Typography,
+  Box,
+  Divider,
+  Menu,
+} from "@mui/material";
 import KeyIcon from "@mui/icons-material/Key";
-import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import type { ApiKey } from "../../models/ApiKey";
+import { halfFadeColor } from "../../utils/styles";
 
 interface ApiKeyDropdownProps {
   apiKeys: ApiKey[];
@@ -23,173 +31,187 @@ const ApiKeyDropdown: React.FC<ApiKeyDropdownProps> = ({
   onNavigate,
 }) => {
   const navigate = useNavigate();
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [manageAnchor, setManageAnchor] = useState<null | HTMLElement>(null);
 
   const activeKeys = apiKeys.filter((k) => k.is_active);
   const selectedKey = apiKeys.find((k) => k.id === selectedKeyId);
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleSelectKey = (id: string) => {
-    onSelectKey(id);
-    handleMenuClose();
-  };
-
-  const fadedText = "color-mix(in oklab, var(--mui-palette-text-primary) 50%, transparent)"
+  const renderValue = () => (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
+      <KeyIcon
+        sx={{
+          fontSize: 18,
+          color: selectedKey ? "#8b5cf6" : halfFadeColor,
+          flexShrink: 0,
+        }}
+      />
+      <Typography
+        variant="body2"
+        sx={{
+          fontSize: "0.8125rem",
+          color: selectedKey
+            ? "color-mix(in oklab, var(--mui-palette-primary-main) 50%, var(--mui-palette-text-primary))"
+            : halfFadeColor,
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}
+      >
+        {selectedKey ? selectedKey.name : "No key selected"}
+      </Typography>
+    </Box>
+  );
 
   return (
     <>
-      <Box
+      <FormControl
+        size="small"
         sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          px: variant === "compact" ? 1.5 : 1.5,
-          py: variant === "compact" ? 1 : 1,
-          borderRadius: 1,
-          cursor: activeKeys.length > 0 ? "pointer" : "default",
+          minWidth: 200,
           ...sx,
         }}
-        onClick={activeKeys.length > 0 ? handleMenuOpen : undefined}
       >
-        <Box
-          sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}
+        <Select
+          value={selectedKeyId || ""}
+          onChange={(e) => {
+            if (e.target.value) {
+              onSelectKey(e.target.value);
+            }
+          }}
+          displayEmpty 
+          disabled={activeKeys.length === 0}
+          renderValue={renderValue}
+          MenuProps={{
+            PaperProps: {
+              sx: {
+                minWidth: 240,
+                maxHeight: 320,
+                border: "none",
+                "& .MuiMenuItem-root": {
+                  borderRadius: 0,
+                },
+              },
+            },
+          }}
+          sx={{
+            "& .MuiSelect-select": {
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              py: 0.5,
+              px: 1.5,
+              minHeight: 32,
+            },
+          }}
         >
-          <KeyIcon
-            sx={{ fontSize: 16, color: selectedKey ? "#8b5cf6" : fadedText }}
-          />
-          <Typography
-            variant="body2"
-            sx={{
-              fontSize: "0.8125rem",
-              color: selectedKey
-                ? "color-mix(in oklab, var(--mui-palette-primary-main) 50%, var(--mui-palette-text-primary))"
-                : fadedText,
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-          >
-            {selectedKey ? selectedKey.name : "No key selected"}
-          </Typography>
-        </Box>
-        {activeKeys.length > 0 && (
-          <KeyboardArrowDownIcon sx={{ fontSize: 18, color: fadedText}} />
-        )}
-      </Box>
-
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
-        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-        transformOrigin={{ vertical: "top", horizontal: "left" }}
-        sx={{ "& .MuiPaper-root": { minWidth: 240, maxHeight: 320 } }}
-      >
-        <Box sx={{ px: 2, py: 1 }}>
-          <Typography
-            variant="caption"
-            sx={{
-              color: fadedText,
-              fontWeight: 600,
-              textTransform: "uppercase",
-              letterSpacing: 0.05,
-            }}
-          >
-            Select API Key
-          </Typography>
-        </Box>
-        <Divider />
-        {activeKeys.length === 0 ? (
-          <Box sx={{ px: 2, py: 2, textAlign: "center" }}>
-            <Typography variant="body2" sx={{ color: fadedText}}>
-              No API keys found. Create one in API Keys settings.
-            </Typography>
-          </Box>
-        ) : (
-          activeKeys.map((key) => (
-            <MenuItem
-              key={key.id}
-              onClick={() => handleSelectKey(key.id)}
-              sx={{
-                py: 1.25,
-                bgcolor:
-                  selectedKeyId === key.id
-                    ? "rgba(139, 92, 246, 0.06)"
-                    : "transparent",
-                borderRadius: 0,
-                "&:hover": { bgcolor: "rgba(139, 92, 246, 0.04)" },
-              }}
-            >
-              <Box
+          {activeKeys.length === 0 ? (
+            <MenuItem disabled sx={{ justifyContent: "center" }}>
+              <Typography variant="body2" sx={{ color: halfFadeColor }}>
+                No API keys found.
+              </Typography>
+            </MenuItem>
+          ) : (
+            activeKeys.map((key) => (
+              <MenuItem
+                key={key.id}
+                value={key.id}
                 sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1.5,
-                  flex: 1,
-                  minWidth: 0,
+                  py: 1.25,
+                  bgcolor:
+                    selectedKeyId === key.id
+                      ? "rgba(139, 92, 246, 0.06)"
+                      : "transparent",
+                  "&:hover": { bgcolor: "rgba(139, 92, 246, 0.04)" },
                 }}
               >
-                <KeyIcon
+                <Box
                   sx={{
-                    fontSize: 18,
-                    color:
-                      selectedKeyId === key.id ? "primary.main" : fadedText,
-                    flexShrink: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1.5,
+                    flex: 1,
+                    minWidth: 0,
                   }}
-                />
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography
-                    variant="body2"
+                >
+                  <KeyIcon
                     sx={{
-                      fontWeight: 500,
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {key.name}
-                  </Typography>
-                  <Typography
-                    variant="caption"
-                    sx={{ color: fadedText, fontFamily: "monospace" }}
-                  >
-                    {key.id}
-                  </Typography>
-                </Box>
-                {selectedKeyId === key.id && (
-                  <Box
-                    sx={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: "50%",
-                      bgcolor: "primary.main",
+                      fontSize: 18,
+                      color:
+                        selectedKeyId === key.id ? "primary.main" : halfFadeColor,
                       flexShrink: 0,
                     }}
                   />
-                )}
-              </Box>
-            </MenuItem>
-          ))
-        )}
-        <Divider />
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontWeight: 500,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {key.name}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{ color: halfFadeColor, fontFamily: "monospace" }}
+                    >
+                      {key.id}
+                    </Typography>
+                  </Box>
+                  {selectedKeyId === key.id && (
+                    <Box
+                      sx={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: "50%",
+                        bgcolor: "primary.main",
+                        flexShrink: 0,
+                      }}
+                    />
+                  )}
+                </Box>
+              </MenuItem>
+            ))
+          )}
+          <Divider sx={{ my: 0.5 }} />
+          <MenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              setManageAnchor(e.currentTarget);
+            }}
+            sx={{
+              color: "primary.main",
+              fontSize: "0.8125rem",
+              justifyContent: "center",
+            }}
+          >
+            Manage API Keys
+          </MenuItem>
+        </Select>
+      </FormControl>
+
+      <Menu
+        anchorEl={manageAnchor}
+        open={Boolean(manageAnchor)}
+        onClose={() => setManageAnchor(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        transformOrigin={{ vertical: "top", horizontal: "center" }}
+        sx={{
+          "& .MuiPaper-root": {
+            minWidth: 200,
+            boxShadow: "var(--mui-shadow-8)",
+          },
+        }}
+      >
         <MenuItem
           onClick={() => {
-            handleMenuClose();
+            setManageAnchor(null);
             onNavigate?.();
             navigate("/api-keys");
           }}
-          sx={{
-            color: "primary.main",
-            fontSize: "0.8125rem",
-            justifyContent: "center",
-          }}
+          sx={{ fontSize: "0.8125rem" }}
         >
           Manage API Keys
         </MenuItem>

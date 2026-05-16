@@ -31,6 +31,7 @@ import {
 } from "@mui/material";
 import { ApiKey } from "../models/ApiKey";
 import theme from "../theme";
+import { halfFadeColor } from "../utils/styles";
 
 function APIKeys() {
   const { user } = useAuth();
@@ -203,9 +204,8 @@ function APIKeys() {
             onClick={() => setShowForm(true)}
             variant="contained"
             startIcon={<Add />}
+            color="primary"
             sx={{
-              bgcolor: "#1976d2",
-              "&:hover": { bgcolor: "#1565c0" },
               textTransform: "none",
               fontWeight: 500,
             }}
@@ -373,9 +373,9 @@ function APIKeys() {
                       <>
                         <Typography
                           variant="body1"
+                          color="primary"
                           sx={{
                             fontWeight: 500,
-                            color: "#1976d2",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
                             whiteSpace: "nowrap",
@@ -388,10 +388,9 @@ function APIKeys() {
                           <Chip
                             label="Revoked"
                             size="small"
+                            color="error"
                             sx={{
                               fontSize: "11px",
-                              bgcolor: "#ffebee",
-                              color: "#c62828",
                               height: 20,
                             }}
                           />
@@ -400,12 +399,11 @@ function APIKeys() {
                           onClick={() => handleStartEdit(key)}
                           startIcon={<Edit />}
                           size="small"
+                          color="secondary"
                           sx={{
                             minWidth: 0,
                             p: 0.5,
-                            color: "text.secondary",
                             "&:hover": {
-                              color: "text.primary",
                               bgcolor: "transparent",
                             },
                           }}
@@ -502,7 +500,7 @@ function APIKeys() {
                         borderRadius: 1,
                         fontFamily: "monospace",
                         fontSize: "12px",
-                        color: "#424242",
+                        color: halfFadeColor,
                       }}
                     >
                       {key.api_key
@@ -532,13 +530,12 @@ function APIKeys() {
                     disabled={!key.api_key}
                     variant="outlined"
                     size="small"
+                    color="secondary"
                     startIcon={
                       copiedKeys.has(key.id) ? <Key /> : <ContentCopy />
                     }
                     sx={{
-                      textTransform: "none",
                       minWidth: 70,
-                      opacity: key.api_key ? 1 : 0.5,
                     }}
                   >
                     {copiedKeys.has(key.id) ? "Copied!" : "Copy"}
@@ -549,15 +546,7 @@ function APIKeys() {
                       variant="outlined"
                       size="small"
                       startIcon={<Delete />}
-                      sx={{
-                        color: key.has_metrics ? "#d32f2f" : "#d32f2f",
-                        borderColor: key.has_metrics ? "#d32f2f" : "#d32f2f",
-                        textTransform: "none",
-                        "&:hover": {
-                          borderColor: "#c62828",
-                          bgcolor: "rgba(211, 47, 47, 0.04)",
-                        },
-                      }}
+                      color="error"
                     >
                       {key.has_metrics ? "Revoke Key" : "Delete Key"}
                     </Button>
@@ -568,20 +557,7 @@ function APIKeys() {
                       size="small"
                       startIcon={<Delete />}
                       disabled={key.has_metrics}
-                      sx={{
-                        color: "#d32f2f",
-                        borderColor: "#d32f2f",
-                        textTransform: "none",
-                        "&:hover": {
-                          borderColor: "#c62828",
-                          bgcolor: "rgba(211, 47, 47, 0.04)",
-                        },
-                        "&.Mui-disabled": {
-                          opacity: 0.5,
-                          color: "#9e9e9e",
-                          borderColor: "#9e9e9e",
-                        },
-                      }}
+                      color="error"
                       title={
                         key.has_metrics
                           ? "Cannot delete: This API key has usage metrics"
@@ -641,11 +617,10 @@ function APIKeys() {
                 });
               }
             }}
+            color="primary"
             variant="contained"
             startIcon={copiedKeys.has(CREATED_KEY_TAG) ? <Key /> : null}
             sx={{
-              bgcolor: "#1976d2",
-              "&:hover": { bgcolor: "#1565c0" },
               textTransform: "none",
             }}
           >

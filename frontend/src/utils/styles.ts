@@ -1,5 +1,9 @@
 import { keyframes, SxProps, Theme } from "@mui/material/styles";
 
+export const halfFadeColor = "color-mix(in oklab, var(--mui-palette-text-primary) 50%, transparent)";
+export const halfMixPrimary = "color-mix(in oklab, var(--mui-palette-text-primary) 50%, var(--mui-palette-primary-main))";
+export const halfMixSecondary = "color-mix(in oklab, var(--mui-palette-text-primary) 50%, var(--mui-palette-secondary-main))";
+
 export const sharedFabStyle: React.CSSProperties = {
   position: "fixed",
   zIndex: 1100,
