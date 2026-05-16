@@ -15,7 +15,7 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
-import type { User } from "../context/AuthContext";
+import type { User } from "../../context/AuthContext";
 
 interface UserOption {
   id: string;
@@ -54,6 +54,9 @@ const UserFilter: React.FC<UserFilterProps> = ({
   const [fetchingUsers, setFetchingUsers] = useState(false);
   const [showRevoked, setShowRevoked] = useState(false);
   const prevSelectedRef = useRef<string[]>(selectedUserIds);
+  const [tempSelectedUserIds, setTempSelectedUserIds] = useState<
+    string[] | undefined
+  >(undefined);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -74,10 +77,6 @@ const UserFilter: React.FC<UserFilterProps> = ({
     };
     fetchUsers();
   }, []);
-
-  useEffect(() => {
-    prevSelectedRef.current = selectedUserIds;
-  }, [selectedUserIds]);
 
   const selectedUserId =
     selectedUserIds.length === 1 ? selectedUserIds[0] : null;
@@ -115,26 +114,33 @@ const UserFilter: React.FC<UserFilterProps> = ({
     const newValues: string[] = event.target.value;
     const prevValues = prevSelectedRef.current;
 
-    const prevHadAll = prevValues.includes("all");
-    const newHasAll = newValues.includes("all");
+    const prevIncludesAll = prevValues.includes("all");
+    const newIncludesAll = newValues.includes("all");
 
-    let userIds: string[];
+    let userIds: string[] = newValues;
 
-    if (!prevHadAll && newHasAll) {
-      userIds = ["all"];
-    } else if (prevHadAll && !newHasAll) {
-      userIds = [];
-    } else if (prevHadAll && newHasAll) {
-      userIds = newValues.filter((id: string) => id !== "all");
+    if (newIncludesAll) {
+      if (!prevIncludesAll) {
+        userIds = ["all", ...users.map((u) => u.id)];
+      }
     } else {
-      userIds = newValues.filter((id: string) => id !== "all");
+      if (prevIncludesAll) {
+        userIds = [];
+      }
+    }
+
+    if (
+      !users.every((u) => userIds.includes(u.id)) &&
+      userIds.includes("all")
+    ) {
+      userIds = userIds.filter((u) => u !== "all");
     }
 
     prevSelectedRef.current = userIds;
-    onUserChange(userIds);
     if (userIds.length !== 1) {
       onApiKeyChange(null);
     }
+    setTempSelectedUserIds(userIds);
   };
 
   const handleApiKeyChange = (event: any) => {
@@ -152,7 +158,8 @@ const UserFilter: React.FC<UserFilterProps> = ({
 
   const currentUserInUsers = users.some((u) => u.id === currentUserOption?.id);
 
-  const isAllSelected = selectedUserIds.includes("all");
+  const tempOrActualSelectedUsers = tempSelectedUserIds || selectedUserIds;
+
   const showApiKeyFilter =
     selectedUserIds.length === 1 &&
     selectedUserIds[0] !== "all" &&
@@ -210,7 +217,7 @@ const UserFilter: React.FC<UserFilterProps> = ({
         <FormControl size="small" sx={{ minWidth: 250, width: "100%" }}>
           <InputLabel>User</InputLabel>
           <Select
-            value={selectedUserIds}
+            value={tempOrActualSelectedUsers}
             label="User"
             onChange={handleUserChange}
             multiple
@@ -221,15 +228,29 @@ const UserFilter: React.FC<UserFilterProps> = ({
                 sx: { maxHeight: 400 },
               },
             }}
+            onOpen={() => {
+              setTempSelectedUserIds([...selectedUserIds]);
+            }}
+            onClose={() => {
+              if (tempSelectedUserIds) {
+                onUserChange(tempSelectedUserIds);
+                setTempSelectedUserIds(undefined);
+              }
+            }}
           >
             <MenuItem value="all">
-              <Radio checked={isAllSelected} size="small" />
-              <ListItemText primary="All Users" />
+              <Checkbox
+                checked={tempOrActualSelectedUsers.includes("all")}
+                size="small"
+              />
+              <ListItemText primary="Select All" />
             </MenuItem>
             {currentUserOption && !currentUserInUsers && (
               <MenuItem value={currentUserOption.id}>
                 <Checkbox
-                  checked={selectedUserIds.includes(currentUserOption.id)}
+                  checked={tempOrActualSelectedUsers.includes(
+                    currentUserOption.id,
+                  )}
                   size="small"
                 />
                 <ListItemText
@@ -240,7 +261,7 @@ const UserFilter: React.FC<UserFilterProps> = ({
             {users.map((user) => (
               <MenuItem key={user.id} value={user.id}>
                 <Checkbox
-                  checked={selectedUserIds.includes(user.id)}
+                  checked={tempOrActualSelectedUsers.includes(user.id)}
                   size="small"
                 />
                 <ListItemText primary={user.name || user.email} />

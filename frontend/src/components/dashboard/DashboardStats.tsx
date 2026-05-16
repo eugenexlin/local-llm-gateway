@@ -75,6 +75,7 @@ const DashboardStats: React.FC = () => {
   );
   const [selectedApiKeyId, setSelectedApiKeyId] = useState<string | null>(null);
   const [barGrouping, setBarGrouping] = useState<BarGrouping>("side-by-side");
+  const [combineMetrics, setCombineMetrics] = useState(false);
   const [allUsers, setAllUsers] = useState<
     { id: string; name?: string; email?: string }[]
   >([]);
@@ -85,7 +86,9 @@ const DashboardStats: React.FC = () => {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const abortControllerRef = useRef<AbortController | null>(null);
   const debounceTimerRef = useRef<number | null>(null);
-  const [cacheEnabled, setCacheEnabledState] = useState(() => getCacheEnabled(user?.id ?? null));
+  const [cacheEnabled, setCacheEnabledState] = useState(() =>
+    getCacheEnabled(user?.id ?? null),
+  );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedPresetIndex, setSelectedPresetIndex] = useState(2);
   const [lastFetchTime, setLastFetchTime] = useState<number | null>(null);
@@ -940,6 +943,8 @@ const DashboardStats: React.FC = () => {
         onBarGroupingChange={setBarGrouping}
         userGraphData={userGraphData}
         userOptions={allUsers}
+        combineMetrics={combineMetrics}
+        onCombineMetricsChange={setCombineMetrics}
       />
 
       <InsightsGraph

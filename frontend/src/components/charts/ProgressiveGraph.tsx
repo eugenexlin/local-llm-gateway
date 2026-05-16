@@ -100,6 +100,8 @@ interface ProgressiveGraphProps {
   onBarGroupingChange?: (grouping: BarGrouping) => void;
   userGraphData?: UserGraphData;
   userOptions?: { id: string; name?: string; email?: string }[];
+  combineMetrics?: boolean;
+  onCombineMetricsChange?: (combine: boolean) => void;
 }
 
 const isRateMetric = (metric: MetricType): boolean => {
@@ -163,6 +165,8 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
   onBarGroupingChange,
   userGraphData,
   userOptions = [],
+  combineMetrics = false,
+  onCombineMetricsChange,
 }) => {
   const hasMultipleUsers =
     userGraphData && Object.keys(userGraphData).length > 1;
@@ -177,10 +181,40 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
     };
   }, [hasMultipleUsers, userGraphData, userOptions]);
 
-  const displayData = hasMultipleUsers
-    ? (transformedData as unknown as ProgressiveDataPoint[])
-    : data;
-  const displayLength = data.length;
+  const combinedData = useMemo(() => {
+    if (!combineMetrics || !hasMultipleUsers || !userGraphData) {
+      return null;
+    }
+    const users = Object.keys(userGraphData);
+    if (users.length === 0) return null;
+    const baseData = userGraphData[users[0]];
+    const combined: TransformedDataPoint[] = baseData.map((_, index) => {
+      const point: TransformedDataPoint = {
+        timestamp: baseData[index].timestamp,
+      };
+      let sum = 0;
+      let hasAnyValue = false;
+      for (const userId of users) {
+        const userPoint = userGraphData[userId][index];
+        if (userPoint && userPoint.hasValue && userPoint.value !== null) {
+          sum += userPoint.value;
+          hasAnyValue = true;
+        }
+      }
+      point[`__combined`] = hasAnyValue ? sum : null;
+      return point;
+    });
+    return combined;
+  }, [combineMetrics, hasMultipleUsers, userGraphData]);
+
+  const displayData = combineMetrics && combinedData
+    ? (combinedData as unknown as ProgressiveDataPoint[])
+    : (hasMultipleUsers
+      ? (transformedData as unknown as ProgressiveDataPoint[])
+      : data);
+  const displayLength = combineMetrics && combinedData
+    ? combinedData.length
+    : data.length;
   const granularityOptions = getAllGranularityOptions();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -249,6 +283,26 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
             <ToggleButton value="stacked">Stacked</ToggleButton>
           </ToggleButtonGroup>
         )}
+
+        {hasMultipleUsers && (
+          <ToggleButton
+            value={combineMetrics}
+            selected={combineMetrics}
+            onChange={(_, newValue) => {
+              if (newValue !== null) onCombineMetricsChange?.(newValue);
+            }}
+            size="small"
+            sx={{
+              textTransform: "none",
+              borderColor: combineMetrics ? "primary.main" : "divider",
+              borderWidth: 1,
+              borderStyle: "solid",
+              bgcolor: combineMetrics ? "action.selected" : "background.paper",
+            }}
+          >
+            Combine Metrics
+          </ToggleButton>
+        )}
       </Box>
 
       {data.length > 0 && (
@@ -304,7 +358,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
           >
             {isRateMetric(metric) ? (
               <LineChart data={displayData}>
-                {hasMultipleUsers && (
+                {hasMultipleUsers && !combineMetrics && (
                   <Legend
                     formatter={(
                       value: string,
@@ -317,6 +371,15 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                         </span>
                       );
                     }}
+                  />
+                )}
+                {combineMetrics && (
+                  <Legend
+                    formatter={() => (
+                      <span style={{ color: "#ff6b6b" }}>
+                        Combined
+                      </span>
+                    )}
                   />
                 )}
                 <CartesianGrid strokeDasharray="3 3" />
@@ -350,6 +413,15 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                         const key = Object.keys(entry.payload || {}).find(
                           (k) => k !== "timestamp",
                         );
+                        if (combineMetrics && key === "__combined") {
+                          return {
+                            label: "Combined",
+                            value:
+                              typeof p.value === "number"
+                                ? Math.round(p.value).toLocaleString()
+                                : "N/A",
+                          };
+                        }
                         const userId = key ? key.replace("__user_", "") : key;
                         const label =
                           hasMultipleUsers && userId
@@ -369,7 +441,23 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                     return null;
                   }}
                 />
-                {hasMultipleUsers ? (
+                {combineMetrics ? (
+                  <Line
+                    type="monotone"
+                    dataKey="__combined"
+                    stroke="#ff6b6b"
+                    strokeWidth={2}
+                    dot={{
+                      r: 4,
+                      fill: "#ff6b6b",
+                      stroke: "#fff",
+                      strokeWidth: 2,
+                    }}
+                    connectNulls={true}
+                    isAnimationActive={false}
+                    name="Combined"
+                  />
+                ) : hasMultipleUsers ? (
                   userKeys.map((userKey, index) => {
                     const userId = userKey.replace("__user_", "");
                     const color = getUserColor(userId, index);
@@ -412,7 +500,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
               </LineChart>
             ) : (
               <BarChart data={displayData} barGap={0} barCategoryGap={"10%"}>
-                {hasMultipleUsers && (
+                {hasMultipleUsers && !combineMetrics && (
                   <Legend
                     formatter={(
                       value: string,
@@ -425,6 +513,15 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                         </span>
                       );
                     }}
+                  />
+                )}
+                {combineMetrics && (
+                  <Legend
+                    formatter={() => (
+                      <span style={{ color: "#ff6b6b" }}>
+                        Combined
+                      </span>
+                    )}
                   />
                 )}
                 <XAxis
@@ -457,6 +554,15 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                         const key = Object.keys(entry.payload || {}).find(
                           (k) => k !== "timestamp",
                         );
+                        if (combineMetrics && key === "__combined") {
+                          return {
+                            label: "Combined",
+                            value:
+                              typeof p.value === "number"
+                                ? Math.round(p.value).toLocaleString()
+                                : "N/A",
+                          };
+                        }
                         const userId = key ? key.replace("__user_", "") : key;
                         const label =
                           hasMultipleUsers && userId
@@ -476,7 +582,14 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                     return null;
                   }}
                 />
-                {hasMultipleUsers ? (
+                {combineMetrics ? (
+                  <Bar
+                    dataKey="__combined"
+                    fill="#ff6b6b"
+                    isAnimationActive={false}
+                    name="Combined"
+                  />
+                ) : hasMultipleUsers ? (
                   userKeys.map((userKey, index) => {
                     const userId = userKey.replace("__user_", "");
                     const color = getUserColor(userId, index);

@@ -181,7 +181,7 @@ const ApiKeyDropdown: React.FC<ApiKeyDropdownProps> = ({
         <MenuItem
           onClick={() => {
             handleMenuClose();
-            onNavigate();
+            onNavigate?.();
             navigate("/api-keys");
           }}
           sx={{
