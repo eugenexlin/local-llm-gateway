@@ -773,6 +773,10 @@ export function getProgressiveDataWithInterpolation(
           return `CASE WHEN COUNT(*) = 0 THEN NULL WHEN SUM(ttft_ms) > 0 THEN ROUND(SUM(prompt_tokens) * 1000.0 / SUM(ttft_ms), 2) WHEN SUM(duration_ms) > 0 THEN ROUND(SUM(prompt_tokens) * 1000.0 / SUM(duration_ms), 2) ELSE 0 END`;
         case 'output_tokens_per_sec':
           return `CASE WHEN COUNT(*) = 0 THEN NULL WHEN SUM(stream_duration_ms) > 0 THEN ROUND(SUM(completion_tokens) * 1000.0 / SUM(stream_duration_ms), 2) WHEN SUM(duration_ms) > 0 THEN ROUND(SUM(completion_tokens) * 1000.0 / SUM(duration_ms), 2) ELSE 0 END`;
+        case 'ttft_ms':
+          return 'COALESCE(SUM(ttft_ms), 0)';
+        case 'stream_duration_ms':
+          return 'COALESCE(SUM(stream_duration_ms), 0)';
         default:
           return 'COALESCE(SUM(prompt_tokens + completion_tokens), 0)';
       }
@@ -906,20 +910,22 @@ export function getInsightsData(
        u.id as user_id,
        u.name as user_name,
        u.email as user_email,
-      CASE
-          WHEN ul.duration_ms > 0 THEN ROUND(ul.total_tokens * 1000.0 / ul.duration_ms, 2)
-          ELSE NULL
-        END as tokens_per_sec,
-        CASE
-          WHEN ul.ttft_ms > 0 THEN ROUND(ul.prompt_tokens * 1000.0 / ul.ttft_ms, 2)
-          WHEN ul.duration_ms > 0 THEN ROUND(ul.prompt_tokens * 1000.0 / ul.duration_ms, 2)
-          ELSE NULL
-        END as input_tokens_per_sec,
-        CASE
-          WHEN ul.stream_duration_ms > 0 THEN ROUND(ul.completion_tokens * 1000.0 / ul.stream_duration_ms, 2)
-          WHEN ul.duration_ms > 0 THEN ROUND(ul.completion_tokens * 1000.0 / ul.duration_ms, 2)
-          ELSE NULL
-        END as output_tokens_per_sec
+     CASE
+           WHEN ul.duration_ms > 0 THEN ROUND(ul.total_tokens * 1000.0 / ul.duration_ms, 2)
+           ELSE NULL
+         END as tokens_per_sec,
+         CASE
+           WHEN ul.ttft_ms > 0 THEN ROUND(ul.prompt_tokens * 1000.0 / ul.ttft_ms, 2)
+           WHEN ul.duration_ms > 0 THEN ROUND(ul.prompt_tokens * 1000.0 / ul.duration_ms, 2)
+           ELSE NULL
+         END as input_tokens_per_sec,
+         CASE
+           WHEN ul.stream_duration_ms > 0 THEN ROUND(ul.completion_tokens * 1000.0 / ul.stream_duration_ms, 2)
+           WHEN ul.duration_ms > 0 THEN ROUND(ul.completion_tokens * 1000.0 / ul.duration_ms, 2)
+           ELSE NULL
+         END as output_tokens_per_sec,
+        ul.ttft_ms,
+        ul.stream_duration_ms
      FROM usage_logs ul
      LEFT JOIN api_keys ak ON ul.api_key_id = ak.id
      LEFT JOIN users u ON ak.user_id = u.id

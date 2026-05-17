@@ -37,6 +37,7 @@ import {
   clearCache,
 } from "../../utils/dataCache";
 import { useAuth } from "../../context/AuthContext";
+import { getItem } from "../../utils/storage";
 import type {
   MetricType,
   InsightsConfig,
@@ -45,6 +46,7 @@ import type {
 } from "../../types/metrics";
 import { DATE_PRESETS } from "../../utils/dateUtils";
 import { calculateOptimalGranularitySeconds } from "../../utils/granularity";
+import { ALL_METRICS } from "../layout/DashboardSettings";
 
 export type UserGraphData = Record<string, ProgressiveDataPoint[]>;
 
@@ -56,6 +58,8 @@ interface Metrics {
   input_tokens_per_sec: number;
   output_tokens_per_sec: number;
   request_count: number;
+  ttft_ms: number;
+  stream_duration_ms: number;
 }
 
 const DashboardStats: React.FC = () => {
@@ -97,6 +101,21 @@ const DashboardStats: React.FC = () => {
     xAxis: null,
     yAxis: null,
     viewMode: "scatter",
+  });
+
+  const [visibleMetrics, setVisibleMetrics] = useState<MetricType[]>(() => {
+    const stored = user ? getItem(user.id, "dashboard-metrics-config") : null;
+    if (stored) {
+      try {
+        const config = JSON.parse(stored);
+        if (Array.isArray(config.enabled)) {
+          return config.enabled;
+        }
+      } catch {
+        // fall through
+      }
+    }
+    return [...ALL_METRICS];
   });
 
   // remember to pass in the index as we cant wait for render cycle to get new selectedPresetIndex
@@ -814,6 +833,9 @@ const DashboardStats: React.FC = () => {
         input_tokens_per_sec={lifetimeMetrics?.input_tokens_per_sec}
         output_tokens_per_sec={lifetimeMetrics?.output_tokens_per_sec}
         request_count={lifetimeMetrics?.request_count}
+        ttft_ms={lifetimeMetrics?.ttft_ms}
+        stream_duration_ms={lifetimeMetrics?.stream_duration_ms}
+        visibleMetrics={visibleMetrics}
       />
 
       <Box
@@ -857,6 +879,9 @@ const DashboardStats: React.FC = () => {
         input_tokens_per_sec={rangeMetrics?.input_tokens_per_sec}
         output_tokens_per_sec={rangeMetrics?.output_tokens_per_sec}
         request_count={rangeMetrics?.request_count}
+        ttft_ms={rangeMetrics?.ttft_ms}
+        stream_duration_ms={rangeMetrics?.stream_duration_ms}
+        visibleMetrics={visibleMetrics}
       />
 
       <Box

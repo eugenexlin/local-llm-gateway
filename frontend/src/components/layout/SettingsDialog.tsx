@@ -21,6 +21,7 @@ import { useChat } from "../../context/ChatContext";
 import { useThemeContext } from "../../context/ThemeContext";
 import ApiKeyDropdown from "../ui/ApiKeyDropdown";
 import { halfFadeColor } from "../../utils/styles";
+import DashboardSettings from "./DashboardSettings";
 
 interface SettingsDialogProps {
   open: boolean;
@@ -68,6 +69,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
           sx={{ borderBottom: 1, borderColor: "divider" }}
         >
           <Tab label="General" />
+          <Tab label="Dashboard" />
           <Tab label="Chat" />
         </Tabs>
       </Box>
@@ -98,8 +100,15 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
           </Box>
         )}
 
-        {/* Chat Tab */}
+        {/* Dashboard Tab */}
         {activeTab === 1 && (
+          <Box sx={{ py: 2 }}>
+            <DashboardSettings />
+          </Box>
+        )}
+
+        {/* Chat Tab */}
+        {activeTab === 2 && (
           <Box sx={{ py: 2 }}>
             {/* API Key Selector */}
             <Box sx={{ mb: 3 }}>

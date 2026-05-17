@@ -47,6 +47,8 @@ const AXIS_OPTIONS: { type: AxisType; label: string }[] = [
   { type: "tokens_per_sec", label: "Tokens/Sec" },
   { type: "input_tokens_per_sec", label: "Input Tokens/Sec" },
   { type: "output_tokens_per_sec", label: "Output Tokens/Sec" },
+  { type: "ttft_ms", label: "TTFT (ms)" },
+  { type: "stream_duration_ms", label: "Stream Duration (ms)" },
 ];
 
 const PRESETS: PresetConfig[] = [
@@ -70,6 +72,20 @@ const PRESETS: PresetConfig[] = [
     xAxis: "duration_ms",
     yAxis: "completion_tokens",
     description: "Latency vs output tokens",
+  },
+  {
+    id: "ttft",
+    label: "TTFT Analysis",
+    xAxis: "prompt_tokens",
+    yAxis: "ttft_ms",
+    description: "Input tokens vs time to first token",
+  },
+  {
+    id: "stream",
+    label: "Stream Analysis",
+    xAxis: "completion_tokens",
+    yAxis: "stream_duration_ms",
+    description: "Output tokens vs stream duration",
   },
 ];
 
@@ -623,22 +639,35 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
                       const data = payload[0].payload as InsightsDataPoint;
                       const userName =
                         data.user_name || data.user_email || "Unknown";
-                      return (
-                        <ChartTooltip
-                          timestamp={data.timestamp}
-                          title={userName}
-                          rows={[
-                            {
-                              label: getAxisLabel(config.xAxis),
-                              value: formatValue(Number(data[config.xAxis!])),
-                            },
-                            {
-                              label: getAxisLabel(config.yAxis),
-                              value: formatValue(Number(data[config.yAxis!])),
-                            },
-                          ]}
-                        />
-                      );
+                      const tooltipRows: { label: string; value: string }[] = [
+                         {
+                           label: getAxisLabel(config.xAxis),
+                           value: formatValue(Number(data[config.xAxis!])),
+                         },
+                         {
+                           label: getAxisLabel(config.yAxis),
+                           value: formatValue(Number(data[config.yAxis!])),
+                         },
+                       ];
+                       if (data.ttft_ms !== undefined && data.ttft_ms !== null) {
+                         tooltipRows.push({
+                           label: "TTFT (ms)",
+                           value: formatValue(data.ttft_ms),
+                         });
+                       }
+                       if (data.stream_duration_ms !== undefined && data.stream_duration_ms !== null) {
+                         tooltipRows.push({
+                           label: "Stream Duration (ms)",
+                           value: formatValue(data.stream_duration_ms),
+                         });
+                       }
+                       return (
+                         <ChartTooltip
+                           timestamp={data.timestamp}
+                           title={userName}
+                           rows={tooltipRows}
+                         />
+                       );
                     }
                     return null;
                   }}
@@ -813,9 +842,19 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
               <p>
                 <strong>Total Tokens:</strong> {logDetails.total_tokens}
               </p>
-              <p>
-                <strong>Duration:</strong> {logDetails.duration_ms} ms
-              </p>
+            <p>
+                 <strong>Duration:</strong> {logDetails.duration_ms} ms
+               </p>
+              {logDetails.ttft_ms !== null && logDetails.ttft_ms !== undefined && (
+               <p>
+                 <strong>TTFT:</strong> {logDetails.ttft_ms} ms
+               </p>
+             )}
+             {logDetails.stream_duration_ms !== null && logDetails.stream_duration_ms !== undefined && (
+               <p>
+                 <strong>Stream Duration:</strong> {logDetails.stream_duration_ms} ms
+               </p>
+             )}
               <p>
                 <strong>Cache Creation:</strong>{" "}
                 {logDetails.cache_creation_input_tokens || 0}

@@ -5,7 +5,10 @@ export type MetricType =
   | 'requests' 
   | 'tokens_per_sec'
   | 'input_tokens_per_sec'
-  | 'output_tokens_per_sec';
+  | 'output_tokens_per_sec'
+  | 'duration_ms'
+  | 'ttft_ms'
+  | 'stream_duration_ms';
 
 export interface  ProgressiveDataPoint {
   timestamp: string;
@@ -22,6 +25,9 @@ export interface Metrics {
   tokens_per_sec: number;
   input_tokens_per_sec: number;
   output_tokens_per_sec: number;
+  duration_ms: number;
+  ttft_ms: number;
+  stream_duration_ms: number;
 }
 
 // Import display options from utility
@@ -43,7 +49,9 @@ export type AxisType =
   | 'input_tokens_per_sec'
   | 'output_tokens_per_sec'
   | 'cache_creation_input_tokens'
-  | 'cache_read_input_tokens';
+  | 'cache_read_input_tokens'
+  | 'ttft_ms'
+  | 'stream_duration_ms';
 
 export interface AxisConfig {
   type: AxisType;
@@ -77,6 +85,8 @@ export interface InsightsDataPoint {
   tokens_per_sec?: number;
   input_tokens_per_sec?: number;
   output_tokens_per_sec?: number;
+  ttft_ms?: number;
+  stream_duration_ms?: number;
 }
 
 export interface HeatMapDataPoint {
