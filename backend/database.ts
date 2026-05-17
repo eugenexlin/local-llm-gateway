@@ -82,6 +82,9 @@ export interface LifetimeMetrics {
   input_tokens_per_sec: number;
   output_tokens_per_sec: number;
   request_count: number;
+  duration_ms: number;
+  ttft_ms: number;
+  stream_duration_ms: number;
   cache_creation_tokens?: number;
   cache_read_tokens?: number;
 }
@@ -95,6 +98,9 @@ export interface RangeMetrics {
   output_tokens_per_sec: number;
   request_count: number;
   duration_seconds: number;
+  duration_ms: number;
+  ttft_ms: number;
+  stream_duration_ms: number;
   cache_creation_tokens?: number;
   cache_read_tokens?: number;
 }
@@ -543,6 +549,7 @@ function _buildAggregatedMetrics(
       SUM(completion_tokens) as total_output_tokens,
       SUM(cache_creation_input_tokens) as cache_creation_tokens,
       SUM(cache_read_input_tokens) as cache_read_tokens,
+      SUM(duration_ms) as total_duration_ms,
       SUM(ttft_ms) as total_ttft_ms,
       SUM(stream_duration_ms) as total_stream_duration_ms
     FROM usage_logs
@@ -603,63 +610,13 @@ function _buildAggregatedMetrics(
 
   const data = row[0];
 
-  // Calculate tokens_per_sec using actual duration from usage logs (hardware throughput)
-  let durationQuery = `
-    SELECT SUM(duration_ms) as total_duration_ms
-    FROM usage_logs
-  `;
-
-  if (userId) {
-    durationQuery += ` JOIN api_keys ON usage_logs.api_key_id = api_keys.id`;
-  }
-
-  const durationConditions: string[] = [];
-  const durationParams: (string | number)[] = [];
-
-  if (dateRange) {
-    durationConditions.push('timestamp >= ? AND timestamp <= ?');
-    durationParams.push(...dateRange);
-  }
-
-  if (userId && apiKeyId) {
-    const userIds = Array.isArray(userId) ? userId : [userId];
-    if (userIds.length === 1) {
-      durationConditions.push('api_keys.user_id = ? AND api_keys.id = ?');
-      durationParams.push(userIds[0], apiKeyId);
-    } else {
-      const placeholders = userIds.map(() => '?').join(', ');
-      durationConditions.push(`api_keys.user_id IN (${placeholders}) AND api_keys.id = ?`);
-      durationParams.push(...userIds, apiKeyId);
-    }
-  } else if (userId) {
-    const userIds = Array.isArray(userId) ? userId : [userId];
-    if (userIds.length === 1) {
-      durationConditions.push('api_keys.user_id = ?');
-      durationParams.push(userIds[0]);
-    } else {
-      const placeholders = userIds.map(() => '?').join(', ');
-      durationConditions.push(`api_keys.user_id IN (${placeholders})`);
-      durationParams.push(...userIds);
-    }
-  }
-
-  if (durationConditions.length > 0) {
-    durationQuery += ' WHERE ' + durationConditions.join(' AND ');
-  }
-
-  const durationRow = db!.prepare(durationQuery).all(durationParams) as any[];
-
-  const totalDurationMs = durationRow.length > 0 && durationRow[0]
-    ? Number(durationRow[0].total_duration_ms || 0)
-    : 0;
-
   return {
     requestCount: Number(data.request_count || 0),
     totalInputTokens: Number(data.total_input_tokens || 0),
     totalOutputTokens: Number(data.total_output_tokens || 0),
     cacheCreationTokens: Number(data.cache_creation_tokens || 0),
     cacheReadTokens: Number(data.cache_read_tokens || 0),
-    totalDurationMs,
+    totalDurationMs: Number(data.total_duration_ms || 0),
     totalTtftMs: Number(data.total_ttft_ms || 0),
     totalStreamDurationMs: Number(data.total_stream_duration_ms || 0),
   };
@@ -677,16 +634,12 @@ function _buildMetricsFromResult(
   let outputTokensPerSec = 0;
   if (totalDurationMs > 0) {
     tokensPerSec = totalTokens * 1000 / totalDurationMs;
-    if (totalTtftMs > 0) {
-      inputTokensPerSec = totalInputTokens * 1000 / totalTtftMs;
-    } else {
-      inputTokensPerSec = totalInputTokens * 1000 / totalDurationMs;
-    }
-    if (totalStreamDurationMs > 0) {
-      outputTokensPerSec = totalOutputTokens * 1000 / totalStreamDurationMs;
-    } else {
-      outputTokensPerSec = totalOutputTokens * 1000 / totalDurationMs;
-    }
+  }
+  if (totalTtftMs > 0) {
+    inputTokensPerSec = totalInputTokens * 1000 / totalTtftMs;
+  }
+  if (totalStreamDurationMs > 0) {
+    outputTokensPerSec = totalOutputTokens * 1000 / totalStreamDurationMs;
   }
 
   return {
@@ -697,6 +650,9 @@ function _buildMetricsFromResult(
     input_tokens_per_sec: Math.round(inputTokensPerSec * 100) / 100,
     output_tokens_per_sec: Math.round(outputTokensPerSec * 100) / 100,
     request_count: requestCount,
+    duration_ms: totalDurationMs,
+    ttft_ms: totalTtftMs,
+    stream_duration_ms: totalStreamDurationMs,
     cache_creation_tokens: cacheCreationTokens,
     cache_read_tokens: cacheReadTokens,
     ...extraFields,
@@ -770,9 +726,9 @@ export function getProgressiveDataWithInterpolation(
         case 'tokens_per_sec':
           return `CASE WHEN COUNT(*) = 0 THEN NULL ELSE COALESCE(CASE WHEN SUM(duration_ms) > 0 THEN ROUND(SUM(prompt_tokens + completion_tokens) * 1000.0 / SUM(duration_ms), 2) ELSE NULL END, 0) END`;
         case 'input_tokens_per_sec':
-          return `CASE WHEN COUNT(*) = 0 THEN NULL WHEN SUM(ttft_ms) > 0 THEN ROUND(SUM(prompt_tokens) * 1000.0 / SUM(ttft_ms), 2) WHEN SUM(duration_ms) > 0 THEN ROUND(SUM(prompt_tokens) * 1000.0 / SUM(duration_ms), 2) ELSE 0 END`;
+          return `CASE WHEN COUNT(*) = 0 THEN NULL WHEN SUM(ttft_ms) > 0 THEN ROUND(SUM(prompt_tokens) * 1000.0 / SUM(ttft_ms), 2) ELSE 0 END`;
         case 'output_tokens_per_sec':
-          return `CASE WHEN COUNT(*) = 0 THEN NULL WHEN SUM(stream_duration_ms) > 0 THEN ROUND(SUM(completion_tokens) * 1000.0 / SUM(stream_duration_ms), 2) WHEN SUM(duration_ms) > 0 THEN ROUND(SUM(completion_tokens) * 1000.0 / SUM(duration_ms), 2) ELSE 0 END`;
+          return `CASE WHEN COUNT(*) = 0 THEN NULL WHEN SUM(stream_duration_ms) > 0 THEN ROUND(SUM(completion_tokens) * 1000.0 / SUM(stream_duration_ms), 2) ELSE 0 END`;
         case 'ttft_ms':
           return 'COALESCE(SUM(ttft_ms), 0)';
         case 'stream_duration_ms':
@@ -915,15 +871,13 @@ export function getInsightsData(
            ELSE NULL
          END as tokens_per_sec,
          CASE
-           WHEN ul.ttft_ms > 0 THEN ROUND(ul.prompt_tokens * 1000.0 / ul.ttft_ms, 2)
-           WHEN ul.duration_ms > 0 THEN ROUND(ul.prompt_tokens * 1000.0 / ul.duration_ms, 2)
-           ELSE NULL
-         END as input_tokens_per_sec,
-         CASE
-           WHEN ul.stream_duration_ms > 0 THEN ROUND(ul.completion_tokens * 1000.0 / ul.stream_duration_ms, 2)
-           WHEN ul.duration_ms > 0 THEN ROUND(ul.completion_tokens * 1000.0 / ul.duration_ms, 2)
-           ELSE NULL
-         END as output_tokens_per_sec,
+            WHEN ul.ttft_ms > 0 THEN ROUND(ul.prompt_tokens * 1000.0 / ul.ttft_ms, 2)
+            ELSE NULL
+          END as input_tokens_per_sec,
+          CASE
+            WHEN ul.stream_duration_ms > 0 THEN ROUND(ul.completion_tokens * 1000.0 / ul.stream_duration_ms, 2)
+            ELSE NULL
+          END as output_tokens_per_sec,
         ul.ttft_ms,
         ul.stream_duration_ms
      FROM usage_logs ul
@@ -997,10 +951,10 @@ function getHeatMapColumnExpr(type: string): string {
     return "CASE WHEN ul.duration_ms > 0 THEN ROUND(ul.total_tokens * 1000.0 / ul.duration_ms, 2) ELSE NULL END";
   }
   if (type === 'input_tokens_per_sec') {
-    return "CASE WHEN ul.ttft_ms > 0 THEN ROUND(ul.prompt_tokens * 1000.0 / ul.ttft_ms, 2) WHEN ul.duration_ms > 0 THEN ROUND(ul.prompt_tokens * 1000.0 / ul.duration_ms, 2) ELSE NULL END";
+    return "CASE WHEN ul.ttft_ms > 0 THEN ROUND(ul.prompt_tokens * 1000.0 / ul.ttft_ms, 2) ELSE NULL END";
   }
   if (type === 'output_tokens_per_sec') {
-    return "CASE WHEN ul.stream_duration_ms > 0 THEN ROUND(ul.completion_tokens * 1000.0 / ul.stream_duration_ms, 2) WHEN ul.duration_ms > 0 THEN ROUND(ul.completion_tokens * 1000.0 / ul.duration_ms, 2) ELSE NULL END";
+    return "CASE WHEN ul.stream_duration_ms > 0 THEN ROUND(ul.completion_tokens * 1000.0 / ul.stream_duration_ms, 2) ELSE NULL END";
   }
   return 'ul.' + type;
 }

@@ -49,7 +49,7 @@ BACKEND_BASE_URL=http://localhost:3000
 FRONTEND_BASE_URL=http://localhost:5173
 
 LLAMA_CPP_URL=http://localhost:8080/v1
-DATABASE_PATH=./local_llm_gateway.db
+DATABASE_PATH=backend/data/database.sqlite
 SESSION_SECRET=your-secret-key-here
 SESSION_EXPIRY_HOURS=24
 GOOGLE_CLIENT_ID=your-client-id

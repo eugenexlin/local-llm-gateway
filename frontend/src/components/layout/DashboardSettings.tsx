@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Box,
   Typography,
   IconButton,
   Divider,
-  Chip,
-  alpha,
   Button,
+  alpha,
 } from "@mui/material";
 import {
   DragIndicator,
@@ -15,74 +14,11 @@ import {
 } from "@mui/icons-material";
 import type { MetricType } from "../../types/metrics";
 import { metricLabels } from "../../utils/metricsLabels";
-import { useAuth } from "../../context/AuthContext";
-import { getItem, setItem } from "../../utils/storage";
-
-export const ALL_METRICS: MetricType[] = [
-  "total_tokens",
-  "input_tokens",
-  "output_tokens",
-  "ttft_ms",
-  "stream_duration_ms",
-  "duration_ms",
-  "tokens_per_sec",
-  "input_tokens_per_sec",
-  "output_tokens_per_sec",
-  "requests",
-];
-
-const DEFAULT_CONFIG = {
-  enabled: [...ALL_METRICS],
-  disabled: [] as MetricType[],
-};
-
-interface DashboardSettingsConfig {
-  enabled: MetricType[];
-  disabled: MetricType[];
-}
+import { useDashboardMetrics, ALL_METRICS } from "../../context/DashboardMetricsContext";
 
 const DashboardSettings: React.FC = () => {
-  const { user } = useAuth();
-  const [config, setConfig] = useState<DashboardSettingsConfig>(() => {
-    if (!user) return DEFAULT_CONFIG;
-    const stored = getItem(user.id, "dashboard-metrics-config");
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch {
-        // fall through to default
-      }
-    }
-    return DEFAULT_CONFIG;
-  });
-
+  const { config, hideMetric, showMetric, reorderEnabled, resetToDefault } = useDashboardMetrics();
   const [draggedMetric, setDraggedMetric] = useState<MetricType | null>(null);
-
-  useEffect(() => {
-    if (user) {
-      setItem(user.id, "dashboard-metrics-config", JSON.stringify(config));
-    }
-  }, [config, user]);
-
-  const hideMetric = (metric: MetricType) => {
-    const newEnabled = config.enabled.filter((m) => m !== metric);
-    const newDisabled = [...config.disabled, metric];
-    setConfig({ enabled: newEnabled, disabled: newDisabled });
-  };
-
-  const showMetric = (metric: MetricType) => {
-    const newDisabled = config.disabled.filter((m) => m !== metric);
-    const newEnabled = [...config.enabled, metric];
-    setConfig({ enabled: newEnabled, disabled: newDisabled });
-  };
-
-  const reorderEnabled = (fromIndex: number, toIndex: number) => {
-    if (fromIndex === toIndex) return;
-    const newEnabled = [...config.enabled];
-    const [movedItem] = newEnabled.splice(fromIndex, 1);
-    newEnabled.splice(toIndex, 0, movedItem);
-    setConfig({ ...config, enabled: newEnabled });
-  };
 
   const handleDragStart = (metric: MetricType) => {
     setDraggedMetric(metric);
@@ -125,9 +61,7 @@ const DashboardSettings: React.FC = () => {
         }}
       >
         <Button
-          onClick={() => {
-            setConfig(DEFAULT_CONFIG);
-          }}
+          onClick={resetToDefault}
           color="secondary"
           variant="outlined"
           size="small"

@@ -26,7 +26,6 @@ const ApiKeyDropdown: React.FC<ApiKeyDropdownProps> = ({
   apiKeys,
   selectedKeyId,
   onSelectKey,
-  variant = "default",
   sx,
   onNavigate,
 }) => {

@@ -22,7 +22,7 @@ const config: Config = {
   port: parseInt(process.env.PORT || "3000", 10),
   frontendBaseUrl: process.env.FRONTEND_BASE_URL || "http://localhost:5173",
   llamaCppUrl: process.env.LLAMA_CPP_URL || "http://localhost:8080/v1",
-  databasePath: process.env.DATABASE_PATH || "./local_llm_gateway.db",
+  databasePath: process.env.DATABASE_PATH || "backend/data/database.sqlite",
   secretKey: process.env.SESSION_SECRET || generateSecureSecret(),
   sessionExpiryHours: parseInt(process.env.SESSION_EXPIRY_HOURS || "24", 10),
   googleClientId: process.env.GOOGLE_CLIENT_ID || "",

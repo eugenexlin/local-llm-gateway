@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef } from "react";
 import { Box, useMediaQuery } from "@mui/material";
 import DrawerNavigation from "./DrawerNavigation";
 import theme from "../../theme";
+import { DashboardMetricsProvider } from "../../context/DashboardMetricsContext";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -22,7 +23,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     }, 100);
   }
   return (
-    <>
+    <DashboardMetricsProvider>
+      <>
       <DrawerNavigation onMarginChange={handleMarginChange} />
       <Box
         component="main"
@@ -54,7 +56,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           {children}
         </Box>
       </Box>
-    </>
+      </>
+    </DashboardMetricsProvider>
   );
 };
 
