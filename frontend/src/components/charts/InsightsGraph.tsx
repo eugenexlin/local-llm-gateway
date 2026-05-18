@@ -37,6 +37,7 @@ import type {
 } from "../../types/metrics";
 import { formatValue } from "../../utils/formatValue";
 import { USER_COLORS } from "../../utils/colors";
+import { usePlotArea } from 'recharts';
 
 const MAX_POINTS = 10000;
 
@@ -301,30 +302,33 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
     const container = chartContainerRef.current;
     if (!container) return;
 
+    const CHART_MARGINS = { top: 20, right: 20, bottom: 20, left: 20 };
+    let resizeTimeout: ReturnType<typeof setTimeout>;
+
     const updateDimensions = () => {
       const rect = container.getBoundingClientRect();
       setChartDimensions({
-        width: rect.width,
-        height: rect.height,
+        width: rect.width - CHART_MARGINS.left - CHART_MARGINS.right,
+        height: rect.height - CHART_MARGINS.top - CHART_MARGINS.bottom,
       });
     };
 
     updateDimensions();
 
-    const resizeObserver = new ResizeObserver(() => {
-      updateDimensions();
-    });
-
-    resizeObserver.observe(container);
+    const handleResize = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(updateDimensions, 100);
+    };
+    window.addEventListener("resize", handleResize);
 
     return () => {
-      resizeObserver.disconnect();
+      window.removeEventListener("resize", handleResize);
+      clearTimeout(resizeTimeout);
     };
-  }, []);
+  }, [config]);
 
   useEffect(() => {
     if (!heatMapData || heatMapData.length === 0) return;
-    console.warn(chartDimensions)
     const aspectRatio = chartDimensions.width / chartDimensions.height;
     const targetBins = 300;
 
@@ -497,6 +501,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
         </Paper>
       ) : (
         <Paper
+          ref={chartContainerRef}
           key={config.viewMode}
           sx={{ height: 400, minHeight: 400, position: "relative" }}
         >
@@ -729,8 +734,11 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
                   data={heatMapData || []}
                   shape={(props: ScatterShapeProps) => {
                     const point = props.payload as HeatMapDataPoint;
-                    const totalWidth = 20;
-                    const totalHeight = 20;
+                    const plotArea = usePlotArea();
+                    const totalWidth =
+                      (plotArea?.width || chartDimensions.width) / heatmapGrid.gridWidth;
+                    const totalHeight =
+                      (plotArea?.height || chartDimensions.height) / heatmapGrid.gridHeight;
                     return (
                       <rect
                         key={props.index}
@@ -741,6 +749,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
                         fill={
                           "color-mix(in oklab, var(--mui-palette-secondary-main) 80%, var(--mui-palette-primary-contrastText))"
                         }
+                        stroke="none"
                         opacity={Math.sqrt(point.count / maxCount)}
                       />
                     );
