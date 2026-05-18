@@ -83,8 +83,19 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
     setAnchorEl(null);
   };
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(message.content);
+  const handleCopy = async () => {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(message.content);
+    } else {
+      const textarea = document.createElement("textarea");
+      textarea.value = message.content;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+    }
     handleCloseMenu();
   };
 

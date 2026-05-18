@@ -7,6 +7,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  ScatterShapeProps,
 } from "recharts";
 import {
   Box,
@@ -118,19 +119,6 @@ interface InsightsGraphProps {
   userOptions?: { id: string; name?: string; email?: string }[];
 }
 
-const HEATMAP_COLOR_STOPS = [
-  "#e8f5e9",
-  "#c8e6c9",
-  "#a5d6a7",
-  "#81c784",
-  "#66bb6a",
-  "#4caf50",
-  "#43a047",
-  "#388e3c",
-  "#2e7d32",
-  "#1b5e20",
-];
-
 interface ChartTooltipProps {
   timestamp?: string;
   title?: string;
@@ -177,86 +165,6 @@ export const ChartTooltip: React.FC<ChartTooltipProps> = ({
         </div>
       ))}
     </div>
-  );
-};
-
-function getHeatmapColor(count: number, maxCount: number): string {
-  if (maxCount === 0) return HEATMAP_COLOR_STOPS[0];
-  const ratio = Math.min(count / maxCount, 1);
-  const index = Math.min(
-    Math.floor(ratio * HEATMAP_COLOR_STOPS.length),
-    HEATMAP_COLOR_STOPS.length - 1,
-  );
-  return HEATMAP_COLOR_STOPS[index];
-}
-
-interface HeatMapCellProps {
-  x: number;
-  y: number;
-  count: number;
-  maxCount: number;
-  xScale: (val: number) => number;
-  yScale: (val: number) => number;
-  xDomain: [number, number];
-  yDomain: [number, number];
-  cellGap: number;
-}
-
-const HeatMapCell: React.FC<HeatMapCellProps> = ({
-  x,
-  y,
-  count,
-  maxCount,
-  xScale,
-  yScale,
-  xDomain,
-  yDomain,
-  cellGap,
-}) => {
-  const rect = useRef<SVGRectElement>(null);
-
-  const {
-    width,
-    height,
-    x: rectX,
-    y: rectY,
-  } = useMemo(() => {
-    const [xMin, xMax] = xDomain;
-    const [yMin, yMax] = yDomain;
-
-    const pixelWidth = xScale(xMax) - xScale(xMin);
-    const pixelHeight = yScale(yMax) - yScale(yMin);
-
-    const cellWidth = pixelWidth / 30;
-    const cellHeight = pixelHeight / 20;
-
-    const gap = cellGap || Math.min(cellWidth, cellHeight) * 0.1;
-
-    const rectW = Math.max(cellWidth - gap * 2, 1);
-    const rectH = Math.max(cellHeight - gap * 2, 1);
-
-    const centerX = xScale(x);
-    const centerY = yScale(y);
-
-    return {
-      width: rectW,
-      height: rectH,
-      x: centerX - rectW / 2,
-      y: centerY - rectH / 2,
-    };
-  }, [x, y, count, maxCount, xScale, yScale, xDomain, yDomain, cellGap]);
-
-  return (
-    <rect
-      ref={rect}
-      x={rectX}
-      y={rectY}
-      width={width}
-      height={height}
-      fill={getHeatmapColor(count, maxCount)}
-      rx={2}
-      ry={2}
-    />
   );
 };
 
@@ -326,11 +234,13 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
       return;
     }
 
+    setData([]);
+    setHeatMapData([]);
     setLoading(true);
     setWarning(null);
 
-    try {
-      const response = await fetch("/api/metrics/insights", {
+    if (config.viewMode === "scatter") {
+      fetch("/api/metrics/insights", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -341,39 +251,45 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
           apiKeyId: apiKeyId || undefined,
           limit: MAX_POINTS,
         }),
-      });
-
-      const result = await response.json();
-
-      if (result.warning) {
-        setWarning(result.warning);
-      }
-
-      if (config.viewMode === "scatter") {
-        setData(result.data || []);
-      } else {
-        const heatResponse = await fetch("/api/metrics/insights/heatmap", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            startDate: startDate.toISOString(),
-            endDate: endDate.toISOString(),
-            xAxisType: config.xAxis,
-            yAxisType: config.yAxis,
-            userId: userId || undefined,
-            apiKeyId: apiKeyId || undefined,
-            gridWidth: heatmapGrid.gridWidth,
-            gridHeight: heatmapGrid.gridHeight,
-          }),
+      })
+        .then((response) => {
+          return response.json().then((result) => {
+            if (result.warning) {
+              setWarning(result.warning);
+            }
+            setData(result.data || []);
+          });
+        })
+        .catch((error) => {
+          console.error("Error fetching insights:", error);
+        })
+        .finally(() => {
+          setLoading(false);
         });
-        const heatResult = await heatResponse.json();
-        setHeatMapData(heatResult.data || []);
-      }
-    } catch (error) {
-      console.error("Error fetching insights:", error);
-    } finally {
-      setLoading(false);
+    } else {
+      fetch("/api/metrics/insights/heatmap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          xAxisType: config.xAxis,
+          yAxisType: config.yAxis,
+          userId: userId || undefined,
+          apiKeyId: apiKeyId || undefined,
+          gridWidth: heatmapGrid.gridWidth,
+          gridHeight: heatmapGrid.gridHeight,
+        }),
+      })
+        .then((response) => {
+          return response.json().then((result) => {
+            setHeatMapData(result.data || []);
+          });
+        })
+        .finally(() => {
+          setLoading(false);
+        });
     }
   };
 
@@ -408,26 +324,16 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
 
   useEffect(() => {
     if (!heatMapData || heatMapData.length === 0) return;
-
+    console.warn(chartDimensions)
     const aspectRatio = chartDimensions.width / chartDimensions.height;
     const targetBins = 300;
 
-    let gridW = Math.round(Math.sqrt(targetBins * aspectRatio));
-    let gridH = Math.round(Math.sqrt(targetBins / aspectRatio));
+    const approxUnits = Math.sqrt(targetBins / aspectRatio);
+    const targetHeightBin = Math.ceil(approxUnits);
 
-    gridW = Math.max(5, Math.min(40, gridW));
-    gridH = Math.max(5, Math.min(30, gridH));
+    const targetWidthBin = Math.ceil(approxUnits * aspectRatio);
 
-    const finalRatio = gridW / gridH;
-    const idealRatio = aspectRatio;
-
-    if (finalRatio > idealRatio && gridH > 5) {
-      gridH = Math.max(5, gridH - 1);
-    } else if (finalRatio < idealRatio && gridW < 40) {
-      gridW = Math.min(40, gridW + 1);
-    }
-
-    setHeatmapGrid({ gridWidth: gridW, gridHeight: gridH });
+    setHeatmapGrid({ gridWidth: targetWidthBin, gridHeight: targetHeightBin });
   }, [heatMapData, chartDimensions]);
 
   const handlePresetChange = (presetId: string) => {
@@ -479,6 +385,8 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
     setSelectedPoint(null);
     setLogDetails(null);
   };
+
+  const maxCount = Math.max(...(heatMapData || []).map((d) => d.count));
 
   return (
     <Box sx={{ mt: 4, pt: 2 }}>
@@ -577,7 +485,6 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
           sx={{
             height: 400,
             minHeight: 400,
-            p: 4,
             textAlign: "center",
             display: "flex",
             alignItems: "center",
@@ -588,12 +495,28 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
             Select X and Y axes to visualize usage data
           </Typography>
         </Paper>
-      ) : loading ? (
-        <Paper sx={{ height: 400, minHeight: 400, p: 4, textAlign: "center" }}>
-          <CircularProgress />
-        </Paper>
       ) : (
-        <Paper key={config.viewMode} sx={{ height: 400, minHeight: 400 }}>
+        <Paper
+          key={config.viewMode}
+          sx={{ height: 400, minHeight: 400, position: "relative" }}
+        >
+          {loading && (
+            <Box
+              sx={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                display: "flex",
+                alignItems: "center",
+                px: 2,
+                zIndex: 10,
+                borderRadius: 1,
+              }}
+            >
+              <CircularProgress size={50} sx={{ mr: 1 }} />
+            </Box>
+          )}
           <ResponsiveContainer
             width="100%"
             height="100%"
@@ -640,34 +563,37 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
                       const userName =
                         data.user_name || data.user_email || "Unknown";
                       const tooltipRows: { label: string; value: string }[] = [
-                         {
-                           label: getAxisLabel(config.xAxis),
-                           value: formatValue(Number(data[config.xAxis!])),
-                         },
-                         {
-                           label: getAxisLabel(config.yAxis),
-                           value: formatValue(Number(data[config.yAxis!])),
-                         },
-                       ];
-                       if (data.ttft_ms !== undefined && data.ttft_ms !== null) {
-                         tooltipRows.push({
-                           label: "TTFT (ms)",
-                           value: formatValue(data.ttft_ms),
-                         });
-                       }
-                       if (data.stream_duration_ms !== undefined && data.stream_duration_ms !== null) {
-                         tooltipRows.push({
-                           label: "Stream Duration (ms)",
-                           value: formatValue(data.stream_duration_ms),
-                         });
-                       }
-                       return (
-                         <ChartTooltip
-                           timestamp={data.timestamp}
-                           title={userName}
-                           rows={tooltipRows}
-                         />
-                       );
+                        {
+                          label: getAxisLabel(config.xAxis),
+                          value: formatValue(Number(data[config.xAxis!])),
+                        },
+                        {
+                          label: getAxisLabel(config.yAxis),
+                          value: formatValue(Number(data[config.yAxis!])),
+                        },
+                      ];
+                      if (data.ttft_ms !== undefined && data.ttft_ms !== null) {
+                        tooltipRows.push({
+                          label: "TTFT (ms)",
+                          value: formatValue(data.ttft_ms),
+                        });
+                      }
+                      if (
+                        data.stream_duration_ms !== undefined &&
+                        data.stream_duration_ms !== null
+                      ) {
+                        tooltipRows.push({
+                          label: "Stream Duration (ms)",
+                          value: formatValue(data.stream_duration_ms),
+                        });
+                      }
+                      return (
+                        <ChartTooltip
+                          timestamp={data.timestamp}
+                          title={userName}
+                          rows={tooltipRows}
+                        />
+                      );
                     }
                     return null;
                   }}
@@ -680,6 +606,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
                       fill={color}
                       onClick={handlePointClick}
                       cursor="pointer"
+                      isAnimationActive={false}
                     />
                   ))
                 ) : (
@@ -688,6 +615,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
                     fill="#8884d8"
                     onClick={handlePointClick}
                     cursor="pointer"
+                    isAnimationActive={false}
                   />
                 )}
               </ScatterChart>
@@ -697,17 +625,36 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
                 height="100%"
                 margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
               >
-                <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
-                  type="number"
+                  type={
+                    isDateTimeAxis(config.xAxis) ? ("time" as any) : "number"
+                  }
                   dataKey="x"
                   domain={
-                    heatMapData?.length
+                    data?.length
                       ? [
-                          Math.min(...heatMapData.map((d) => d.x)),
-                          Math.max(...heatMapData.map((d) => d.x)),
+                          Math.min(
+                            ...data.map(
+                              (d) =>
+                                d[
+                                  getXDataKey(
+                                    config.xAxis,
+                                  ) as keyof InsightsDataPoint
+                                ] as number,
+                            ),
+                          ),
+                          Math.max(
+                            ...data.map(
+                              (d) =>
+                                d[
+                                  getXDataKey(
+                                    config.xAxis,
+                                  ) as keyof InsightsDataPoint
+                                ] as number,
+                            ),
+                          ),
                         ]
-                      : [0, 1]
+                      : undefined
                   }
                   label={{
                     value: getAxisLabel(config.xAxis),
@@ -721,12 +668,30 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
                   type="number"
                   dataKey="y"
                   domain={
-                    heatMapData?.length
+                    data?.length
                       ? [
-                          Math.min(...heatMapData.map((d) => d.y)),
-                          Math.max(...heatMapData.map((d) => d.y)),
+                          Math.min(
+                            ...data.map(
+                              (d) =>
+                                d[
+                                  getYDataKey(
+                                    config.yAxis,
+                                  ) as keyof InsightsDataPoint
+                                ] as number,
+                            ),
+                          ),
+                          Math.max(
+                            ...data.map(
+                              (d) =>
+                                d[
+                                  getYDataKey(
+                                    config.yAxis,
+                                  ) as keyof InsightsDataPoint
+                                ] as number,
+                            ),
+                          ),
                         ]
-                      : [0, 1]
+                      : undefined
                   }
                   label={{
                     value: getAxisLabel(config.yAxis),
@@ -737,6 +702,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
                   tickFormatter={(value) => formatValue(value)}
                 />
                 <Tooltip
+                  isAnimationActive={false}
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
                       const point = payload[0].payload as HeatMapDataPoint;
@@ -759,49 +725,28 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
                     return null;
                   }}
                 />
-                <Scatter data={heatMapData || []} fill="#82ca9d">
-                  {heatMapData?.map((point, index) => (
-                    <HeatMapCell
-                      key={index}
-                      x={point.x}
-                      y={point.y}
-                      count={point.count}
-                      maxCount={Math.max(
-                        ...(heatMapData || []).map((d) => d.count),
-                      )}
-                      xScale={(value: number) => {
-                        const data = heatMapData || [];
-                        if (data.length === 0) return 0;
-                        const xMin = Math.min(...data.map((d) => d.x));
-                        const xMax = Math.max(...data.map((d) => d.x));
-                        const chartWidth = chartDimensions.width - 40;
-                        return (
-                          ((value - xMin) / (xMax - xMin || 1)) * chartWidth
-                        );
-                      }}
-                      yScale={(value: number) => {
-                        const data = heatMapData || [];
-                        if (data.length === 0) return 0;
-                        const yMin = Math.min(...data.map((d) => d.y));
-                        const yMax = Math.max(...data.map((d) => d.y));
-                        const chartHeight = chartDimensions.height - 40;
-                        return (
-                          chartHeight -
-                          ((value - yMin) / (yMax - yMin || 1)) * chartHeight
-                        );
-                      }}
-                      xDomain={[
-                        Math.min(...(heatMapData || []).map((d) => d.x)),
-                        Math.max(...(heatMapData || []).map((d) => d.x)),
-                      ]}
-                      yDomain={[
-                        Math.min(...(heatMapData || []).map((d) => d.y)),
-                        Math.max(...(heatMapData || []).map((d) => d.y)),
-                      ]}
-                      cellGap={2}
-                    />
-                  ))}
-                </Scatter>
+                <Scatter
+                  data={heatMapData || []}
+                  shape={(props: ScatterShapeProps) => {
+                    const point = props.payload as HeatMapDataPoint;
+                    const totalWidth = 20;
+                    const totalHeight = 20;
+                    return (
+                      <rect
+                        key={props.index}
+                        x={(props.cx ?? 0) - totalWidth / 2}
+                        y={(props.cy ?? 0) - totalHeight / 2}
+                        width={totalWidth}
+                        height={totalHeight}
+                        fill={
+                          "color-mix(in oklab, var(--mui-palette-secondary-main) 80%, var(--mui-palette-primary-contrastText))"
+                        }
+                        opacity={Math.sqrt(point.count / maxCount)}
+                      />
+                    );
+                  }}
+                  isAnimationActive={false}
+                ></Scatter>
               </ScatterChart>
             )}
           </ResponsiveContainer>
@@ -842,19 +787,22 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
               <p>
                 <strong>Total Tokens:</strong> {logDetails.total_tokens}
               </p>
-            <p>
-                 <strong>Duration:</strong> {logDetails.duration_ms} ms
-               </p>
-              {logDetails.ttft_ms !== null && logDetails.ttft_ms !== undefined && (
-               <p>
-                 <strong>TTFT:</strong> {logDetails.ttft_ms} ms
-               </p>
-             )}
-             {logDetails.stream_duration_ms !== null && logDetails.stream_duration_ms !== undefined && (
-               <p>
-                 <strong>Stream Duration:</strong> {logDetails.stream_duration_ms} ms
-               </p>
-             )}
+              <p>
+                <strong>Duration:</strong> {logDetails.duration_ms} ms
+              </p>
+              {logDetails.ttft_ms !== null &&
+                logDetails.ttft_ms !== undefined && (
+                  <p>
+                    <strong>TTFT:</strong> {logDetails.ttft_ms} ms
+                  </p>
+                )}
+              {logDetails.stream_duration_ms !== null &&
+                logDetails.stream_duration_ms !== undefined && (
+                  <p>
+                    <strong>Stream Duration:</strong>{" "}
+                    {logDetails.stream_duration_ms} ms
+                  </p>
+                )}
               <p>
                 <strong>Cache Creation:</strong>{" "}
                 {logDetails.cache_creation_input_tokens || 0}

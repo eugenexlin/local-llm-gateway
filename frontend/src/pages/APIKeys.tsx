@@ -94,7 +94,6 @@ function APIKeys() {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(key);
       } else {
-        console.info("saving to clipboard with textarea");
         const textarea = document.createElement("textarea");
         textarea.value = key;
         textarea.style.position = "fixed";
