@@ -943,6 +943,53 @@ export function countInsightsData(
   return Number((row[0] as any).count || 0);
 }
 
+export function getInsightsRange(
+  startDate: string,
+  endDate: string,
+  xAxisType: string,
+  yAxisType: string,
+  userId?: string,
+  apiKeyId?: string
+): { minX: number; maxX: number; minY: number; maxY: number } | null {
+  const xExpr = getHeatMapColumnExpr(xAxisType);
+  const yExpr = getHeatMapColumnExpr(yAxisType);
+
+  let query = `
+    SELECT 
+      MIN(${xExpr}) as min_x, MAX(${xExpr}) as max_x,
+      MIN(${yExpr}) as min_y, MAX(${yExpr}) as max_y
+    FROM usage_logs ul
+  `;
+
+  const queryParams: (string | number)[] = [startDate, endDate];
+  let whereClause = 'WHERE ul.timestamp >= ? AND ul.timestamp < ?';
+
+  if (apiKeyId) {
+    query += ' JOIN api_keys ak ON ul.api_key_id = ak.id';
+    whereClause += ' AND ul.api_key_id = ?';
+    queryParams.push(apiKeyId);
+  } else if (userId) {
+    query += ' JOIN api_keys ak ON ul.api_key_id = ak.id';
+    whereClause += ' AND ak.user_id = ?';
+    queryParams.push(userId);
+  }
+
+  query += ` ${whereClause}`;
+
+  const result = db!.prepare(query).get(queryParams) as any;
+
+  if (!result || result.min_x === null || result.max_x === null || result.min_y === null || result.max_y === null) {
+    return null;
+  }
+
+  return {
+    minX: Number(result.min_x),
+    maxX: Number(result.max_x),
+    minY: Number(result.min_y),
+    maxY: Number(result.max_y),
+  };
+}
+
 function getHeatMapColumnExpr(type: string): string {
   if (type === 'timestamp') {
     return "strftime('%s', ul.timestamp)";

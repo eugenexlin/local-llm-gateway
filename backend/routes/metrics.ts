@@ -313,7 +313,7 @@ router.get("/timestamps", async (req: Request, res: Response) => {
 // Get insights data for scatter/heat map
 router.post("/insights", async (req: Request, res: Response) => {
   try {
-    const { startDate, endDate, userId, apiKeyId, limit = 10000 } = req.body;
+    const { startDate, endDate, userId, apiKeyId, limit = 10000, xAxisType, yAxisType } = req.body;
 
     if (!startDate || !endDate) {
       return res.status(400).json({ error: "start and end dates required" });
@@ -336,9 +336,21 @@ router.post("/insights", async (req: Request, res: Response) => {
         apiKeyId,
         limit,
       );
+      let range = null;
+      if (xAxisType && yAxisType) {
+        range = database.getInsightsRange(
+          startDate,
+          endDate,
+          xAxisType,
+          yAxisType,
+          userId,
+          apiKeyId,
+        );
+      }
       return res.json({
         warning: `Dataset contains ${count} records (limit: ${limit}). Consider narrowing date range or switching to heat map view.`,
         data,
+        range,
       });
     }
 
@@ -349,7 +361,18 @@ router.post("/insights", async (req: Request, res: Response) => {
       apiKeyId,
       count,
     );
-    res.json({ data });
+    let range = null;
+    if (xAxisType && yAxisType) {
+      range = database.getInsightsRange(
+        startDate,
+        endDate,
+        xAxisType,
+        yAxisType,
+        userId,
+        apiKeyId,
+      );
+    }
+    res.json({ data, range });
   } catch (error) {
     console.error("Error getting insights data:", error);
     res.status(500).json({ error: "Failed to get insights data" });
