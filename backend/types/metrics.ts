@@ -143,4 +143,12 @@ export interface HeatMapDataPoint {
   x: number;
   y: number;
   count: number;
+  xBin: number;
+  yBin: number;
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+  xStep: number;
+  yStep: number;
 }

@@ -1040,14 +1040,14 @@ export function getHeatMapData(
       x: minX + (xBin + 0.5) * xStep,
       y: minY + (yBin + 0.5) * yStep,
       count,
-      _xBin: xBin,
-      _yBin: yBin,
-      _minX: minX,
-      _maxX: maxX,
-      _minY: minY,
-      _maxY: maxY,
-      _xStep: xStep,
-      _yStep: yStep,
+      xBin,
+      yBin,
+      minX,
+      maxX,
+      minY,
+      maxY,
+      xStep,
+      yStep,
     };
   });
 }

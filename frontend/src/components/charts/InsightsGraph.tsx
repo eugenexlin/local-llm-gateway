@@ -8,6 +8,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   ScatterShapeProps,
+  PlotArea,
 } from "recharts";
 import {
   Box,
@@ -37,7 +38,7 @@ import type {
 } from "../../types/metrics";
 import { formatValue } from "../../utils/formatValue";
 import { USER_COLORS } from "../../utils/colors";
-import { usePlotArea } from 'recharts';
+import { usePlotArea } from "recharts";
 
 const MAX_POINTS = 10000;
 
@@ -204,7 +205,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
   });
   const [heatmapGrid, setHeatmapGrid] = useState({
     gridWidth: 20,
-    gridHeight: 15,
+    gridHeight: 10,
   });
 
   const userColorMap = useMemo(() => {
@@ -228,15 +229,25 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
 
   const hasUserData = data && data.some((d) => d.user_id);
 
+  const heatmapDomain = useMemo(() => {
+    if (!heatMapData || heatMapData.length === 0) return undefined;
+    const first = heatMapData[0] as HeatMapDataPoint;
+    return [first.minX, first.maxX] as [number, number];
+  }, [heatMapData]);
+
+  const heatmapYDomain = useMemo(() => {
+    if (!heatMapData || heatMapData.length === 0) return undefined;
+    const first = heatMapData[0] as HeatMapDataPoint;
+    return [first.minY, first.maxY] as [number, number];
+  }, [heatMapData]);
+
   const fetchData = async () => {
+    setData(null);
+    setHeatMapData(null);
     if (!config.xAxis || !config.yAxis || !startDate || !endDate) {
-      setData(null);
-      setHeatMapData(null);
       return;
     }
 
-    setData([]);
-    setHeatMapData([]);
     setLoading(true);
     setWarning(null);
 
@@ -296,12 +307,46 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
 
   useEffect(() => {
     fetchData();
-  }, [config, startDate, endDate, userId, apiKeyId]);
+  }, [config, startDate, endDate, userId, apiKeyId, heatmapGrid]);
+
+  interface PlotAreaHandlerProps {
+    currentGridWidth: number;
+    currentGridHeight: number;
+    onGridChange: (width: number, height: number) => void;
+  }
+  const PlotAreaHandler = (props: PlotAreaHandlerProps) => {
+    const plotArea = usePlotArea();
+    if (!plotArea) {
+      return;
+    }
+
+    const aspectRatio = plotArea.width / plotArea.height;
+    const targetBins = 300;
+
+    const approxUnits = Math.sqrt(targetBins / aspectRatio);
+    const targetHeightBin = Math.ceil(approxUnits);
+
+    const targetWidthBin = Math.ceil(approxUnits * aspectRatio);
+
+    if (
+      props.currentGridWidth !== targetWidthBin ||
+      props.currentGridHeight !== targetHeightBin
+    ) {
+      props.onGridChange(targetWidthBin, targetHeightBin);
+    }
+
+    return null;
+  };
+
+  const handleGridChange = (width: number, height: number) => {
+    setHeatmapGrid({ gridWidth: width, gridHeight: height });
+  };
 
   useEffect(() => {
     const container = chartContainerRef.current;
     if (!container) return;
 
+    // this is busted but not motivated to fix as other solution is working
     const CHART_MARGINS = { top: 20, right: 20, bottom: 20, left: 20 };
     let resizeTimeout: ReturnType<typeof setTimeout>;
 
@@ -327,18 +372,18 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
     };
   }, [config]);
 
-  useEffect(() => {
-    if (!heatMapData || heatMapData.length === 0) return;
-    const aspectRatio = chartDimensions.width / chartDimensions.height;
-    const targetBins = 300;
+  // useEffect(() => {
+  //   if (!heatMapData || heatMapData.length === 0) return;
+  //   const aspectRatio = chartDimensions.width / chartDimensions.height;
+  //   const targetBins = 300;
 
-    const approxUnits = Math.sqrt(targetBins / aspectRatio);
-    const targetHeightBin = Math.ceil(approxUnits);
+  //   const approxUnits = Math.sqrt(targetBins / aspectRatio);
+  //   const targetHeightBin = Math.ceil(approxUnits);
 
-    const targetWidthBin = Math.ceil(approxUnits * aspectRatio);
+  //   const targetWidthBin = Math.ceil(approxUnits * aspectRatio);
 
-    setHeatmapGrid({ gridWidth: targetWidthBin, gridHeight: targetHeightBin });
-  }, [heatMapData, chartDimensions]);
+  //   setHeatmapGrid({ gridWidth: targetWidthBin, gridHeight: targetHeightBin });
+  // }, [heatMapData, chartDimensions]);
 
   const handlePresetChange = (presetId: string) => {
     const preset = PRESETS.find((p) => p.id === presetId);
@@ -404,20 +449,6 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
         }}
       >
         <Typography variant="h6">Usage Insights</Typography>
-        {data && (
-          <Chip
-            label={`${data.length} points`}
-            size="small"
-            sx={{ bgcolor: "primary.main", color: "white" }}
-          />
-        )}
-        {heatMapData && (
-          <Chip
-            label={`${heatMapData.length} bins`}
-            size="small"
-            sx={{ bgcolor: "success.main", color: "white" }}
-          />
-        )}
 
         <ToggleButtonGroup
           value={config.viewMode}
@@ -476,6 +507,20 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
             ))}
           </Select>
         </FormControl>
+        {data && (
+          <Chip
+            label={`${data.length} points`}
+            size="small"
+            sx={{ bgcolor: "primary.main", color: "white" }}
+          />
+        )}
+        {heatMapData && (
+          <Chip
+            label={`${heatMapData.length} bins`}
+            size="small"
+            sx={{ bgcolor: "success.main", color: "white" }}
+          />
+        )}
       </Box>
 
       {warning && (
@@ -531,7 +576,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
               <ScatterChart
                 width="100%"
                 height="100%"
-                margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+                margin={{ top: 16, right: 16, bottom: 16, left: 16 }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
@@ -628,7 +673,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
               <ScatterChart
                 width="100%"
                 height="100%"
-                margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+                margin={{ top: 16, right: 16, bottom: 16, left: 16 }}
               >
                 <XAxis
                   type={
@@ -636,30 +681,32 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
                   }
                   dataKey="x"
                   domain={
-                    data?.length
-                      ? [
-                          Math.min(
-                            ...data.map(
-                              (d) =>
-                                d[
-                                  getXDataKey(
-                                    config.xAxis,
-                                  ) as keyof InsightsDataPoint
-                                ] as number,
+                    config.viewMode === "heatmap"
+                      ? heatmapDomain
+                      : data?.length
+                        ? [
+                            Math.min(
+                              ...data.map(
+                                (d) =>
+                                  d[
+                                    getXDataKey(
+                                      config.xAxis,
+                                    ) as keyof InsightsDataPoint
+                                  ] as number,
+                              ),
                             ),
-                          ),
-                          Math.max(
-                            ...data.map(
-                              (d) =>
-                                d[
-                                  getXDataKey(
-                                    config.xAxis,
-                                  ) as keyof InsightsDataPoint
-                                ] as number,
+                            Math.max(
+                              ...data.map(
+                                (d) =>
+                                  d[
+                                    getXDataKey(
+                                      config.xAxis,
+                                    ) as keyof InsightsDataPoint
+                                  ] as number,
+                              ),
                             ),
-                          ),
-                        ]
-                      : undefined
+                          ]
+                        : undefined
                   }
                   label={{
                     value: getAxisLabel(config.xAxis),
@@ -673,30 +720,32 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
                   type="number"
                   dataKey="y"
                   domain={
-                    data?.length
-                      ? [
-                          Math.min(
-                            ...data.map(
-                              (d) =>
-                                d[
-                                  getYDataKey(
-                                    config.yAxis,
-                                  ) as keyof InsightsDataPoint
-                                ] as number,
+                    config.viewMode === "heatmap"
+                      ? heatmapYDomain
+                      : data?.length
+                        ? [
+                            Math.min(
+                              ...data.map(
+                                (d) =>
+                                  d[
+                                    getYDataKey(
+                                      config.yAxis,
+                                    ) as keyof InsightsDataPoint
+                                  ] as number,
+                              ),
                             ),
-                          ),
-                          Math.max(
-                            ...data.map(
-                              (d) =>
-                                d[
-                                  getYDataKey(
-                                    config.yAxis,
-                                  ) as keyof InsightsDataPoint
-                                ] as number,
+                            Math.max(
+                              ...data.map(
+                                (d) =>
+                                  d[
+                                    getYDataKey(
+                                      config.yAxis,
+                                    ) as keyof InsightsDataPoint
+                                  ] as number,
+                              ),
                             ),
-                          ),
-                        ]
-                      : undefined
+                          ]
+                        : undefined
                   }
                   label={{
                     value: getAxisLabel(config.yAxis),
@@ -734,28 +783,64 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
                   data={heatMapData || []}
                   shape={(props: ScatterShapeProps) => {
                     const point = props.payload as HeatMapDataPoint;
-                    const plotArea = usePlotArea();
-                    const totalWidth =
-                      (plotArea?.width || chartDimensions.width) / heatmapGrid.gridWidth;
-                    const totalHeight =
-                      (plotArea?.height || chartDimensions.height) / heatmapGrid.gridHeight;
+                    const plotArea: PlotArea = usePlotArea() || {
+                      width: chartDimensions.width,
+                      height: chartDimensions.height,
+                      x: 0,
+                      y: 0,
+                    };
+                    const xUnitSize = plotArea.width / heatmapGrid.gridWidth;
+                    const yUnitSize = plotArea.height / heatmapGrid.gridHeight;
+                    const xCoord = Math.floor(
+                      ((props.cx ?? plotArea.x) - plotArea.x) / xUnitSize,
+                    );
+                    const yCoord = Math.floor(
+                      ((props.cy ?? plotArea.y) - plotArea.y) / yUnitSize,
+                    );
+                    const startX = Math.floor(xCoord * xUnitSize + plotArea.x);
+                    const endX = Math.floor(
+                      (xCoord + 1) * xUnitSize + plotArea.x,
+                    );
+                    const startY = Math.floor(yCoord * yUnitSize + plotArea.y);
+                    const endY = Math.floor(
+                      (yCoord + 1) * yUnitSize + plotArea.y,
+                    );
                     return (
-                      <rect
-                        key={props.index}
-                        x={(props.cx ?? 0) - totalWidth / 2}
-                        y={(props.cy ?? 0) - totalHeight / 2}
-                        width={totalWidth}
-                        height={totalHeight}
-                        fill={
-                          "color-mix(in oklab, var(--mui-palette-secondary-main) 80%, var(--mui-palette-primary-contrastText))"
-                        }
-                        stroke="none"
-                        opacity={Math.sqrt(point.count / maxCount)}
-                      />
+                      <>
+                        <rect
+                          key={props.index}
+                          x={startX}
+                          y={startY}
+                          width={endX - startX}
+                          height={endY - startY}
+                          fill={
+                            "color-mix(in oklab, var(--mui-palette-secondary-main) 80%, var(--mui-palette-primary-contrastText))"
+                          }
+                          stroke="none"
+                          opacity={Math.sqrt(point.count / maxCount)}
+                          name={`${props.cx}_${props.cy} ${xCoord}_${yCoord} ${xUnitSize}_${yUnitSize}`}
+                        />
+                        {/** just for testing to see the dot center */}
+                        {/* <circle
+                          cx={props.cx}
+                          cy={props.cy}
+                          r={"4px"}
+                          fill={
+                            "color-mix(in oklab, var(--mui-palette-secondary-main) 80%, var(--mui-palette-primary-contrastText))"
+                          }
+                        /> */}
+                      </>
                     );
                   }}
                   isAnimationActive={false}
                 ></Scatter>
+                <PlotAreaHandler
+                  currentGridHeight={heatmapGrid.gridHeight}
+                  currentGridWidth={heatmapGrid.gridWidth}
+                  onGridChange={(width, height) => {
+                    handleGridChange(width, height);
+                  }}
+                />
               </ScatterChart>
             )}
           </ResponsiveContainer>
