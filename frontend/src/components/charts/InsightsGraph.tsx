@@ -158,7 +158,9 @@ export const ChartTooltip: React.FC<ChartTooltipProps> = ({
         </div>
       )}
       {title && (
-        <div style={{ fontWeight: "bold", marginBottom: "2px" }}>{title}</div>
+        <div style={{ color: "#888", fontWeight: "bold", marginBottom: "2px" }}>
+          {title}
+        </div>
       )}
       {rows.map((row, i) => (
         <div key={i} style={{ color: "#333" }}>

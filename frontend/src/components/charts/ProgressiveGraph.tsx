@@ -402,7 +402,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                   tick={{ fontSize: 12 }}
                   tickFormatter={(value) => formatValue(value)}
                 />
-                <Tooltip
+               <Tooltip
                   isAnimationActive={false}
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
@@ -410,9 +410,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                       const timestamp = entry.payload?.timestamp;
 
                       const rows = payload.map((p) => {
-                        const key = Object.keys(entry.payload || {}).find(
-                          (k) => k !== "timestamp",
-                        );
+                        const key = p.dataKey;
                         if (combineMetrics && key === "__combined") {
                           return {
                             label: "Combined",
@@ -472,7 +470,6 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                         dot={{
                           r: 4,
                           fill: color,
-                          stroke: "#fff",
                           strokeWidth: 2,
                         }}
                         connectNulls={true}
@@ -532,18 +529,18 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                   tickFormatter={(value, _index) =>
                     formatXAxisTimestamp(value, totalSecondsPerTick)
                   }
-                  domain={[
-                    displayLength > 0 ? displayData[0].timestamp : "auto",
-                    displayLength > 0
-                      ? displayData[displayLength - 1].timestamp
-                      : "auto",
-                  ]}
+                  // domain={[
+                  //   displayLength > 0 ? displayData[0].timestamp : "auto",
+                  //   displayLength > 0
+                  //     ? displayData[displayLength - 1].timestamp
+                  //     : "auto",
+                  // ]}
                 />
                 <YAxis
                   tick={{ fontSize: 12 }}
                   tickFormatter={(value) => formatValue(value)}
                 />
-                <Tooltip
+               <Tooltip
                   isAnimationActive={false}
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
@@ -551,9 +548,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                       const timestamp = entry.payload?.timestamp;
 
                       const rows = payload.map((p) => {
-                        const key = Object.keys(entry.payload || {}).find(
-                          (k) => k !== "timestamp",
-                        );
+                        const key = p.dataKey;
                         if (combineMetrics && key === "__combined") {
                           return {
                             label: "Combined",
