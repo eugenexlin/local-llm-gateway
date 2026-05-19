@@ -207,14 +207,14 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
     return combined;
   }, [combineMetrics, hasMultipleUsers, userGraphData]);
 
-  const displayData = combineMetrics && combinedData
-    ? (combinedData as unknown as ProgressiveDataPoint[])
-    : (hasMultipleUsers
-      ? (transformedData as unknown as ProgressiveDataPoint[])
-      : data);
-  const displayLength = combineMetrics && combinedData
-    ? combinedData.length
-    : data.length;
+  const displayData =
+    combineMetrics && combinedData
+      ? (combinedData as unknown as ProgressiveDataPoint[])
+      : hasMultipleUsers
+        ? (transformedData as unknown as ProgressiveDataPoint[])
+        : data;
+  const displayLength =
+    combineMetrics && combinedData ? combinedData.length : data.length;
   const granularityOptions = getAllGranularityOptions();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -288,13 +288,16 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
           <ToggleButton
             value={combineMetrics}
             selected={combineMetrics}
-            onChange={(_, newValue) => {
-              if (newValue !== null) onCombineMetricsChange?.(newValue);
+            onChange={() => {
+              onCombineMetricsChange?.(!combineMetrics);
             }}
             size="small"
             sx={{
               textTransform: "none",
               borderColor: combineMetrics ? "primary.main" : "divider",
+              boxShadow: combineMetrics
+                ? "inset 0px 0px 1px 1px var(--mui-palette-primary-main)"
+                : "none",
               borderWidth: 1,
               borderStyle: "solid",
               bgcolor: combineMetrics ? "action.selected" : "background.paper",
@@ -376,9 +379,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                 {combineMetrics && (
                   <Legend
                     formatter={() => (
-                      <span style={{ color: "#ff6b6b" }}>
-                        Combined
-                      </span>
+                      <span style={{ color: "#ff6b6b" }}>Combined</span>
                     )}
                   />
                 )}
@@ -402,7 +403,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                   tick={{ fontSize: 12 }}
                   tickFormatter={(value) => formatValue(value)}
                 />
-               <Tooltip
+                <Tooltip
                   isAnimationActive={false}
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
@@ -515,9 +516,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                 {combineMetrics && (
                   <Legend
                     formatter={() => (
-                      <span style={{ color: "#ff6b6b" }}>
-                        Combined
-                      </span>
+                      <span style={{ color: "#ff6b6b" }}>Combined</span>
                     )}
                   />
                 )}
@@ -540,7 +539,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                   tick={{ fontSize: 12 }}
                   tickFormatter={(value) => formatValue(value)}
                 />
-               <Tooltip
+                <Tooltip
                   isAnimationActive={false}
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
