@@ -215,6 +215,10 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
         : data;
   const displayLength =
     combineMetrics && combinedData ? combinedData.length : data.length;
+  const xDomain = [
+    displayLength > 0 ? displayData[0].timestamp : "auto",
+    displayLength > 0 ? displayData[displayLength - 1].timestamp : "auto",
+  ];
   const granularityOptions = getAllGranularityOptions();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -346,8 +350,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                 sx={{
                   height: "100%",
                   width: `${100 - loadingProgress}%`,
-                  background:
-                    "linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)",
+                  background: `linear-gradient(90deg, var(--mui-palette-secondary-dark) 0%, var(--mui-palette-secondary-light) 100%)`,
                   transformOrigin: "right",
                   transition: "width 0.1s ease-out",
                 }}
@@ -376,13 +379,6 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                     }}
                   />
                 )}
-                {combineMetrics && (
-                  <Legend
-                    formatter={() => (
-                      <span style={{ color: "#ff6b6b" }}>Combined</span>
-                    )}
-                  />
-                )}
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   dataKey="timestamp"
@@ -392,12 +388,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                   tickFormatter={(value, _index) =>
                     formatXAxisTimestamp(value, totalSecondsPerTick)
                   }
-                  domain={[
-                    displayLength > 0 ? displayData[0].timestamp : "auto",
-                    displayLength > 0
-                      ? displayData[displayLength - 1].timestamp
-                      : "auto",
-                  ]}
+                  domain={xDomain}
                 />
                 <YAxis
                   tick={{ fontSize: 12 }}
@@ -444,12 +435,11 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                   <Line
                     type="monotone"
                     dataKey="__combined"
-                    stroke="#ff6b6b"
+                    stroke="var(--mui-palette-primary-main)"
                     strokeWidth={2}
                     dot={{
                       r: 4,
-                      fill: "#ff6b6b",
-                      stroke: "#fff",
+                      fill: "var(--mui-palette-primary-main)",
                       strokeWidth: 2,
                     }}
                     connectNulls={true}
@@ -483,11 +473,11 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                   <Line
                     type="monotone"
                     dataKey="value"
-                    stroke="#1976d2"
+                    stroke={USER_COLORS[0]}
                     strokeWidth={2}
                     dot={{
                       r: 4,
-                      fill: "#1976d2",
+                      fill: USER_COLORS[0],
                       stroke: "#fff",
                       strokeWidth: 2,
                     }}
@@ -513,13 +503,6 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                     }}
                   />
                 )}
-                {combineMetrics && (
-                  <Legend
-                    formatter={() => (
-                      <span style={{ color: "#ff6b6b" }}>Combined</span>
-                    )}
-                  />
-                )}
                 <XAxis
                   dataKey="timestamp"
                   tick={{ fontSize: 12 }}
@@ -528,12 +511,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                   tickFormatter={(value, _index) =>
                     formatXAxisTimestamp(value, totalSecondsPerTick)
                   }
-                  // domain={[
-                  //   displayLength > 0 ? displayData[0].timestamp : "auto",
-                  //   displayLength > 0
-                  //     ? displayData[displayLength - 1].timestamp
-                  //     : "auto",
-                  // ]}
+                  domain={xDomain}
                 />
                 <YAxis
                   tick={{ fontSize: 12 }}
@@ -579,7 +557,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                 {combineMetrics ? (
                   <Bar
                     dataKey="__combined"
-                    fill="#ff6b6b"
+                    fill="var(--mui-palette-primary-main)"
                     isAnimationActive={false}
                     name="Combined"
                   />
@@ -602,7 +580,7 @@ const ProgressiveGraph: React.FC<ProgressiveGraphProps> = ({
                 ) : (
                   <Bar
                     dataKey="value"
-                    fill="#1976d2"
+                    fill={USER_COLORS[0]}
                     isAnimationActive={false}
                   />
                 )}

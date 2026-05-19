@@ -96,6 +96,12 @@ const DashboardStats: React.FC = () => {
   const [selectedPresetIndex, setSelectedPresetIndex] = useState(2);
   const [lastFetchTime, setLastFetchTime] = useState<number | null>(null);
 
+  useEffect(() => {
+    if (selectedUserIds.length <= 1) {
+      setCombineMetrics(false);
+    }
+  }, [selectedUserIds]);
+
   const [insightsConfig, setInsightsConfig] = useState<InsightsConfig>({
     xAxis: null,
     yAxis: null,
