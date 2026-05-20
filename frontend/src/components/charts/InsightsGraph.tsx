@@ -57,24 +57,10 @@ const AXIS_OPTIONS: { type: AxisType; label: string }[] = [
 const PRESETS: PresetConfig[] = [
   {
     id: "performance",
-    label: "Performance",
+    label: "Prompt Size Performance",
     xAxis: "prompt_tokens",
-    yAxis: "tokens_per_sec",
-    description: "Input tokens vs throughput",
-  },
-  {
-    id: "cost",
-    label: "Cost Analysis",
-    xAxis: "total_tokens",
-    yAxis: "duration_ms",
-    description: "Token usage vs latency",
-  },
-  {
-    id: "efficiency",
-    label: "Efficiency",
-    xAxis: "duration_ms",
-    yAxis: "completion_tokens",
-    description: "Latency vs output tokens",
+    yAxis: "output_tokens_per_sec",
+    description: "Input tokens vs output tokens per second",
   },
   {
     id: "ttft",
