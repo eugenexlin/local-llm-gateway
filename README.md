@@ -1,15 +1,19 @@
 # Local LLM Gateway
 
-A proxy server for local LLM requests with authentication, rate limiting, and usage tracking.
+A proxy server for local LLM requests with authentication, usage metrics, and system monitoring.
+
+
+> [!WARNING]
+> Heavily generated with ai using primarily qwen 2.6 moe 4bit and opencode with limited human review and refactor. Reference at your own risk.
+
 
 ## Features
 
 - OpenAI-compatible proxy for local LLMs
-- API key management and authentication
-- Google OAuth integration for dashboard access
-- Usage tracking with token-level metrics
+- Google OAuth integration to user identification
+- Usage tracking with metrics bound to api keys
 - SQLite database for storing requests and usage data
-- Docker deployment support
+- nginx docker compose setup 
 
 ## Project Structure
 
