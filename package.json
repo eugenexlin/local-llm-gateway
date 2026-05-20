@@ -2,6 +2,7 @@
   "name": "local-llm-gateway",
   "version": "1.0.0",
   "description": "Local LLM Gateway - for sharing and tracking a local llm setup",
+  "license": "MIT",
   "scripts": {
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
