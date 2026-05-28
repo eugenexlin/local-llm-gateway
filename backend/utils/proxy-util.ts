@@ -1,5 +1,6 @@
 import http from "http";
 import https from "https";
+import * as crypto from "crypto";
 import { Response } from "express";
 import database from "../database";
 import config from "../config";
@@ -18,6 +19,8 @@ interface StreamMetrics {
   hasLogged: boolean;
   usageFound: boolean;
 }
+
+export const activeRequests = new Map<string, { request: http.ClientRequest }>();
 
 export function proxyRequestToLlama(
   fullUrl: string,
@@ -58,6 +61,8 @@ export function proxyRequestToLlama(
   const contentType =
     (reqHeaders["content-type"] as string) || "application/json";
 
+  const requestId = crypto.randomUUID();
+
   const options: http.RequestOptions = {
     hostname: url.hostname,
     port: url.port || (url.protocol === "https:" ? 443 : 80),
@@ -67,12 +72,14 @@ export function proxyRequestToLlama(
       "Content-Type": contentType,
       "User-Agent": "LLM-Gateway/1.0",
     },
+    timeout: config.upstreamTimeoutMs,
   };
 
   const upstreamReq = protocol.request(
     options,
     (response: http.IncomingMessage) => {
       metrics.statusCode = response.statusCode ?? null;
+      activeRequests.delete(requestId);
       response.pipe(res);
 
       response.on("data", (chunk: Buffer) => {
@@ -174,6 +181,7 @@ export function proxyRequestToLlama(
   );
 
   upstreamReq.on("error", (error: Error) => {
+    activeRequests.delete(requestId);
     metrics.error = error.message;
     const duration = Date.now() - metrics.startTime;
 
@@ -205,8 +213,16 @@ export function proxyRequestToLlama(
     }
   });
 
+  upstreamReq.on("timeout", () => {
+    activeRequests.delete(requestId);
+    console.error(`[TIMEOUT] Request ${requestId} timed out after ${config.upstreamTimeoutMs}ms`);
+    upstreamReq.destroy();
+  });
+
   upstreamReq.write(JSON.stringify(body));
   upstreamReq.end();
+
+  activeRequests.set(requestId, { request: upstreamReq });
 
   // Detect client disconnect and abort upstream request
   res.on("close", () => {

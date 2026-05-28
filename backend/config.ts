@@ -9,6 +9,7 @@ interface Config {
   databasePath: string;
   secretKey: string;
   sessionExpiryHours: number;
+  upstreamTimeoutMs: number;
   googleClientId: string;
   googleClientSecret: string;
   allowedDomains: string[];
@@ -25,6 +26,7 @@ const config: Config = {
   databasePath: process.env.DATABASE_PATH || "backend/data/database.sqlite",
   secretKey: process.env.SESSION_SECRET || generateSecureSecret(),
   sessionExpiryHours: parseInt(process.env.SESSION_EXPIRY_HOURS || "24", 10),
+  upstreamTimeoutMs: parseInt(process.env.UPSTREAM_TIMEOUT_MS || "3600000", 10),
   googleClientId: process.env.GOOGLE_CLIENT_ID || "",
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
   allowedDomains: process.env.ALLOWED_DOMAINS

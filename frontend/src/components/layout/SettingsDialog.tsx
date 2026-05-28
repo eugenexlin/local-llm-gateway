@@ -15,6 +15,9 @@ import {
   FormControl,
   Select,
   MenuItem,
+  Alert,
+  DialogTitle,
+  DialogContentText,
 } from "@mui/material";
 import { DEFAULT_SYSTEM_PROMPT } from "../../utils/constants";
 import { useChat } from "../../context/ChatContext";
@@ -42,6 +45,34 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
   const { mode, toggleTheme } = useThemeContext();
 
   const [activeTab, setActiveTab] = useState(0);
+  const [aborting, setAborting] = useState(false);
+  const [showAbortConfirm, setShowAbortConfirm] = useState(false);
+  const [abortResult, setAbortResult] = useState<{ success: boolean; count: number } | null>(null);
+
+  const handleAbortAll = async () => {
+    setAborting(true);
+    try {
+      const response = await fetch("/api/server-stats/abort-all", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setAbortResult({ success: true, count: data.aborted });
+      } else {
+        setAbortResult({ success: false, count: 0 });
+      }
+    } catch {
+      setAbortResult({ success: false, count: 0 });
+    } finally {
+      setAborting(false);
+    }
+  };
+
+  const handleCloseAbortConfirm = () => {
+    setShowAbortConfirm(false);
+    setAbortResult(null);
+  };
 
   return (
     <Dialog
@@ -71,6 +102,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
           <Tab label="General" />
           <Tab label="Dashboard" />
           <Tab label="Chat" />
+          <Tab label="Advanced" />
         </Tabs>
       </Box>
       <DialogContent dividers>
@@ -331,12 +363,78 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
             </Box>
           </Box>
         )}
+
+        {/* Advanced Tab */}
+        {activeTab === 3 && (
+          <Box sx={{ py: 2 }}>
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Upstream timeout: {Math.round(3600000 / 60000)} minutes
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Active requests: {0}
+              </Typography>
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                This will immediately terminate all currently streaming requests to the upstream LLM server.
+              </Alert>
+              <Button
+                fullWidth
+                variant="contained"
+                color="error"
+                onClick={() => setShowAbortConfirm(true)}
+                disabled={aborting}
+              >
+                Abort All Requests
+              </Button>
+            </Box>
+          </Box>
+        )}
       </DialogContent>
       <DialogActions sx={{ px: 2, pb: 2 }}>
         <Button onClick={onClose} variant="outlined">
           Done
         </Button>
       </DialogActions>
+
+      {/* Abort confirmation dialog */}
+      <Dialog
+        open={showAbortConfirm}
+        onClose={handleCloseAbortConfirm}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ color: "error.main" }}>
+          Abort All Requests?
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            This will terminate all currently streaming requests to the upstream LLM server.
+            This action cannot be undone.
+          </DialogContentText>
+          {abortResult && (
+            <Alert severity={abortResult.success ? "success" : "error"} sx={{ mt: 1 }}>
+              {abortResult.success
+                ? `Successfully aborted ${abortResult.count} request(s).`
+                : "Failed to abort requests. Please try again."}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 2, pb: 2 }}>
+          <Button onClick={handleCloseAbortConfirm} variant="outlined">
+            Cancel
+          </Button>
+          <Button
+            onClick={() => {
+              handleAbortAll();
+            }}
+            variant="contained"
+            color="error"
+            disabled={aborting}
+          >
+            {aborting ? "Aborting..." : "Confirm Abort"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   );
 };

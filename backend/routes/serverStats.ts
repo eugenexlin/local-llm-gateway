@@ -1,5 +1,7 @@
 import express, { Request, Response } from "express";
 import { getServerStats, getStatsHistory, updateGpuRanges } from "../utils/systemMetrics";
+import { requireAuth } from "../middleware/auth";
+import { activeRequests } from "../utils/proxy-util";
 
 const router = express.Router();
 
@@ -26,6 +28,20 @@ router.get("/history", (req: Request, res: Response) => {
     }
   }
   res.json(history);
+});
+
+router.post("/abort-all", requireAuth, (req: Request, res: Response) => {
+  const count = activeRequests.size;
+  for (const [, { request }] of activeRequests) {
+    try {
+      request.destroy();
+    } catch (err) {
+      console.error("Error destroying request:", err);
+    }
+  }
+  activeRequests.clear();
+  console.log(`[EMERGENCY] Aborted ${count} active upstream requests`);
+  res.json({ aborted: count });
 });
 
 export default router;
