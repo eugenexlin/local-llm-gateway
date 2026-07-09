@@ -1,27 +1,40 @@
 import express, { Request, Response } from 'express';
-import config from '../config';
+import { selectServer } from '../config';
 import { ExtendedRequest } from '../middleware/auth';
 import { proxyRequestToLlama } from '../utils/proxy-util';
 
 const router = express.Router();
 
-// Proxy any request starting with /v1/
 router.all('/*', (req: ExtendedRequest, res: Response, next: (err?: any) => void) => {
+  const modelName = req.body.model || '';
+  const match = selectServer(modelName);
+
+  if (!match) {
+    return res.status(404).json({
+      error: 'Model not found',
+      message: `No server configured for model "${modelName}"`,
+    });
+  }
+
   const pathWithoutLeadingSlash = req.path.substring(1);
   (req as ExtendedRequest & { proxyPath: string }).proxyPath = pathWithoutLeadingSlash;
-  const fullUrl = `${config.llamaCppUrl}/${pathWithoutLeadingSlash}`;
-  console.log(`${req.method} ${fullUrl}`);
+  (req as ExtendedRequest & { proxyServer: any }).proxyServer = match.server;
+  (req as ExtendedRequest & { proxyEndpoint: any }).proxyEndpoint = match.endpoint;
+  (req as ExtendedRequest & { proxyModel: string }).proxyModel = modelName;
+
   next();
 }, (req: ExtendedRequest, res: Response) => {
   const keyData = req.keyData;
 
+  const server = (req as ExtendedRequest & { proxyServer: any }).proxyServer;
+  const endpoint = (req as ExtendedRequest & { proxyEndpoint: any }).proxyEndpoint;
+  const modelName = (req as ExtendedRequest & { proxyModel: string }).proxyModel;
   const pathWithoutLeadingSlash = (req as ExtendedRequest & { proxyPath: string }).proxyPath;
-  const fullUrl = `${config.llamaCppUrl}/${pathWithoutLeadingSlash}`;
+  const fullUrl = `${endpoint.url}/${pathWithoutLeadingSlash}`;
 
-  console.log(`[KEY:${req.apiKeyId}] ${req.method} ${fullUrl}`);
+  console.log(`[SERVER:${server.id}] [KEY:${req.apiKeyId}] ${req.method} ${fullUrl}`);
 
-  // Proxy request with streaming
-  proxyRequestToLlama(fullUrl, req.body, req.apiKeyId, req.method, res, req.headers);
+  proxyRequestToLlama(fullUrl, req.body, req.apiKeyId, req.method, res, req.headers, modelName, server.id);
 });
 
 export default router;

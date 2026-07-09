@@ -87,6 +87,7 @@ export interface InsightsDataPoint {
   output_tokens_per_sec?: number;
   ttft_ms?: number;
   stream_duration_ms?: number;
+  model?: string;
 }
 
 export interface HeatMapDataPoint {
@@ -110,4 +111,31 @@ export interface InsightsConfig {
   yAxis: AxisType | null;
   viewMode: string;
   presetId?: string;
+}
+
+// Server config types
+export interface ServerEndpointConfig {
+  url: string;
+  models: string[];
+}
+
+export interface ServerConfigItem {
+  id: string;
+  name: string;
+  endpoints: ServerEndpointConfig[];
+}
+
+export interface EndpointHealthInfo {
+  url: string;
+  healthy: boolean;
+  models: string[];
+  error?: string;
+}
+
+export interface ServerHealthInfo {
+  id: string;
+  name?: string;
+  healthy: boolean;
+  endpoints: EndpointHealthInfo[];
+  lastChecked: string;
 }

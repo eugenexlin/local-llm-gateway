@@ -28,6 +28,8 @@ import RamIcon from "../components/icons/RamIcon";
 import InfoIcon from "@mui/icons-material/Info";
 import StorageIcon from "@mui/icons-material/Storage";
 import NetworkIoIcon from "../components/icons/NetworkIoIcon";
+import ServerFilter from "../components/ui/ServerFilter";
+import { ServerConfigItem, ServerHealthInfo } from "../types/metrics";
 import LoadGauge from "../components/gauges/LoadGauge";
 import TempGauge from "../components/gauges/TempGauge";
 import VramGauge from "../components/gauges/VramGauge";
@@ -154,6 +156,9 @@ const ServerStats: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
+  const [serverConfig, setServerConfig] = useState<ServerConfigItem[]>([]);
+  const [healthMap, setHealthMap] = useState<Record<string, ServerHealthInfo>>({});
 
   const cpuHistoryRef = useRef<{ timestamp: number; value: number }[]>([]);
   const gpuHistoryRef = useRef<
@@ -307,6 +312,50 @@ const ServerStats: React.FC = () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [handleVisibilityChange]);
 
+  useEffect(() => {
+    const fetchServerConfig = async () => {
+      try {
+        const response = await fetch("/api/server-stats/config", {
+          credentials: "include",
+        });
+        if (response.ok) {
+          const data: ServerConfigItem[] = await response.json();
+          setServerConfig(data);
+          const localServer = data.find(s => s.id === "local") || data[0];
+          if (localServer) {
+            setSelectedServerId(localServer.id);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching server config:", error);
+      }
+    };
+    fetchServerConfig();
+  }, []);
+
+  useEffect(() => {
+    const fetchHealth = async () => {
+      try {
+        const response = await fetch("/api/server-stats/health", {
+          credentials: "include",
+        });
+        if (response.ok) {
+          const data: ServerHealthInfo[] = await response.json();
+          const map: Record<string, ServerHealthInfo> = {};
+          data.forEach(h => {
+            map[h.id] = h;
+          });
+          setHealthMap(map);
+        }
+      } catch (error) {
+        console.error("Error fetching server health:", error);
+      }
+    };
+    fetchHealth();
+    const interval = setInterval(fetchHealth, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   const fetchStats = useCallback(async () => {
     try {
       const response = await fetch("/api/server-stats", {
@@ -412,21 +461,30 @@ const ServerStats: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchStats();
-    fetch("/api/server-stats/history", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((history: ServerStatsData[]) => {
-        if (history && history.length > 0) {
-          seedHistory(history);
-          lastSyncTimestampRef.current = new Date(
-            history[history.length - 1].timestamp,
-          ).getTime();
-        }
-      })
-      .catch(() => {});
-    const interval = setInterval(fetchStats, 2000);
-    return () => clearInterval(interval);
-  }, [fetchStats, seedHistory]);
+    if (!selectedServerId) return;
+
+    const selectedServer = serverConfig.find(s => s.id === selectedServerId);
+    const isLocal = selectedServer?.id === "local";
+
+    if (isLocal) {
+      fetchStats();
+      fetch("/api/server-stats/history", { cache: "no-store" })
+        .then((r) => r.json())
+        .then((history: ServerStatsData[]) => {
+          if (history && history.length > 0) {
+            seedHistory(history);
+            lastSyncTimestampRef.current = new Date(
+              history[history.length - 1].timestamp,
+            ).getTime();
+          }
+        })
+        .catch(() => {});
+      const interval = setInterval(fetchStats, 2000);
+      return () => clearInterval(interval);
+    } else {
+      setLoading(false);
+    }
+  }, [fetchStats, seedHistory, selectedServerId, serverConfig]);
 
   if (error && !stats) {
     return (
@@ -910,6 +968,9 @@ const ServerStats: React.FC = () => {
     ];
   };
 
+  const selectedServer = serverConfig.find(s => s.id === selectedServerId);
+  const isLocal = selectedServer?.id === "local";
+
   return (
     <>
       <Box
@@ -920,11 +981,130 @@ const ServerStats: React.FC = () => {
       >
         <Typography variant="h5">Server Stats</Typography>
       </Box>
-      <Grid container spacing={2}>
-        {gpuSection(stats)}
-        {cpuSection(stats)}
-        {otherSection(stats)}
-      </Grid>
+      <Box sx={{ mb: 2 }}>
+        <ServerFilter
+          selectedServerId={selectedServerId}
+          onServerChange={setSelectedServerId}
+        />
+      </Box>
+      {selectedServer && isLocal ? (
+        <Grid container spacing={2}>
+          {gpuSection(stats)}
+          {cpuSection(stats)}
+          {otherSection(stats)}
+        </Grid>
+      ) : selectedServer && !isLocal ? (
+        <Card sx={{ bgcolor: "background.paper", boxShadow: "0 2px 4px rgba(0,0,0,0.05)" }}>
+          <CardContent>
+            <Box sx={{ textAlign: "center", py: 4 }}>
+              <Typography variant="h6" sx={{ mb: 1 }}>
+                Remote Server: {selectedServer.name || selectedServer.id}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                System stats for remote servers will be available when Phase 3 (Agent Mode) is implemented.
+              </Typography>
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, justifyContent: "center" }}>
+                {selectedServer.endpoints.map((ep, idx) => (
+                  <Chip
+                    key={idx}
+                    label={ep.url}
+                    size="small"
+                    sx={{ bgcolor: "action.hover" }}
+                  />
+                ))}
+              </Box>
+            </Box>
+          </CardContent>
+        </Card>
+      ) : null}
+      {serverConfig.length > 0 && (
+        <>
+          <Box sx={{ mt: 4, mb: 2 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Endpoints &amp; Models
+            </Typography>
+          </Box>
+          <Grid container spacing={2}>
+            {serverConfig.map((server) => {
+              const health = healthMap[server.id];
+              return (
+                <Grid size={{ xs: 12 }} key={server.id}>
+                  <Card sx={{ bgcolor: "background.paper", boxShadow: "0 2px 4px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.05)" }}>
+                    <CardContent>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
+                        <Box
+                          sx={{
+                            width: 10,
+                            height: 10,
+                            borderRadius: "50%",
+                            bgcolor: health?.healthy ? "#4caf50" : "#f44336",
+                          }}
+                        />
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                          {server.name || server.id}
+                        </Typography>
+                        {server.id === "local" && (
+                          <Chip label="Local" size="small" sx={{ fontSize: "0.65rem", height: 20 }} />
+                        )}
+                      </Box>
+                      {server.endpoints.map((ep, epIdx) => {
+                        const epHealth = health?.endpoints[epIdx];
+                        return (
+                          <Box
+                            key={epIdx}
+                            sx={{
+                              p: 2,
+                              mb: epIdx < server.endpoints.length - 1 ? 1 : 0,
+                              bgcolor: "action.hover",
+                              borderRadius: 1,
+                            }}
+                          >
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                              <Box
+                                sx={{
+                                  width: 6,
+                                  height: 6,
+                                  borderRadius: "50%",
+                                  bgcolor: epHealth?.healthy ? "#4caf50" : "#f44336",
+                                }}
+                              />
+                              <Typography variant="body2" sx={{ fontFamily: "monospace", fontWeight: 500 }}>
+                                {ep.url}
+                              </Typography>
+                            </Box>
+                            {ep.models.length > 0 ? (
+                              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mt: 1 }}>
+                                {ep.models.map((model, mIdx) => (
+                                  <Chip
+                                    key={mIdx}
+                                    label={model}
+                                    size="small"
+                                    variant="outlined"
+                                    sx={{ fontSize: "0.7rem", height: 22 }}
+                                  />
+                                ))}
+                              </Box>
+                            ) : (
+                              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                                Catch-all endpoint
+                              </Typography>
+                            )}
+                            {epHealth?.error && (
+                              <Typography variant="caption" color="error" sx={{ mt: 1, display: "block" }}>
+                                {epHealth.error}
+                              </Typography>
+                            )}
+                          </Box>
+                        );
+                      })}
+                    </CardContent>
+                  </Card>
+                </Grid>
+              );
+            })}
+          </Grid>
+        </>
+      )}
     </>
   );
 };

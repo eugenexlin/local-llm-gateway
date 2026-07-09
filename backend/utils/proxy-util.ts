@@ -29,6 +29,8 @@ export function proxyRequestToLlama(
   method: string,
   res: Response,
   reqHeaders: any,
+  model: string = '',
+  serverId: string = '',
 ): void {
   if (!body.stream_options) {
     body.stream_options = {};
@@ -162,6 +164,8 @@ export function proxyRequestToLlama(
                 cache_read_input_tokens: tokenResult?.cacheReadInputTokens || 0,
                 ttft_ms: ttftMs,
                 stream_duration_ms: streamDurationMs,
+                model: model,
+                server_id: serverId,
               });
 
               database.incrementApiKeyStats(apiKeyId);
@@ -195,15 +199,17 @@ export function proxyRequestToLlama(
       setImmediate(() => {
         try {
           if (apiKeyId) {
-            database.logUsage({
-              api_key_id: apiKeyId,
-              prompt_tokens: 0,
-              completion_tokens: 0,
-              total_tokens: 0,
-              duration_ms: duration,
-              timestamp: new Date().toISOString(),
-              idempotency_key: metrics.idempotencyKey,
-            });
+             database.logUsage({
+                api_key_id: apiKeyId,
+                prompt_tokens: 0,
+                completion_tokens: 0,
+                total_tokens: 0,
+                duration_ms: duration,
+                timestamp: new Date().toISOString(),
+                idempotency_key: metrics.idempotencyKey,
+                model: model,
+                server_id: serverId,
+              });
           }
           metrics.hasLogged = true;
         } catch (logError) {

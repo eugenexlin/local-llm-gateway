@@ -26,6 +26,7 @@ import DateRangePicker from "../ui/DateRangePicker";
 import ProgressiveGraph from "../charts/ProgressiveGraph";
 import MetricsSection from "./MetricsSection";
 import UserFilter from "../ui/UserFilter";
+import ModelFilter from "../ui/ModelFilter";
 import InsightsGraph from "../charts/InsightsGraph";
 import SettingsModal from "../ui/SettingsModal";
 import {
@@ -77,6 +78,7 @@ const DashboardStats: React.FC = () => {
     user?.id ? [user.id] : [],
   );
   const [selectedApiKeyId, setSelectedApiKeyId] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [barGrouping, setBarGrouping] = useState<BarGrouping>("side-by-side");
   const [combineMetrics, setCombineMetrics] = useState(false);
   const [allUsers, setAllUsers] = useState<
@@ -195,6 +197,9 @@ const DashboardStats: React.FC = () => {
         if (selectedApiKeyId) {
           params.append("apiKeyId", selectedApiKeyId);
         }
+        if (selectedModel) {
+          params.append("model", selectedModel);
+        }
       }
       const cacheBust = `&_t=${Date.now()}`;
       const response = await fetch(
@@ -224,6 +229,9 @@ const DashboardStats: React.FC = () => {
         }
         if (selectedApiKeyId) {
           params.append("apiKeyId", selectedApiKeyId);
+        }
+        if (selectedModel) {
+          params.append("model", selectedModel);
         }
       }
       const cacheBust = `&_t=${Date.now()}`;
@@ -284,6 +292,9 @@ const DashboardStats: React.FC = () => {
         end: end.toISOString(),
         granularity: displayValue,
       });
+        if (selectedModel) {
+          templateParams.append("model", selectedModel);
+        }
 
       try {
         const templateResponse = await fetch(
@@ -348,16 +359,19 @@ const DashboardStats: React.FC = () => {
           }
 
           try {
-            const params = new URLSearchParams({
-              start: start.toISOString(),
-              end: end.toISOString(),
-              granularity: displayValue,
-              metric: metric,
-              batchIndex: String(batchIndex),
-              batchSize: String(batchSize),
-            });
-            const response = await fetch(
-              `/api/metrics/progressive?${params.toString()}`,
+             const params = new URLSearchParams({
+               start: start.toISOString(),
+               end: end.toISOString(),
+               granularity: displayValue,
+               metric: metric,
+               batchIndex: String(batchIndex),
+               batchSize: String(batchSize),
+             });
+                if (selectedModel) {
+                  params.append("model", selectedModel);
+                }
+             const response = await fetch(
+               `/api/metrics/progressive?${params.toString()}`,
               { signal, credentials: "include" },
             );
 
@@ -419,6 +433,9 @@ const DashboardStats: React.FC = () => {
       });
       if (selectedApiKeyId) {
         templateParams.append("apiKeyId", selectedApiKeyId);
+      }
+      if (selectedModel) {
+        templateParams.append("model", selectedModel);
       }
 
       const templateResponse = await fetch(
@@ -501,19 +518,22 @@ const DashboardStats: React.FC = () => {
           }
         }
 
-        try {
-          const params = new URLSearchParams({
-            start: start.toISOString(),
-            end: end.toISOString(),
-            granularity: displayValue,
-            metric: metric,
-            batchIndex: String(batchIndex),
-            batchSize: String(batchSize),
-            userId,
-          });
-          if (selectedApiKeyId) {
-            params.append("apiKeyId", selectedApiKeyId);
-          }
+       try {
+           const params = new URLSearchParams({
+             start: start.toISOString(),
+             end: end.toISOString(),
+             granularity: displayValue,
+             metric: metric,
+             batchIndex: String(batchIndex),
+             batchSize: String(batchSize),
+             userId,
+           });
+           if (selectedApiKeyId) {
+             params.append("apiKeyId", selectedApiKeyId);
+           }
+           if (selectedModel) {
+             params.append("model", selectedModel);
+           }
           const response = await fetch(
             `/api/metrics/progressive?${params.toString()}`,
             { signal, credentials: "include" },
@@ -747,11 +767,11 @@ const DashboardStats: React.FC = () => {
 
   useEffect(() => {
     fetchLifetimeMetrics();
-  }, [selectedUserIds, selectedApiKeyId]);
+  }, [selectedUserIds, selectedApiKeyId, selectedModel]);
 
   useEffect(() => {
     fetchRangeMetrics();
-  }, [selectedUserIds, selectedApiKeyId, startDate, endDate]);
+  }, [selectedUserIds, selectedApiKeyId, selectedModel, startDate, endDate]);
 
   useEffect(() => {
     // Sync display granularity with seconds value
@@ -781,21 +801,28 @@ const DashboardStats: React.FC = () => {
     metric,
     selectedUserIds,
     selectedApiKeyId,
+    selectedModel,
   ]);
 
   return (
     <>
     <Paper sx={{ p: 2, mb: 2 }}>
-        <UserFilter
-          currentUser={user}
-          selectedUserIds={selectedUserIds}
-          onUserChange={(userIds) => {
-            setSelectedUserIds(userIds);
-            setSelectedApiKeyId(null);
-          }}
-          selectedApiKeyId={selectedApiKeyId}
-          onApiKeyChange={setSelectedApiKeyId}
-        />
+        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <UserFilter
+            currentUser={user}
+            selectedUserIds={selectedUserIds}
+            onUserChange={(userIds) => {
+              setSelectedUserIds(userIds);
+              setSelectedApiKeyId(null);
+            }}
+            selectedApiKeyId={selectedApiKeyId}
+            onApiKeyChange={setSelectedApiKeyId}
+          />
+          <ModelFilter
+            selectedModel={selectedModel}
+            onModelChange={setSelectedModel}
+          />
+        </Box>
       </Paper>
 
       <Box
@@ -967,6 +994,7 @@ const DashboardStats: React.FC = () => {
         endDate={endDate}
         userId={selectedUserIds.length === 1 ? selectedUserIds[0] : undefined}
         apiKeyId={selectedApiKeyId || undefined}
+        model={selectedModel || undefined}
         config={insightsConfig}
         onConfigChange={setInsightsConfig}
         userOptions={allUsers}

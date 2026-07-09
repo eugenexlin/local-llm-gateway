@@ -2,6 +2,8 @@ import express, { Request, Response } from "express";
 import { getServerStats, getStatsHistory, updateGpuRanges } from "../utils/systemMetrics";
 import { requireAuth } from "../middleware/auth";
 import { activeRequests } from "../utils/proxy-util";
+import { getServerHealth } from "../utils/serverHealth";
+import { getServers } from "../config";
 
 const router = express.Router();
 
@@ -28,6 +30,19 @@ router.get("/history", (req: Request, res: Response) => {
     }
   }
   res.json(history);
+});
+
+router.get("/health", (req: Request, res: Response) => {
+  res.json(getServerHealth());
+});
+
+router.get("/config", (req: Request, res: Response) => {
+  const servers = getServers().map(s => ({
+    id: s.id,
+    name: s.name || s.id,
+    endpoints: s.endpoints,
+  }));
+  res.json(servers);
 });
 
 router.post("/abort-all", requireAuth, (req: Request, res: Response) => {

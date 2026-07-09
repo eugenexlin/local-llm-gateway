@@ -102,6 +102,7 @@ interface InsightsGraphProps {
   endDate: Date | null;
   userId?: string | null;
   apiKeyId?: string | null;
+  model?: string | null;
   config: InsightsConfig;
   onConfigChange: (config: InsightsConfig) => void;
   userOptions?: { id: string; name?: string; email?: string }[];
@@ -172,6 +173,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
   endDate,
   userId,
   apiKeyId,
+  model,
   config,
   onConfigChange,
   userOptions,
@@ -303,6 +305,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
           endDate: endDate.toISOString(),
           userId: userId || undefined,
           apiKeyId: apiKeyId || undefined,
+          model: model || undefined,
           limit: MAX_POINTS,
           xAxisType: config.xAxis,
           yAxisType: config.yAxis,
@@ -337,6 +340,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
           yAxisType: config.yAxis,
           userId: userId || undefined,
           apiKeyId: apiKeyId || undefined,
+          model: model || undefined,
           gridWidth: heatmapGrid.gridWidth,
           gridHeight: heatmapGrid.gridHeight,
         }),
@@ -354,7 +358,7 @@ const InsightsGraph: React.FC<InsightsGraphProps> = ({
 
   useEffect(() => {
     fetchData();
-  }, [config, startDate, endDate, userId, apiKeyId, heatmapGrid]);
+  }, [config, startDate, endDate, userId, apiKeyId, model, heatmapGrid]);
 
   interface PlotAreaHandlerProps {
     currentGridWidth: number;

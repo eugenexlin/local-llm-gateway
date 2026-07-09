@@ -13,6 +13,7 @@ import metrics from './routes/metrics';
 import proxy from './routes/proxy';
 import serverStats from './routes/serverStats';
 import { startStatsHistoryCollector } from './utils/systemMetrics';
+import { startServerHealthChecks, getServerHealth } from './utils/serverHealth';
 import chat from './routes/chat';
 import config, { getBaseUrl, getFrontendUrl } from './config';
 import './utils/passport';
@@ -210,8 +211,17 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 try {
   database.init();
   startStatsHistoryCollector();
+
+  if (!config.agentMode) {
+    startServerHealthChecks();
+  }
+
   app.listen(PORT, () => {
-    console.log(`LLM Gateway Proxy running on port ${PORT} | Llama CPP: ${config.llamaCppUrl}`);
+    if (config.agentMode) {
+      console.log(`Agent running on port ${PORT}`);
+    } else {
+      console.log(`LLM Gateway Proxy running on port ${PORT} | Servers: ${config.servers.map(s => s.id).join(', ')}`);
+    }
   });
 } catch (err) {
   console.error('Failed to initialize database:', err);

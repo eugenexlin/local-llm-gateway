@@ -48,12 +48,95 @@ PORT=3000
 BACKEND_BASE_URL=http://localhost:3000
 FRONTEND_BASE_URL=http://localhost:5173
 
-LLAMA_CPP_URL=http://localhost:8080/v1
 DATABASE_PATH=backend/data/database.sqlite
 SESSION_SECRET=your-secret-key-here
 SESSION_EXPIRY_HOURS=24
 GOOGLE_CLIENT_ID=your-client-id
 GOOGLE_CLIENT_SECRET=your-client-secret
+```
+
+## Server Configuration
+
+Configure upstream LLM servers via the `SERVERS` environment variable. A single server can have multiple endpoints (e.g., different GPU instances on different ports), but shares one set of system stats.
+
+### Single Server (Legacy)
+
+For a single LLM endpoint, use `LLAMA_CPP_URL` (simplest):
+
+```env
+LLAMA_CPP_URL=http://localhost:8080/v1
+```
+
+### Multiple Servers / Endpoints
+
+Use the `SERVERS` env var with a JSON array. The `models` array uses the model `id` returned by the upstream `/v1/models` endpoint (e.g., `Qwen3.6-27B-FP8`, not a display name):
+
+```env
+SERVERS=[{"id":"local","name":"Local Workstation","endpoints":[{"url":"http://localhost:8080/v1","models":["Qwen3.6-27B-FP8"]},{"url":"http://localhost:8081/v1","models":["llama3"]}]}]
+```
+
+### Multi-Line Format (`.env` files)
+
+Some `.env` parsers support multi-line values. If yours does, you can format it more readably:
+
+```env
+SERVERS=[
+  {
+    "id": "local",
+    "name": "Local Workstation",
+    "endpoints": [
+      { "url": "http://localhost:8080/v1", "models": ["Qwen3.6-27B-FP8"] },
+      { "url": "http://localhost:8081/v1", "models": ["llama3"] }
+    ]
+  },
+  {
+    "id": "remote",
+    "name": "Remote GPU",
+    "endpoints": [
+      { "url": "http://remote-host:8080/v1", "models": ["codellama"] }
+    ],
+    "agentUrl": "http://remote-host:3000"
+  }
+]
+```
+
+### Docker Compose
+
+In `docker-compose.yml`, use the `environment` array or `env_file`:
+
+```yaml
+services:
+  gateway:
+    environment:
+      - SERVERS=[{"id":"local","name":"Local","endpoints":[{"url":"http://localhost:8080/v1","models":["Qwen3.6-27B-FP8"]}]}]
+```
+
+Or with an `env_file`:
+
+```yaml
+services:
+  gateway:
+    env_file:
+      - backend/.env
+```
+
+### Config Schema
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `id` | `string` | yes | Unique server identifier |
+| `name` | `string` | no | Display name (defaults to `id`) |
+| `endpoints` | `array` | yes | List of endpoint objects |
+| `endpoints[].url` | `string` | yes | Upstream LLM URL (e.g., `http://host:8080/v1`) |
+| `endpoints[].models` | `string[]` | yes | Model IDs from `/v1/models`. Empty `[]` = catch-all |
+| `agentUrl` | `string \| null` | no | Remote agent URL for system stats (Phase 3) |
+
+### Legacy Format
+
+The old single-URL format is still supported and auto-wrapped:
+
+```env
+SERVERS=[{"id":"server-a","url":"http://localhost:8080/v1","models":["llama3"],"agentUrl":null}]
 ```
 
 Frontend (`frontend/.env`):
