@@ -114,28 +114,27 @@ export interface InsightsConfig {
 }
 
 // Server config types
-export interface ServerEndpointConfig {
+export interface ModelConfig {
+  name: string;
   url: string;
-  models: string[];
 }
 
 export interface ServerConfigItem {
-  id: string;
   name: string;
-  endpoints: ServerEndpointConfig[];
+  statsUrl: string | null;
+  models: ModelConfig[];
 }
 
-export interface EndpointHealthInfo {
+export interface ModelHealthInfo {
+  name: string;
   url: string;
   healthy: boolean;
-  models: string[];
   error?: string;
 }
 
 export interface ServerHealthInfo {
-  id: string;
-  name?: string;
+  name: string;
   healthy: boolean;
-  endpoints: EndpointHealthInfo[];
+  models: ModelHealthInfo[];
   lastChecked: string;
 }

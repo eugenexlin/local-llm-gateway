@@ -94,7 +94,6 @@ interface ServerStatsData {
     bytesReceivedHuman: string;
   };
   platform: string;
-  currentModel?: string;
   timestamp: string;
 }
 
@@ -156,7 +155,7 @@ const ServerStats: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [selectedServerId, setSelectedServerId] = useState<string | null>(null);
+  const [selectedServerName, setSelectedServerName] = useState<string | null>(null);
   const [serverConfig, setServerConfig] = useState<ServerConfigItem[]>([]);
   const [healthMap, setHealthMap] = useState<Record<string, ServerHealthInfo>>({});
 
@@ -321,9 +320,9 @@ const ServerStats: React.FC = () => {
         if (response.ok) {
           const data: ServerConfigItem[] = await response.json();
           setServerConfig(data);
-          const localServer = data.find(s => s.id === "local") || data[0];
+          const localServer = data.find(s => s.name === "Local") || data[0];
           if (localServer) {
-            setSelectedServerId(localServer.id);
+            setSelectedServerName(localServer.name);
           }
         }
       } catch (error) {
@@ -343,7 +342,7 @@ const ServerStats: React.FC = () => {
           const data: ServerHealthInfo[] = await response.json();
           const map: Record<string, ServerHealthInfo> = {};
           data.forEach(h => {
-            map[h.id] = h;
+            map[h.name] = h;
           });
           setHealthMap(map);
         }
@@ -461,10 +460,10 @@ const ServerStats: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!selectedServerId) return;
+    if (!selectedServerName) return;
 
-    const selectedServer = serverConfig.find(s => s.id === selectedServerId);
-    const isLocal = selectedServer?.id === "local";
+    const selectedServer = serverConfig.find(s => s.name === selectedServerName);
+    const isLocal = selectedServer?.name === "Local";
 
     if (isLocal) {
       fetchStats();
@@ -484,7 +483,7 @@ const ServerStats: React.FC = () => {
     } else {
       setLoading(false);
     }
-  }, [fetchStats, seedHistory, selectedServerId, serverConfig]);
+  }, [fetchStats, seedHistory, selectedServerName, serverConfig]);
 
   if (error && !stats) {
     return (
@@ -919,33 +918,6 @@ const ServerStats: React.FC = () => {
                 {stats?.platform === "linux" ? "Linux" : stats?.platform}
               </Typography>
             </Box>
-            {stats?.currentModel && (
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  mt: 1,
-                }}
-              >
-                <Typography variant="body2" color="text.secondary">
-                  Model
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    fontWeight: 500,
-                    textAlign: "right",
-                    maxWidth: "60%",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                  title={stats.currentModel}
-                >
-                  {stats.currentModel}
-                </Typography>
-              </Box>
-            )}
             <Box
               sx={{
                 display: "flex",
@@ -968,8 +940,8 @@ const ServerStats: React.FC = () => {
     ];
   };
 
-  const selectedServer = serverConfig.find(s => s.id === selectedServerId);
-  const isLocal = selectedServer?.id === "local";
+  const selectedServer = serverConfig.find(s => s.name === selectedServerName);
+  const isLocal = selectedServer?.name === "Local";
 
   return (
     <>
@@ -983,8 +955,8 @@ const ServerStats: React.FC = () => {
       </Box>
       <Box sx={{ mb: 2 }}>
         <ServerFilter
-          selectedServerId={selectedServerId}
-          onServerChange={setSelectedServerId}
+          selectedServerName={selectedServerName}
+          onServerChange={setSelectedServerName}
         />
       </Box>
       {selectedServer && isLocal ? (
@@ -998,16 +970,16 @@ const ServerStats: React.FC = () => {
           <CardContent>
             <Box sx={{ textAlign: "center", py: 4 }}>
               <Typography variant="h6" sx={{ mb: 1 }}>
-                Remote Server: {selectedServer.name || selectedServer.id}
+                Remote Server: {selectedServer.name}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 System stats for remote servers will be available when Phase 3 (Agent Mode) is implemented.
               </Typography>
               <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, justifyContent: "center" }}>
-                {selectedServer.endpoints.map((ep, idx) => (
+                {selectedServer.models.map((model, idx) => (
                   <Chip
                     key={idx}
-                    label={ep.url}
+                    label={`${model.name} (${model.url})`}
                     size="small"
                     sx={{ bgcolor: "action.hover" }}
                   />
@@ -1017,94 +989,7 @@ const ServerStats: React.FC = () => {
           </CardContent>
         </Card>
       ) : null}
-      {serverConfig.length > 0 && (
-        <>
-          <Box sx={{ mt: 4, mb: 2 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              Endpoints &amp; Models
-            </Typography>
-          </Box>
-          <Grid container spacing={2}>
-            {serverConfig.map((server) => {
-              const health = healthMap[server.id];
-              return (
-                <Grid size={{ xs: 12 }} key={server.id}>
-                  <Card sx={{ bgcolor: "background.paper", boxShadow: "0 2px 4px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.05)" }}>
-                    <CardContent>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-                        <Box
-                          sx={{
-                            width: 10,
-                            height: 10,
-                            borderRadius: "50%",
-                            bgcolor: health?.healthy ? "#4caf50" : "#f44336",
-                          }}
-                        />
-                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                          {server.name || server.id}
-                        </Typography>
-                        {server.id === "local" && (
-                          <Chip label="Local" size="small" sx={{ fontSize: "0.65rem", height: 20 }} />
-                        )}
-                      </Box>
-                      {server.endpoints.map((ep, epIdx) => {
-                        const epHealth = health?.endpoints[epIdx];
-                        return (
-                          <Box
-                            key={epIdx}
-                            sx={{
-                              p: 2,
-                              mb: epIdx < server.endpoints.length - 1 ? 1 : 0,
-                              bgcolor: "action.hover",
-                              borderRadius: 1,
-                            }}
-                          >
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                              <Box
-                                sx={{
-                                  width: 6,
-                                  height: 6,
-                                  borderRadius: "50%",
-                                  bgcolor: epHealth?.healthy ? "#4caf50" : "#f44336",
-                                }}
-                              />
-                              <Typography variant="body2" sx={{ fontFamily: "monospace", fontWeight: 500 }}>
-                                {ep.url}
-                              </Typography>
-                            </Box>
-                            {ep.models.length > 0 ? (
-                              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mt: 1 }}>
-                                {ep.models.map((model, mIdx) => (
-                                  <Chip
-                                    key={mIdx}
-                                    label={model}
-                                    size="small"
-                                    variant="outlined"
-                                    sx={{ fontSize: "0.7rem", height: 22 }}
-                                  />
-                                ))}
-                              </Box>
-                            ) : (
-                              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
-                                Catch-all endpoint
-                              </Typography>
-                            )}
-                            {epHealth?.error && (
-                              <Typography variant="caption" color="error" sx={{ mt: 1, display: "block" }}>
-                                {epHealth.error}
-                              </Typography>
-                            )}
-                          </Box>
-                        );
-                      })}
-                    </CardContent>
-                  </Card>
-                </Grid>
-              );
-            })}
-          </Grid>
-        </>
-      )}
+      
     </>
   );
 };

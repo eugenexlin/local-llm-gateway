@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
-import config from '../config';
 import database from '../database';
+import { selectModel } from '../config';
 import { proxyRequestToLlama } from '../utils/proxy-util';
 import { requireAuth, SessionRequest } from '../middleware/auth';
 
@@ -31,14 +31,23 @@ router.post('/completions', requireAuth, (req: SessionRequest, res: Response) =>
       return res.status(400).json({ error: 'API key is not active' });
     }
 
-    const fullUrl = `${config.llamaCppUrl}/chat/completions`;
+    const modelName = (req.body as any).model || '';
+    const match = selectModel(modelName);
+    if (!match) {
+      return res.status(404).json({
+        error: 'Model not found',
+        message: `No server configured for model "${modelName}"`,
+      });
+    }
+
+    const fullUrl = `${match.model.url}/chat/completions`;
 
     if (process.env.SUPPRESS_CONSOLE !== 'true') {
-      console.log(`[KEY:${key_id}] ${req.method} ${fullUrl}`);
+      console.log(`[SERVER:${match.server.name}] [KEY:${key_id}] ${req.method} ${fullUrl}`);
     }
 
     delete req.body.key_id
-    proxyRequestToLlama(fullUrl, req.body, key_id, req.method, res, req.headers);
+    proxyRequestToLlama(fullUrl, req.body, key_id, req.method, res, req.headers, modelName);
   } catch (error) {
     console.error('Chat completions error:', error);
     if (!res.headersSent) {

@@ -2,22 +2,20 @@ import "dotenv/config";
 import * as crypto from "crypto";
 import { Request } from "express";
 
-export interface ServerEndpoint {
+export interface ModelConfig {
+  name: string;
   url: string;
-  models: string[];
 }
 
 export interface ServerConfig {
-  id: string;
-  name?: string;
-  endpoints: ServerEndpoint[];
-  agentUrl?: string | null;
+  name: string;
+  statsUrl?: string | null;
+  models: ModelConfig[];
 }
 
 interface Config {
   port: number;
   frontendBaseUrl: string;
-  llamaCppUrl: string;
   databasePath: string;
   secretKey: string;
   sessionExpiryHours: number;
@@ -41,30 +39,45 @@ if (serversEnv) {
     const parsed = JSON.parse(serversEnv);
     servers = parsed.map((s: any) => {
       if (s.url) {
+        // Legacy format: { id, url, models?, agentUrl? }
         console.log(`[CONFIG] Auto-wrapping legacy server format for "${s.id}"`);
         return {
-          id: s.id,
           name: s.name || s.id,
-          endpoints: [{ url: s.url, models: s.models || [] }],
-          agentUrl: s.agentUrl || null,
+          statsUrl: s.agentUrl || null,
+          models: (s.models || []).map((m: string) => ({ name: m, url: s.url })),
         };
       }
-      return s;
+      // New format: { name, statsUrl?, models: [{ name, url }] }
+      return {
+        name: s.name,
+        statsUrl: s.statsUrl || null,
+        models: s.models || [],
+      };
     });
   } catch {
-    console.error('Failed to parse SERVERS env var, falling back to LLAMA_CPP_URL');
+    console.error('Failed to parse SERVERS env var, falling back to default');
     servers = [];
   }
 }
 
 if (servers.length === 0) {
-  const llamaCppUrl = process.env.LLAMA_CPP_URL || "http://localhost:8080/v1";
   servers = [{
-    id: 'local',
     name: 'Local',
-    endpoints: [{ url: llamaCppUrl, models: [] }],
-    agentUrl: null,
+    statsUrl: null,
+    models: [{ name: 'default', url: 'http://localhost:8080/v1' }],
   }];
+}
+
+// Validate model uniqueness across all servers
+const modelSet = new Set<string>();
+for (const server of servers) {
+  for (const model of server.models) {
+    if (modelSet.has(model.name)) {
+      console.error(`[CONFIG ERROR] Duplicate model "${model.name}" found in server "${server.name}". Each model must be unique.`);
+      process.exit(1);
+    }
+    modelSet.add(model.name);
+  }
 }
 
 const agentMode = process.env.AGENT_MODE === 'true';
@@ -72,7 +85,6 @@ const agentMode = process.env.AGENT_MODE === 'true';
 const config: Config = {
   port: parseInt(process.env.PORT || "3000", 10),
   frontendBaseUrl: process.env.FRONTEND_BASE_URL || "http://localhost:5173",
-  llamaCppUrl: process.env.LLAMA_CPP_URL || "http://localhost:8080/v1",
   databasePath: process.env.DATABASE_PATH || "backend/data/database.sqlite",
   secretKey: process.env.SESSION_SECRET || generateSecureSecret(),
   sessionExpiryHours: parseInt(process.env.SESSION_EXPIRY_HOURS || "24", 10),
@@ -89,40 +101,21 @@ const config: Config = {
 };
 
 /**
- * Select the appropriate server and endpoint for a given model name.
- * First checks for explicit model match, then falls back to catch-all endpoint.
+ * Select the appropriate server and model config for a given model name.
  */
-export const selectServer = (modelName: string): { server: ServerConfig; endpoint: ServerEndpoint } | null => {
+export const selectModel = (modelName: string): { server: ServerConfig; model: ModelConfig } | null => {
   if (!modelName) {
-    for (const server of config.servers) {
-      for (const endpoint of server.endpoints) {
-        if (endpoint.models.length === 0) {
-          return { server, endpoint };
-        }
-      }
-    }
-    if (config.servers[0]) {
-      const server = config.servers[0];
-      const endpoint = server.endpoints[0];
-      if (endpoint) {
-        return { server, endpoint };
-      }
+    // No model specified, return first available model from first server
+    if (config.servers[0]?.models[0]) {
+      return { server: config.servers[0], model: config.servers[0].models[0] };
     }
     return null;
   }
 
   for (const server of config.servers) {
-    for (const endpoint of server.endpoints) {
-      if (endpoint.models.length > 0 && endpoint.models.includes(modelName)) {
-        return { server, endpoint };
-      }
-    }
-  }
-
-  for (const server of config.servers) {
-    for (const endpoint of server.endpoints) {
-      if (endpoint.models.length === 0) {
-        return { server, endpoint };
+    for (const model of server.models) {
+      if (model.name === modelName) {
+        return { server, model };
       }
     }
   }
@@ -138,18 +131,16 @@ export const getServers = (): ServerConfig[] => {
 };
 
 /**
- * Get all distinct models across all servers and endpoints.
+ * Get all distinct model names across all servers.
  */
 export const getAllModels = (): string[] => {
-  const models = new Set<string>();
+  const models: string[] = [];
   for (const server of config.servers) {
-    for (const endpoint of server.endpoints) {
-      for (const model of endpoint.models) {
-        models.add(model);
-      }
+    for (const model of server.models) {
+      models.push(model.name);
     }
   }
-  return Array.from(models);
+  return models;
 };
 
 /**

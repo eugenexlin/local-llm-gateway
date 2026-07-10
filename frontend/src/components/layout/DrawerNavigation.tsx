@@ -13,6 +13,7 @@ import {
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import KeyIcon from "@mui/icons-material/Key";
 import MonitorHeartIcon from "@mui/icons-material/MonitorHeart";
+import PolylineIcon from "@mui/icons-material/Polyline";
 import ChatIcon from "@mui/icons-material/Chat";
 import MenuIcon from "@mui/icons-material/Menu";
 import LogoutIcon from "@mui/icons-material/Logout";
@@ -107,6 +108,7 @@ const DrawerNavigation: React.FC<DrawerNavigationProps> = ({
   const menuItems = [
     { text: "Dashboard", icon: <DashboardIcon />, path: "/dashboard" },
     { text: "Server Stats", icon: <MonitorHeartIcon />, path: "/server-stats" },
+    { text: "Models", icon: <PolylineIcon />, path: "/models" },
     { text: "API Keys", icon: <KeyIcon />, path: "/api-keys" },
     { text: "Chat", icon: <ChatIcon />, path: "/chat" },
   ];

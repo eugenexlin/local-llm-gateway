@@ -38,9 +38,9 @@ router.get("/health", (req: Request, res: Response) => {
 
 router.get("/config", (req: Request, res: Response) => {
   const servers = getServers().map(s => ({
-    id: s.id,
-    name: s.name || s.id,
-    endpoints: s.endpoints,
+    name: s.name,
+    statsUrl: s.statsUrl || null,
+    models: s.models.map(m => ({ name: m.name, url: m.url })),
   }));
   res.json(servers);
 });

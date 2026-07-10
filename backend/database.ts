@@ -45,7 +45,6 @@ export interface UsageLog {
   ttft_ms?: number | null;
   stream_duration_ms?: number | null;
   model?: string;
-  server_id?: string;
 }
 
 export interface AggregatedUsage {
@@ -192,8 +191,8 @@ function createSchema(): void {
   try { db!.exec(`ALTER TABLE usage_logs ADD COLUMN ttft_ms INTEGER DEFAULT NULL`); } catch {}
   try { db!.exec(`ALTER TABLE usage_logs ADD COLUMN stream_duration_ms INTEGER DEFAULT NULL`); } catch {}
   try { db!.exec(`ALTER TABLE usage_logs ADD COLUMN model TEXT DEFAULT ''`); } catch {}
-  try { db!.exec(`ALTER TABLE usage_logs ADD COLUMN server_id TEXT DEFAULT ''`); } catch {}
-  try { db!.exec(`CREATE INDEX IF NOT EXISTS idx_usage_server_id ON usage_logs(server_id)`); } catch {}
+  try { db!.exec(`ALTER TABLE usage_logs DROP COLUMN server_id`); } catch {}
+  try { db!.exec(`DROP INDEX IF EXISTS idx_usage_server_id`); } catch {}
 
   db!.exec(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
   db!.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower ON users(LOWER(email))`);
@@ -382,7 +381,6 @@ export function logUsage({
   ttft_ms = null,
   stream_duration_ms = null,
   model = '',
-  server_id = '',
 }: {
   api_key_id: string;
   prompt_tokens: number;
@@ -396,10 +394,9 @@ export function logUsage({
   ttft_ms?: number | null;
   stream_duration_ms?: number | null;
   model?: string;
-  server_id?: string;
 }): void {
   db!.prepare(
-    'INSERT INTO usage_logs (api_key_id, prompt_tokens, completion_tokens, total_tokens, duration_ms, timestamp, idempotency_key, cache_creation_input_tokens, cache_read_input_tokens, ttft_ms, stream_duration_ms, model, server_id) VALUES (:api_key_id, :prompt_tokens, :completion_tokens, :total_tokens, :duration_ms, :timestamp, :idempotency_key, :cache_creation_input_tokens, :cache_read_input_tokens, :ttft_ms, :stream_duration_ms, :model, :server_id)'
+    'INSERT INTO usage_logs (api_key_id, prompt_tokens, completion_tokens, total_tokens, duration_ms, timestamp, idempotency_key, cache_creation_input_tokens, cache_read_input_tokens, ttft_ms, stream_duration_ms, model) VALUES (:api_key_id, :prompt_tokens, :completion_tokens, :total_tokens, :duration_ms, :timestamp, :idempotency_key, :cache_creation_input_tokens, :cache_read_input_tokens, :ttft_ms, :stream_duration_ms, :model)'
   ).run({
     api_key_id,
     prompt_tokens,
@@ -413,7 +410,6 @@ export function logUsage({
     ttft_ms: ttft_ms || null,
     stream_duration_ms: stream_duration_ms || null,
     model,
-    server_id,
   });
 }
 
@@ -430,18 +426,10 @@ export function getDistinctModels(): string[] {
   return rows.map(r => r.model);
 }
 
-export function getDistinctServers(): string[] {
-  const rows = db!.prepare(
-    `SELECT DISTINCT server_id FROM usage_logs WHERE server_id != '' ORDER BY server_id`
-  ).all() as Array<{ server_id: string }>;
-  return rows.map(r => r.server_id);
-}
-
-export function getUsageLogs({ limit = 100, offset = 0, model, serverId }: {
+export function getUsageLogs({ limit = 100, offset = 0, model }: {
   limit?: number;
   offset?: number;
   model?: string;
-  serverId?: string;
 }): UsageLog[] {
   const conditions: string[] = [];
   const params: (string | number)[] = [];
@@ -450,15 +438,11 @@ export function getUsageLogs({ limit = 100, offset = 0, model, serverId }: {
     conditions.push('ul.model = ?');
     params.push(model);
   }
-  if (serverId) {
-    conditions.push('ul.server_id = ?');
-    params.push(serverId);
-  }
 
   const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
   return db!.prepare(
-    `SELECT ul.id, ul.api_key_id, ul.prompt_tokens, ul.completion_tokens, ul.total_tokens, ul.duration_ms, ul.timestamp, ak.name as api_key_name, ul.idempotency_key, ul.cache_creation_input_tokens, ul.cache_read_input_tokens, ul.ttft_ms, ul.stream_duration_ms, ul.model, ul.server_id
+    `SELECT ul.id, ul.api_key_id, ul.prompt_tokens, ul.completion_tokens, ul.total_tokens, ul.duration_ms, ul.timestamp, ak.name as api_key_name, ul.idempotency_key, ul.cache_creation_input_tokens, ul.cache_read_input_tokens, ul.ttft_ms, ul.stream_duration_ms, ul.model
      FROM usage_logs ul 
      JOIN api_keys ak ON ul.api_key_id = ak.id 
      ${whereClause}
@@ -467,7 +451,7 @@ export function getUsageLogs({ limit = 100, offset = 0, model, serverId }: {
   ).all(...params, limit, offset) as any;
 }
 
-export function getAggregatedUsage(period: string = '7d', model?: string, serverId?: string): AggregatedUsage {
+export function getAggregatedUsage(period: string = '7d', model?: string): AggregatedUsage {
   const days = parseInt(period);
   const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
@@ -477,10 +461,6 @@ export function getAggregatedUsage(period: string = '7d', model?: string, server
   if (model) {
     conditions.push('model = ?');
     params.push(model);
-  }
-  if (serverId) {
-    conditions.push('server_id = ?');
-    params.push(serverId);
   }
 
   const filterClause = conditions.length ? ` AND ${conditions.join(' AND ')}` : '';
@@ -512,17 +492,13 @@ export function getAggregatedUsage(period: string = '7d', model?: string, server
   };
 }
 
-export function getUsageSummary(model?: string, serverId?: string): UsageSummary {
+export function getUsageSummary(model?: string): UsageSummary {
   const conditions: string[] = [];
   const params: (string | number)[] = [];
 
   if (model) {
     conditions.push('model = ?');
     params.push(model);
-  }
-  if (serverId) {
-    conditions.push('server_id = ?');
-    params.push(serverId);
   }
 
   const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -577,17 +553,13 @@ export function getApiKeyStats(apiKeyId: string): ApiKeyStats | null {
   };
 }
 
-export function getUsageTrends(startDate: string, endDate: string, model?: string, serverId?: string): TrendsDataPoint[] {
+export function getUsageTrends(startDate: string, endDate: string, model?: string): TrendsDataPoint[] {
   const conditions: string[] = [];
   const params: (string | number)[] = [startDate, endDate];
 
   if (model) {
     conditions.push('model = ?');
     params.push(model);
-  }
-  if (serverId) {
-    conditions.push('server_id = ?');
-    params.push(serverId);
   }
 
   const filterClause = conditions.length ? ` AND ${conditions.join(' AND ')}` : '';
@@ -628,7 +600,6 @@ function _buildAggregatedMetrics(
   apiKeyId?: string,
   dateRange?: [string, string],
   model?: string,
-  serverId?: string,
 ): _AggregatedMetricsResult {
   let query = `
     SELECT 
@@ -680,11 +651,6 @@ function _buildAggregatedMetrics(
   if (model) {
     conditions.push('model = ?');
     params.push(model);
-  }
-
-  if (serverId) {
-    conditions.push('server_id = ?');
-    params.push(serverId);
   }
 
   if (conditions.length > 0) {
@@ -757,17 +723,17 @@ function _buildMetricsFromResult(
   };
 }
 
-export function getLifetimeMetrics(userId?: string | string[], apiKeyId?: string, model?: string, serverId?: string): LifetimeMetrics {
-  const result = _buildAggregatedMetrics(userId, apiKeyId, undefined, model, serverId);
+export function getLifetimeMetrics(userId?: string | string[], apiKeyId?: string, model?: string): LifetimeMetrics {
+  const result = _buildAggregatedMetrics(userId, apiKeyId, undefined, model);
   return _buildMetricsFromResult(result);
 }
 
-export function getRangeMetrics(startDate: string, endDate: string, userId?: string | string[], apiKeyId?: string, model?: string, serverId?: string): RangeMetrics {
+export function getRangeMetrics(startDate: string, endDate: string, userId?: string | string[], apiKeyId?: string, model?: string): RangeMetrics {
   const start = new Date(startDate);
   const end = new Date(endDate);
   const durationSeconds = (end.getTime() - start.getTime()) / 1000 + 1;
 
-  const result = _buildAggregatedMetrics(userId, apiKeyId, [startDate, endDate], model, serverId);
+  const result = _buildAggregatedMetrics(userId, apiKeyId, [startDate, endDate], model);
   return _buildMetricsFromResult(result, { duration_seconds: durationSeconds }) as RangeMetrics;
 }
 
@@ -779,9 +745,8 @@ export function getProgressiveData(
   userId?: string,
   apiKeyId?: string,
   model?: string,
-  serverId?: string,
 ): Promise<ProgressiveDataPoint[]> {
-  return getProgressiveDataWithInterpolation(startDate, endDate, granularity, metric, 0, 16, userId, apiKeyId, model, serverId);
+  return getProgressiveDataWithInterpolation(startDate, endDate, granularity, metric, 0, 16, userId, apiKeyId, model);
 }
 
 export function getProgressiveDataWithInterpolation(
@@ -794,7 +759,6 @@ export function getProgressiveDataWithInterpolation(
   userId?: string,
   apiKeyId?: string,
   model?: string,
-  serverId?: string,
 ): Promise<ProgressiveDataPoint[]> {
   return new Promise((resolve) => {
     const start = new Date(startDate);
@@ -882,11 +846,6 @@ export function getProgressiveDataWithInterpolation(
         queryParams.push(model);
       }
 
-      if (serverId) {
-        whereClause += ' AND server_id = ?';
-        queryParams.push(serverId);
-      }
-
       query += joinClause;
       query += whereClause;
       
@@ -964,7 +923,6 @@ export function getInsightsData(
   apiKeyId?: string,
   limit?: number,
   model?: string,
-  serverId?: string,
 ): any[] {
   let query = `
      SELECT 
@@ -1016,11 +974,6 @@ export function getInsightsData(
     queryParams.push(model);
   }
 
-  if (serverId) {
-    whereClause += ' AND ul.server_id = ?';
-    queryParams.push(serverId);
-  }
-
   query += ` ${whereClause}`;
 
   query += ' ORDER BY ul.timestamp DESC';
@@ -1039,7 +992,6 @@ export function countInsightsData(
   userId?: string,
   apiKeyId?: string,
   model?: string,
-  serverId?: string,
 ): number {
   let query = `
     SELECT COUNT(*) as count
@@ -1064,11 +1016,6 @@ export function countInsightsData(
     queryParams.push(model);
   }
 
-  if (serverId) {
-    whereClause += ' AND ul.server_id = ?';
-    queryParams.push(serverId);
-  }
-
   query += ` ${whereClause}`;
 
   const row = db!.prepare(query).all(queryParams) as any[];
@@ -1088,7 +1035,6 @@ export function getInsightsRange(
   userId?: string,
   apiKeyId?: string,
   model?: string,
-  serverId?: string,
 ): { minX: number; maxX: number; minY: number; maxY: number } | null {
   const xExpr = getHeatMapColumnExpr(xAxisType);
   const yExpr = getHeatMapColumnExpr(yAxisType);
@@ -1116,11 +1062,6 @@ export function getInsightsRange(
   if (model) {
     whereClause += ' AND ul.model = ?';
     queryParams.push(model);
-  }
-
-  if (serverId) {
-    whereClause += ' AND ul.server_id = ?';
-    queryParams.push(serverId);
   }
 
   query += ` ${whereClause}`;
@@ -1165,7 +1106,6 @@ export function getHeatMapData(
   gridWidth: number = 50,
   gridHeight: number = 50,
   model?: string,
-  serverId?: string,
 ): any[] {
   const xExpr = getHeatMapColumnExpr(xAxisType);
   const yExpr = getHeatMapColumnExpr(yAxisType);
@@ -1193,11 +1133,6 @@ export function getHeatMapData(
   if (model) {
     whereClause += ' AND ul.model = ?';
     queryParams.push(model);
-  }
-
-  if (serverId) {
-    whereClause += ' AND ul.server_id = ?';
-    queryParams.push(serverId);
   }
 
   query += ` ${whereClause}`;

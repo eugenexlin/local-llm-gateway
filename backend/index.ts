@@ -220,7 +220,7 @@ try {
     if (config.agentMode) {
       console.log(`Agent running on port ${PORT}`);
     } else {
-      console.log(`LLM Gateway Proxy running on port ${PORT} | Servers: ${config.servers.map(s => s.id).join(', ')}`);
+      console.log(`LLM Gateway Proxy running on port ${PORT} | Servers: ${config.servers.map(s => s.name).join(', ')}`);
     }
   });
 } catch (err) {

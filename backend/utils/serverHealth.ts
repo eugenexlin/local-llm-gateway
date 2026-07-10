@@ -1,33 +1,32 @@
-import config, { ServerConfig, ServerEndpoint } from '../config';
+import config, { ServerConfig, ModelConfig } from '../config';
 
-export interface EndpointHealth {
+export interface ModelHealth {
+  name: string;
   url: string;
   healthy: boolean;
-  models: string[];
   error?: string;
 }
 
 export interface ServerHealth {
-  id: string;
-  name?: string;
+  name: string;
   healthy: boolean;
-  endpoints: EndpointHealth[];
+  models: ModelHealth[];
   lastChecked: string;
 }
 
 const serverHealthMap = new Map<string, ServerHealth>();
 
 export async function checkServerHealth(server: ServerConfig): Promise<ServerHealth> {
-  const endpoints: EndpointHealth[] = await Promise.all(
-    server.endpoints.map(async (ep) => {
-      const health: EndpointHealth = {
-        url: ep.url,
+  const models: ModelHealth[] = await Promise.all(
+    server.models.map(async (model) => {
+      const health: ModelHealth = {
+        name: model.name,
+        url: model.url,
         healthy: false,
-        models: ep.models,
       };
 
       try {
-        const url = new URL(ep.url);
+        const url = new URL(model.url);
         const modelUrl = `${url.origin}${url.pathname.replace(/\/$/, '')}/models`;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -36,9 +35,7 @@ export async function checkServerHealth(server: ServerConfig): Promise<ServerHea
         clearTimeout(timeoutId);
 
         if (response.ok) {
-          const parsed: any = await response.json();
           health.healthy = true;
-          health.models = parsed.data?.map((m: any) => m.id) || [];
         } else {
           health.error = `HTTP ${response.status}`;
         }
@@ -51,14 +48,13 @@ export async function checkServerHealth(server: ServerConfig): Promise<ServerHea
   );
 
   const health: ServerHealth = {
-    id: server.id,
-    name: server.name || server.id,
-    healthy: endpoints.every(ep => ep.healthy),
-    endpoints,
+    name: server.name,
+    healthy: models.every(m => m.healthy),
+    models,
     lastChecked: new Date().toISOString(),
   };
 
-  serverHealthMap.set(server.id, health);
+  serverHealthMap.set(server.name, health);
   return health;
 }
 
@@ -70,5 +66,5 @@ export function startServerHealthChecks(): void {
   config.servers.forEach(s => checkServerHealth(s));
   setInterval(() => {
     config.servers.forEach(s => checkServerHealth(s));
-  }, 30000);
+  }, 60000);
 }

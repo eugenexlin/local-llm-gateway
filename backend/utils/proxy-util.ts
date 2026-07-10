@@ -30,7 +30,6 @@ export function proxyRequestToLlama(
   res: Response,
   reqHeaders: any,
   model: string = '',
-  serverId: string = '',
 ): void {
   if (!body.stream_options) {
     body.stream_options = {};
@@ -165,7 +164,6 @@ export function proxyRequestToLlama(
                 ttft_ms: ttftMs,
                 stream_duration_ms: streamDurationMs,
                 model: model,
-                server_id: serverId,
               });
 
               database.incrementApiKeyStats(apiKeyId);
@@ -208,7 +206,6 @@ export function proxyRequestToLlama(
                 timestamp: new Date().toISOString(),
                 idempotency_key: metrics.idempotencyKey,
                 model: model,
-                server_id: serverId,
               });
           }
           metrics.hasLogged = true;

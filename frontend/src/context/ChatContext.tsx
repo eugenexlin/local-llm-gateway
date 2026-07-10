@@ -20,6 +20,7 @@ export interface ChatSettings {
   displayMode: "markdown" | "monospace";
   thinkingDisplayMode: "markdown" | "monospace";
   systemPrompt: string;
+  selectedModel: string;
 }
 
 export interface ChatMessageItem {
@@ -68,6 +69,7 @@ interface ChatContextType {
   setIncludeReasoningInContext: (b: boolean) => void;
   chatSettings: ChatSettings;
   setChatSettings: (settings: Partial<ChatSettings>) => void;
+  availableModels: string[];
   sendMessage: (content: string) => void;
   revertToMessage: (index: number) => void;
   forkConversation: (index: number) => string;
@@ -158,6 +160,26 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       }
     });
 
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const response = await fetch("/api/server-stats/config", {
+          credentials: "include",
+        });
+        if (response.ok) {
+          const data: Array<{ name: string; models: Array<{ name: string }> }> = await response.json();
+          const models = data.flatMap(s => s.models.map(m => m.name));
+          setAvailableModels(models);
+        }
+      } catch (error) {
+        console.error("Error fetching models:", error);
+      }
+    };
+    fetchModels();
+  }, []);
+
   const [chatSettings, setChatSettingsState] = useState<ChatSettings>(() => {
     try {
       if (!userId) throw new Error("No user");
@@ -170,6 +192,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           displayMode: parsed.displayMode ?? "markdown",
           thinkingDisplayMode: parsed.thinkingDisplayMode ?? "monospace",
           systemPrompt: parsed.systemPrompt ?? DEFAULT_SYSTEM_PROMPT,
+          selectedModel: parsed.selectedModel ?? "default",
         };
       }
     } catch {
@@ -181,6 +204,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       displayMode: "markdown",
       thinkingDisplayMode: "monospace",
       systemPrompt: DEFAULT_SYSTEM_PROMPT,
+      selectedModel: "default",
     };
   });
 
@@ -502,7 +526,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           credentials: "include",
           body: JSON.stringify({
             key_id: selectedKeyId,
-            model: "default",
+            model: chatSettings.selectedModel,
             messages: messagesToSend,
             stream: true,
             max_tokens: 4096,
@@ -809,6 +833,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         setIncludeReasoningInContext,
         chatSettings,
         setChatSettings,
+        availableModels,
         inputContent,
         setInputContent,
         revertToMessage,

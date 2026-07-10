@@ -59,13 +59,13 @@ GOOGLE_CLIENT_SECRET=your-client-secret
 
 Configure upstream LLM servers via the `SERVERS` environment variable. A single server can have multiple endpoints (e.g., different GPU instances on different ports), but shares one set of system stats.
 
-### Single Server (Legacy)
-
-For a single LLM endpoint, use `LLAMA_CPP_URL` (simplest):
+### Simple Setup (Single llama.cpp Server)
 
 ```env
-LLAMA_CPP_URL=http://localhost:8080/v1
+SERVERS=[{"id":"local","name":"Local","endpoints":[{"url":"http://localhost:8080/v1","models":[]}]}]
 ```
+
+The empty `models` array acts as a catch-all, routing any model to this endpoint.
 
 ### Multiple Servers / Endpoints
 
@@ -82,20 +82,19 @@ Some `.env` parsers support multi-line values. If yours does, you can format it 
 ```env
 SERVERS=[
   {
-    "id": "local",
     "name": "Local Workstation",
-    "endpoints": [
-      { "url": "http://localhost:8080/v1", "models": ["Qwen3.6-27B-FP8"] },
-      { "url": "http://localhost:8081/v1", "models": ["llama3"] }
+    "statsUrl": null,
+    "models": [
+      { "name": "Qwen3.6-27B-FP8", "url": "http://localhost:8080/v1" },
+      { "name": "llama3", "url": "http://localhost:8081/v1" }
     ]
   },
   {
-    "id": "remote",
     "name": "Remote GPU",
-    "endpoints": [
-      { "url": "http://remote-host:8080/v1", "models": ["codellama"] }
-    ],
-    "agentUrl": "http://remote-host:3000"
+    "statsUrl": "http://remote-host:3000",
+    "models": [
+      { "name": "codellama", "url": "http://remote-host:8080/v1" }
+    ]
   }
 ]
 ```
@@ -108,7 +107,7 @@ In `docker-compose.yml`, use the `environment` array or `env_file`:
 services:
   gateway:
     environment:
-      - SERVERS=[{"id":"local","name":"Local","endpoints":[{"url":"http://localhost:8080/v1","models":["Qwen3.6-27B-FP8"]}]}]
+      - SERVERS=[{"name":"Local","statsUrl":null,"models":[{"name":"Qwen3.6-27B-FP8","url":"http://localhost:8080/v1"}]}]
 ```
 
 Or with an `env_file`:
@@ -124,12 +123,11 @@ services:
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `id` | `string` | yes | Unique server identifier |
-| `name` | `string` | no | Display name (defaults to `id`) |
-| `endpoints` | `array` | yes | List of endpoint objects |
-| `endpoints[].url` | `string` | yes | Upstream LLM URL (e.g., `http://host:8080/v1`) |
-| `endpoints[].models` | `string[]` | yes | Model IDs from `/v1/models`. Empty `[]` = catch-all |
-| `agentUrl` | `string \| null` | no | Remote agent URL for system stats (Phase 3) |
+| `name` | `string` | yes | Server name (unique identifier) |
+| `statsUrl` | `string \| null` | no | Remote agent URL for system stats (Phase 3). `null` for local |
+| `models` | `array` | yes | List of model objects |
+| `models[].name` | `string` | yes | Model name (must be unique across all servers) |
+| `models[].url` | `string` | yes | Upstream LLM URL (e.g., `http://host:8080/v1`) |
 
 ### Legacy Format
 

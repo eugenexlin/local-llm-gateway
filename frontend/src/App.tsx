@@ -12,6 +12,7 @@ import { ThemeContextProvider } from "./context/ThemeContext";
 import Dashboard from "./pages/Dashboard";
 import APIKeys from "./pages/APIKeys";
 import ServerStats from "./pages/ServerStats";
+import Models from "./pages/Models";
 import ChatPage from "./pages/ChatPage";
 import Login from "./pages/Login";
 import AuthCallback from "./pages/AuthCallback";
@@ -125,6 +126,7 @@ function AppContent() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/api-keys" element={<APIKeys />} />
           <Route path="/server-stats" element={<ServerStats />} />
+          <Route path="/models" element={<Models />} />
           <Route path="/chat" element={<ChatPage />} />
         </Route>
         <Route path="*" element={<NotFoundRoute />} />

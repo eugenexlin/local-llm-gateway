@@ -27,12 +27,10 @@ router.get("/usage", (req: Request, res: Response) => {
     const limit = req.query.limit as string | string[] | undefined;
     const offset = req.query.offset as string | string[] | undefined;
     const model = getStringQueryParam(req.query.model as string | string[] | undefined);
-    const serverId = getStringQueryParam(req.query.serverId as string | string[] | undefined);
     const logs = database.getUsageLogs({
       limit: getNumberQueryParam(limit) || 100,
       offset: getNumberQueryParam(offset) || 0,
       model,
-      serverId,
     });
     res.json(logs);
   } catch (error) {
@@ -46,11 +44,9 @@ router.get("/usage/aggregated", (req: Request, res: Response) => {
   try {
     const period = req.query.period as string | string[] | undefined;
     const model = getStringQueryParam(req.query.model as string | string[] | undefined);
-    const serverId = getStringQueryParam(req.query.serverId as string | string[] | undefined);
     const aggregated = database.getAggregatedUsage(
       getStringQueryParam(period) || "7d",
       model,
-      serverId,
     );
     res.json(aggregated);
   } catch (error) {
@@ -63,8 +59,7 @@ router.get("/usage/aggregated", (req: Request, res: Response) => {
 router.get("/usage/summary", (req: Request, res: Response) => {
   try {
     const model = getStringQueryParam(req.query.model as string | string[] | undefined);
-    const serverId = getStringQueryParam(req.query.serverId as string | string[] | undefined);
-    const summary = database.getUsageSummary(model, serverId);
+    const summary = database.getUsageSummary(model);
     res.json(summary);
   } catch (error) {
     console.error("Error getting usage summary:", error);
@@ -78,13 +73,12 @@ router.get("/trends", (req: Request, res: Response) => {
     const start = req.query.start as string | undefined;
     const end = req.query.end as string | undefined;
     const model = getStringQueryParam(req.query.model as string | string[] | undefined);
-    const serverId = getStringQueryParam(req.query.serverId as string | string[] | undefined);
 
     if (!start || !end) {
       return res.status(400).json({ error: "start and end dates required" });
     }
 
-    const trends = database.getUsageTrends(start, end, model, serverId);
+    const trends = database.getUsageTrends(start, end, model);
     res.json(trends);
   } catch (error) {
     console.error("Error getting usage trends:", error);
@@ -98,9 +92,8 @@ router.get("/lifetime", (req: Request, res: Response) => {
     const userId = req.query.userId as string | string[] | undefined;
     const apiKeyId = req.query.apiKeyId as string | undefined;
     const model = getStringQueryParam(req.query.model as string | string[] | undefined);
-    const serverId = getStringQueryParam(req.query.serverId as string | string[] | undefined);
 
-    const metrics = database.getLifetimeMetrics(userId, apiKeyId, model, serverId);
+    const metrics = database.getLifetimeMetrics(userId, apiKeyId, model);
     res.json(metrics);
   } catch (error) {
     console.error("Error getting lifetime metrics:", error);
@@ -116,13 +109,12 @@ router.get("/range", (req: Request, res: Response) => {
     const userId = req.query.userId as string | string[] | undefined;
     const apiKeyId = req.query.apiKeyId as string | undefined;
     const model = getStringQueryParam(req.query.model as string | string[] | undefined);
-    const serverId = getStringQueryParam(req.query.serverId as string | string[] | undefined);
 
     if (!start || !end) {
       return res.status(400).json({ error: "start and end dates required" });
     }
 
-    const metrics = database.getRangeMetrics(start, end, userId, apiKeyId, model, serverId);
+    const metrics = database.getRangeMetrics(start, end, userId, apiKeyId, model);
     res.json(metrics);
   } catch (error) {
     console.error("Error getting range metrics:", error);
@@ -208,7 +200,6 @@ router.get("/progressive", async (req: Request, res: Response) => {
     const userId = req.query.userId as string | undefined;
     const apiKeyId = req.query.apiKeyId as string | undefined;
     const model = getStringQueryParam(req.query.model as string | string[] | undefined);
-    const serverId = getStringQueryParam(req.query.serverId as string | string[] | undefined);
 
     if (!start || !end) {
       return res.status(400).json({ error: "start and end dates required" });
@@ -271,7 +262,6 @@ router.get("/progressive", async (req: Request, res: Response) => {
       userId,
       apiKeyId,
       model,
-      serverId,
     );
 
     res.setHeader("Content-Type", "application/json");
@@ -335,7 +325,7 @@ router.get("/timestamps", async (req: Request, res: Response) => {
 // Get insights data for scatter/heat map
 router.post("/insights", async (req: Request, res: Response) => {
   try {
-    const { startDate, endDate, userId, apiKeyId, limit = 10000, xAxisType, yAxisType, model, serverId } = req.body;
+    const { startDate, endDate, userId, apiKeyId, limit = 10000, xAxisType, yAxisType, model } = req.body;
 
     if (!startDate || !endDate) {
       return res.status(400).json({ error: "start and end dates required" });
@@ -348,7 +338,6 @@ router.post("/insights", async (req: Request, res: Response) => {
       userId,
       apiKeyId,
       model,
-      serverId,
     );
 
     if (count > limit) {
@@ -361,7 +350,6 @@ router.post("/insights", async (req: Request, res: Response) => {
 
         limit,
         model,
-        serverId,
       );
       let range = null;
       if (xAxisType && yAxisType) {
@@ -373,7 +361,6 @@ router.post("/insights", async (req: Request, res: Response) => {
           userId,
           apiKeyId,
           model,
-          serverId,
         );
       }
       return res.json({
@@ -390,7 +377,6 @@ router.post("/insights", async (req: Request, res: Response) => {
       apiKeyId,
       count,
       model,
-      serverId,
     );
     let range = null;
     if (xAxisType && yAxisType) {
@@ -402,7 +388,6 @@ router.post("/insights", async (req: Request, res: Response) => {
         userId,
         apiKeyId,
         model,
-        serverId,
       );
     }
     res.json({ data, range });
@@ -425,7 +410,6 @@ router.post("/insights/heatmap", async (req: Request, res: Response) => {
       gridWidth = 50,
       gridHeight = 50,
       model,
-      serverId,
     } = req.body;
 
     if (!startDate || !endDate) {
@@ -448,7 +432,6 @@ router.post("/insights/heatmap", async (req: Request, res: Response) => {
       gridWidth,
       gridHeight,
       model,
-      serverId,
     );
 
     res.json({ data });
@@ -511,17 +494,6 @@ router.get("/models", (_req: Request, res: Response) => {
   } catch (error) {
     console.error("Error getting models:", error);
     res.status(500).json({ error: "Failed to get models" });
-  }
-});
-
-// Get distinct servers for filter dropdown
-router.get("/servers", (_req: Request, res: Response) => {
-  try {
-    const servers = database.getDistinctServers();
-    res.json(servers);
-  } catch (error) {
-    console.error("Error getting servers:", error);
-    res.status(500).json({ error: "Failed to get servers" });
   }
 });
 

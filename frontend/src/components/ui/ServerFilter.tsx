@@ -11,13 +11,13 @@ import {
 import { ServerConfigItem, ServerHealthInfo } from "../../types/metrics";
 
 interface ServerFilterProps {
-  selectedServerId: string | null;
-  onServerChange: (serverId: string) => void;
+  selectedServerName: string | null;
+  onServerChange: (serverName: string) => void;
   loading?: boolean;
 }
 
 const ServerFilter: React.FC<ServerFilterProps> = ({
-  selectedServerId,
+  selectedServerName,
   onServerChange,
   loading = false,
 }) => {
@@ -51,7 +51,7 @@ const ServerFilter: React.FC<ServerFilterProps> = ({
           const data: ServerHealthInfo[] = await response.json();
           const map: Record<string, ServerHealthInfo> = {};
           data.forEach(h => {
-            map[h.id] = h;
+            map[h.name] = h;
           });
           setHealthMap(map);
         }
@@ -72,13 +72,13 @@ const ServerFilter: React.FC<ServerFilterProps> = ({
     <FormControl size="small" sx={{ minWidth: 200 }}>
       <InputLabel>Server</InputLabel>
       <Select
-        value={selectedServerId || ""}
+        value={selectedServerName || ""}
         label="Server"
         onChange={handleServerChange}
         disabled={loading || servers.length === 0}
         renderValue={(value) => {
           if (!value) return null;
-          const server = servers.find(s => s.id === value);
+          const server = servers.find(s => s.name === value);
           const health = healthMap[value];
           return (
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -101,9 +101,9 @@ const ServerFilter: React.FC<ServerFilterProps> = ({
         }}
       >
         {servers.map((server) => {
-          const health = healthMap[server.id];
+          const health = healthMap[server.name];
           return (
-            <MenuItem key={server.id} value={server.id}>
+            <MenuItem key={server.name} value={server.name}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: "100%" }}>
                 <Box
                   sx={{
@@ -113,10 +113,10 @@ const ServerFilter: React.FC<ServerFilterProps> = ({
                     bgcolor: health?.healthy ? "#4caf50" : "#f44336",
                   }}
                 />
-                <Typography variant="body2">{server.name || server.id}</Typography>
-                {server.endpoints.length > 1 && (
+                <Typography variant="body2">{server.name}</Typography>
+                {server.models.length > 1 && (
                   <Typography variant="caption" color="text.secondary" sx={{ ml: "auto" }}>
-                    {server.endpoints.length} endpoints
+                    {server.models.length} models
                   </Typography>
                 )}
               </Box>
