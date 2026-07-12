@@ -6,6 +6,10 @@ import {
   Typography,
   Tooltip,
   Chip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
 import StopIcon from "@mui/icons-material/Stop";
@@ -28,7 +32,11 @@ const ChatInput: React.FC<ChatInputProps> = (props: ChatInputProps) => {
     inputContent,
     setInputContent,
     estimatedContextTokens,
+    maxContextTokens,
     abortCurrentRequest,
+    chatSettings,
+    setChatSettings,
+    availableModels,
   } = useChat();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -72,7 +80,7 @@ const ChatInput: React.FC<ChatInputProps> = (props: ChatInputProps) => {
   const canSend = hasContent && !isLoading;
 
   const contextPct =
-    estimatedContextTokens > 0 ? (estimatedContextTokens / 128000) * 100 : 0;
+    estimatedContextTokens > 0 ? (estimatedContextTokens / maxContextTokens) * 100 : 0;
   const contextBgColor =
     contextPct > 90
       ? "rgba(239, 68, 68, 0.1)"
@@ -182,11 +190,14 @@ const ChatInput: React.FC<ChatInputProps> = (props: ChatInputProps) => {
           position: "relative",
         }}
       >
-        {/* Plus button - bottom left */}
+        {/* Model selector + Plus button - bottom left */}
 
         <Box
           sx={{
             flex: 1,
+            display: "flex",
+            alignItems: "center",
+            gap: 0.5,
           }}
         >
           <Tooltip title="Attach file">
@@ -201,26 +212,42 @@ const ChatInput: React.FC<ChatInputProps> = (props: ChatInputProps) => {
               <AddIcon />
             </IconButton>
           </Tooltip>
+          {availableModels.length > 1 && (
+            <FormControl size="small" sx={{ minWidth: 120, marginLeft: "4px" }}>
+              <InputLabel>Model</InputLabel>
+              <Select
+                value={chatSettings.selectedModel}
+                label="Model"
+                onChange={(e) =>
+                  setChatSettings({ selectedModel: e.target.value })
+                }
+                onClick={(e) => e.stopPropagation()}
+              >
+                {availableModels.map((model) => (
+                  <MenuItem key={model} value={model}>
+                    {model}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+          {/* Context chip - left of send button */}
+          {estimatedContextTokens > 0 && (
+            <Chip
+              label={`${formatTokenCount(estimatedContextTokens)} / ${formatTokenCount(maxContextTokens)}`}
+              size="small"
+              sx={{
+                bgcolor: contextBgColor,
+                color: contextColor,
+                fontSize: "0.625rem",
+                height: 22,
+                fontWeight: 600,
+                letterSpacing: 0.02,
+              }}
+              title={`Estimated context: ${estimatedContextTokens} tokens (of ${formatTokenCount(maxContextTokens)} max)`}
+            />
+          )}
         </Box>
-        {/* Context chip - left of send button */}
-        {estimatedContextTokens > 0 && (
-          <Chip
-            label={`${formatTokenCount(estimatedContextTokens)} / ${formatTokenCount(128000)}`}
-            size="small"
-            sx={{
-              position: "absolute",
-              bottom: 6,
-              right: 48,
-              bgcolor: contextBgColor,
-              color: contextColor,
-              fontSize: "0.625rem",
-              height: 22,
-              fontWeight: 600,
-              letterSpacing: 0.02,
-            }}
-            title={`Estimated context: ${estimatedContextTokens} tokens (of 128k max)`}
-          />
-        )}
 
         {/* Send/Abort button - bottom right */}
         <Box

@@ -2,7 +2,7 @@ import express, { Request, Response } from "express";
 import { getServerStats, getStatsHistory, updateGpuRanges } from "../utils/systemMetrics";
 import { requireAuth } from "../middleware/auth";
 import { activeRequests } from "../utils/proxy-util";
-import { getServerHealth } from "../utils/serverHealth";
+import { getServerHealth, getModelInfo } from "../utils/serverHealth";
 import { getServers } from "../config";
 
 const router = express.Router();
@@ -37,10 +37,15 @@ router.get("/health", (req: Request, res: Response) => {
 });
 
 router.get("/config", (req: Request, res: Response) => {
+  const modelInfo = getModelInfo();
   const servers = getServers().map(s => ({
     name: s.name,
     statsUrl: s.statsUrl || null,
-    models: s.models.map(m => ({ name: m.name, url: m.url })),
+    models: s.models.map(m => ({
+      name: m.name,
+      url: m.url,
+      ...(modelInfo[m.name] || {}),
+    })),
   }));
   res.json(servers);
 });

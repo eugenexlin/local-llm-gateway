@@ -9,7 +9,7 @@ import {
   useTheme,
   useMediaQuery,
 } from "@mui/material";
-import { ServerConfigItem, ServerHealthInfo } from "../types/metrics";
+import { ServerConfigItem, ServerHealthInfo, ModelConfig } from "../types/metrics";
 
 const Models: React.FC = () => {
   const theme = useTheme();
@@ -95,6 +95,7 @@ const Models: React.FC = () => {
                     </Box>
                     {server.models.map((model, mIdx) => {
                       const modelHealth = health?.models.find(mh => mh.name === model.name);
+                      const contextLabel = model.contextLength ? `${Math.round(model.contextLength / 1000)}K` : "unknown";
                       return (
                         <Box
                           key={mIdx}
@@ -117,12 +118,19 @@ const Models: React.FC = () => {
                             <Typography variant="body2" sx={{ fontWeight: 600 }}>
                               {model.name}
                             </Typography>
-                            <Typography variant="body2" sx={{ fontFamily: "monospace", color: "text.secondary" }}>
-                              {model.url}
-                            </Typography>
+                            <Chip label={`${contextLabel} ctx`} size="small" sx={{ fontSize: "0.6rem", height: 18, bgcolor: "rgba(139, 92, 246, 0.1)", color: "#8b5cf6" }} />
+                            {model.provider && (
+                              <Chip label={model.provider} size="small" sx={{ fontSize: "0.6rem", height: 18 }} />
+                            )}
+                            {model.ownedBy && (
+                              <Chip label={model.ownedBy} size="small" sx={{ fontSize: "0.6rem", height: 18 }} />
+                            )}
                           </Box>
+                          <Typography variant="body2" sx={{ fontFamily: "monospace", color: "text.secondary", mb: 0.5 }}>
+                            {model.url}
+                          </Typography>
                           {modelHealth?.error && (
-                            <Typography variant="caption" color="error" sx={{ mt: 1, display: "block" }}>
+                            <Typography variant="caption" color="error" sx={{ display: "block" }}>
                               {modelHealth.error}
                             </Typography>
                           )}

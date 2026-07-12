@@ -60,6 +60,7 @@ interface ChatContextType {
   error: string | null;
   lastUsage: TokenUsage | null;
   estimatedContextTokens: number;
+  maxContextTokens: number;
   apiKeys: ApiKey[];
   apiKeyLoading: boolean;
   selectedKeyId: string;
@@ -161,6 +162,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     });
 
   const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [modelInfo, setModelInfo] = useState<Record<string, { contextLength?: number | null }>>({});
 
   useEffect(() => {
     const fetchModels = async () => {
@@ -169,9 +171,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           credentials: "include",
         });
         if (response.ok) {
-          const data: Array<{ name: string; models: Array<{ name: string }> }> = await response.json();
+          const data: Array<{ name: string; models: Array<{ name: string; contextLength?: number | null }> }> = await response.json();
           const models = data.flatMap(s => s.models.map(m => m.name));
           setAvailableModels(models);
+          const info: Record<string, { contextLength?: number | null }> = {};
+          data.flatMap(s => s.models).forEach(m => {
+            info[m.name] = { contextLength: m.contextLength };
+          });
+          setModelInfo(info);
         }
       } catch (error) {
         console.error("Error fetching models:", error);
@@ -207,6 +214,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       selectedModel: "default",
     };
   });
+
+  const maxContextTokens = modelInfo[chatSettings.selectedModel]?.contextLength ?? 128000;
 
   const [inputContent, setInputContentState] = useState("");
   const setInputContent = useCallback((content: string) => {
@@ -825,6 +834,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         error,
         lastUsage,
         estimatedContextTokens,
+        maxContextTokens,
         apiKeys,
         apiKeyLoading,
         selectedKeyId: selectedKeyId,

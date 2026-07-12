@@ -117,6 +117,10 @@ export interface InsightsConfig {
 export interface ModelConfig {
   name: string;
   url: string;
+  contextLength?: number | null;
+  provider?: string;
+  ownedBy?: string;
+  created?: number;
 }
 
 export interface ServerConfigItem {
@@ -130,6 +134,10 @@ export interface ModelHealthInfo {
   url: string;
   healthy: boolean;
   error?: string;
+  contextLength?: number | null;
+  provider?: string;
+  ownedBy?: string;
+  created?: number;
 }
 
 export interface ServerHealthInfo {
