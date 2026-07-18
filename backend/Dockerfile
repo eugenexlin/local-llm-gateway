@@ -1,5 +1,5 @@
 # Build Stage
-FROM node:24-slim AS builder
+FROM node:24-trixie-slim AS builder
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ COPY . .
 RUN npm run build
 
 # Production Stage
-FROM node:24-slim
+FROM node:24-trixie-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends python3 && rm -rf /var/lib/apt/lists/*
 
