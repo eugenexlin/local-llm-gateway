@@ -7,6 +7,10 @@ A proxy server for local LLM requests with authentication, usage metrics, and sy
 > Heavily generated with ai using primarily qwen 2.6 moe 4bit and opencode with limited human review and refactor. Reference at your own risk.
 
 
+## Hardware Requirements
+
+**AMD GPU with ROCm 6.4+ required.** This project is built exclusively for AMD/ROCm setups. GPU metrics are collected via `amd-smi` (ROCm 6.4+) with fallback to `rocm-smi`. NVIDIA GPUs are not supported.
+
 ## Features
 
 - OpenAI-compatible proxy for local LLMs

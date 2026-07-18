@@ -17,9 +17,16 @@ services:
       - SESSION_SECRET=${SESSION_SECRET}
       - SESSION_EXPIRY_HOURS=${SESSION_EXPIRY_HOURS}
       - SUPPRESS_CONSOLE=${SUPPRESS_CONSOLE}
+      - PATH=/opt/rocm/bin:${PATH}
+    devices:
+      - /dev/kfd:/dev/kfd
+      - /dev/dri:/dev/dri
     volumes:
       - ./backend/data:/app/data
-      # Mount GPU sysfs and DRI for hardware monitoring (all vendors)
+      # ROCm / amd-smi GPU monitoring
+      - /opt/rocm:/opt/rocm:ro
+      - /lib/modules:/lib/modules:ro
+      # GPU sysfs and hwmon fallback
       - /sys/class/drm:/sys/class/drm:ro
       - /sys/kernel/debug:/sys/kernel/debug:ro
       - /sys/class/hwmon:/sys/class/hwmon:ro

@@ -12,6 +12,8 @@ RUN npm run build
 # Production Stage
 FROM node:24-slim
 
+RUN apt-get update && apt-get install -y --no-install-recommends python3=3.12.* && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 COPY package*.json ./

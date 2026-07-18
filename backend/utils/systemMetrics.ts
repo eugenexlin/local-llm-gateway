@@ -197,9 +197,8 @@ async function getGpuInfo(): Promise<GpuInfo> {
     }
   }
 
-  // Step 4: NVIDIA-specific enrichment via nvidia-smi
+  // Step 4: AMD GPU enrichment via amd-smi / rocm-smi
   if (process.platform === 'linux') {
-    await enrichGpusWithNvidiaSmi(gpus, detectedGpus);
     await enrichGpusWithAmdSmi(gpus, detectedGpus);
   }
   return { gpuAvailable: gpus.length > 0, gpus };
@@ -322,7 +321,7 @@ async function enrichGpuWindows(_controller: any, gpu: GpuDetail): Promise<void>
     const result = await execPromise('powershell.exe', [
       '-NoProfile',
       '-Command',
-      '$temp = "N/A"; $util = "N/A"; $power = "N/A"; try { $sensors = Get-CimInstance -Namespace "root/WMI" -ClassName "MSAcpi_ThermalZoneTemperature" -ErrorAction SilentlyContinue; if ($sensors) { foreach ($s in $sensors) { $mtf = $s.CurrentRelationshipUnits; if ($mtf -gt 0) { $temp = [math]::Round(($s.CurrentTemperature / 10.0) - 273.15, 1) } else { $temp = $s.CurrentTemperature }; break } }; if ($temp -eq "N/A") { $nvidiaSensors = Get-CimInstance -Namespace "root/NV_Indigo" -ClassName "NV_ThermalData" -ErrorAction SilentlyContinue; if ($nvidiaSensors) { foreach ($n in $nvidiaSensors) { if ($n.Temperature -and $n.Temperature -gt 0) { $temp = [math]::Round(($n.Temperature - 32) * 5.0 / 9.0, 1); break } } }; if ($temp -eq "N/A") { $amdGpus = Get-CimInstance -Namespace "root/WMI" -ClassName "AMDTemperature" -ErrorAction SilentlyContinue; if ($amdGpus) { $temp = $amdGpus[0].CurrentTemperature } } } } catch {}; try { $vc = Get-CimInstance -Namespace "root\\CIMV2" -Class "Win32_VideoController" -ErrorAction SilentlyContinue | Select-Object -First 1; if ($vc) { $util = $vc.CurrentRefreshRate } } catch {}; try { $nvidiaPwr = Get-CimInstance -Namespace "root/NV_Indigo" -ClassName "NV_EnergyConsummeData" -ErrorAction SilentlyContinue; if ($nvidiaPwr -and $nvidiaPwr.CurrentPowerConsumption) { $power = $nvidiaPwr.CurrentPowerConsumption } } catch {}; Write-Output "${temp}|${util}|${power}"',
+      '$temp = "N/A"; $util = "N/A"; $power = "N/A"; try { $sensors = Get-CimInstance -Namespace "root/WMI" -ClassName "MSAcpi_ThermalZoneTemperature" -ErrorAction SilentlyContinue; if ($sensors) { foreach ($s in $sensors) { $mtf = $s.CurrentRelationshipUnits; if ($mtf -gt 0) { $temp = [math]::Round(($s.CurrentTemperature / 10.0) - 273.15, 1) } else { $temp = $s.CurrentTemperature }; break } }; if ($temp -eq "N/A") { $amdGpus = Get-CimInstance -Namespace "root/WMI" -ClassName "AMDTemperature" -ErrorAction SilentlyContinue; if ($amdGpus) { $temp = $amdGpus[0].CurrentTemperature } } } catch {}; try { $vc = Get-CimInstance -Namespace "root\\CIMV2" -Class "Win32_VideoController" -ErrorAction SilentlyContinue | Select-Object -First 1; if ($vc) { $util = $vc.CurrentRefreshRate } } catch {}; Write-Output "${temp}|${util}|${power}"',
     ]);
     const parts = result.stdout.trim().split('|');
     const tempVal = parseFloat(parts[0]);
@@ -543,50 +542,6 @@ async function enrichGpusWithRocmSmiText(gpus: GpuDetail[], amdIndices: number[]
         break;
       }
     }
-  }
-}
-
-async function enrichGpusWithNvidiaSmi(gpus: GpuDetail[], detectedGpus: Array<{ name: string; vendorId: string }>): Promise<void> {
-  const nvidiaIndices: number[] = [];
-  for (let i = 0; i < detectedGpus.length; i++) {
-    if (detectedGpus[i].vendorId === '0x10de' || detectedGpus[i].name.toLowerCase().includes('nvidia')) {
-      nvidiaIndices.push(i);
-    }
-  }
-
-  if (nvidiaIndices.length === 0) return;
-
-  try {
-    const { stdout } = await execFilePromise('nvidia-smi', [
-      '--query-gpu=temperature.gpu,memory.total,memory.used,utilization.gpu,power.draw',
-      '--format=csv,noheader,nounits'
-    ], { timeout: 5000 });
-
-    const lines = stdout.trim().split('\n').filter((l: string) => l.trim());
-
-    for (let i = 0; i < nvidiaIndices.length && i < lines.length; i++) {
-      const parts = lines[i].split(',').map((p: string) => p.trim());
-      if (parts.length >= 5) {
-        const gpu = gpus[nvidiaIndices[i]];
-        const temp = parseFloat(parts[0]);
-        const memTotalMb = parseFloat(parts[1]);
-        const memUsedMb = parseFloat(parts[2]);
-        const util = parseInt(parts[3], 10);
-        const power = parseFloat(parts[4]);
-
-        if (!isNaN(temp) && temp > 0) gpu.temperatures[0] = { value: Math.round(temp), label: 'GPU' };
-        if (!isNaN(memTotalMb) && memTotalMb > 0) gpu.memTotal = Math.round(memTotalMb / 1024);
-        if (!isNaN(memUsedMb) && memUsedMb > 0) gpu.memUsed = Math.round(memUsedMb / 1024);
-        if (!isNaN(util) && util >= 0 && util <= 100) gpu.utilization = util;
-        if (!isNaN(power) && power > 0) gpu.power = Math.round(power);
-
-        if (gpu.name === 'Unknown GPU' || gpu.name === 'NVIDIA GPU') {
-          gpu.name = 'NVIDIA GPU';
-        }
-      }
-    }
-
-  } catch (err: any) {
   }
 }
 
