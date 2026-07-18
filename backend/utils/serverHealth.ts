@@ -1,4 +1,5 @@
 import config, { ServerConfig, ModelConfig } from '../config';
+import { getRemoteServerStatus } from '../utils/systemMetrics';
 
 export interface ModelInfo {
   id: string;
@@ -19,6 +20,7 @@ export interface ModelHealth {
 export interface ServerHealth {
   name: string;
   healthy: boolean;
+  offline?: boolean;
   models: ModelHealth[];
   lastChecked: string;
 }
@@ -126,9 +128,13 @@ export async function checkServerHealth(server: ServerConfig): Promise<ServerHea
     })
   );
 
+  const remoteStatus = getRemoteServerStatus();
+  const offline = remoteStatus[server.name]?.offline || false;
+
   const health: ServerHealth = {
     name: server.name,
     healthy: models.every(m => m.healthy),
+    offline,
     models,
     lastChecked: new Date().toISOString(),
   };

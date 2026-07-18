@@ -12,7 +12,7 @@ import apiKeys from './routes/apiKeys';
 import metrics from './routes/metrics';
 import proxy from './routes/proxy';
 import serverStats from './routes/serverStats';
-import { startStatsHistoryCollector } from './utils/systemMetrics';
+import { startStatsHistoryCollector, startRemoteStatsPolling } from './utils/systemMetrics';
 import { startServerHealthChecks, getServerHealth } from './utils/serverHealth';
 import chat from './routes/chat';
 import config, { getBaseUrl, getFrontendUrl } from './config';
@@ -211,6 +211,7 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 try {
   database.init();
   startStatsHistoryCollector();
+  startRemoteStatsPolling();
 
   if (!config.agentMode) {
     startServerHealthChecks();

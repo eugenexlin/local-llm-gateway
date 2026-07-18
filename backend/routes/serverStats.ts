@@ -1,5 +1,5 @@
 import express, { Request, Response } from "express";
-import { getServerStats, getStatsHistory, updateGpuRanges } from "../utils/systemMetrics";
+import { getServerStats, getStatsHistory, updateGpuRanges, getRemoteStatsHistory } from "../utils/systemMetrics";
 import { requireAuth } from "../middleware/auth";
 import { activeRequests } from "../utils/proxy-util";
 import { getServerHealth, getModelInfo } from "../utils/serverHealth";
@@ -7,9 +7,30 @@ import { getServers } from "../config";
 
 const router = express.Router();
 
+const resolveHistory = (serverName?: string): any[] => {
+  if (!serverName) return getStatsHistory();
+
+  const remote = getRemoteStatsHistory(serverName);
+  if (remote.length > 0) return remote;
+
+  const servers = getServers();
+  const isLocal = servers.some(s => s.name === serverName && !s.baseUrl);
+  return isLocal ? getStatsHistory() : [];
+};
+
 router.get("/", async (req: Request, res: Response) => {
   try {
     res.setHeader("Cache-Control", "no-store");
+    const serverName = req.query.server as string;
+
+    if (serverName) {
+      const history = resolveHistory(serverName);
+      if (history.length === 0) {
+        return res.status(404).json({ error: "No cached stats for server" });
+      }
+      return res.json(history[history.length - 1]);
+    }
+
     const stats = await getServerStats();
     updateGpuRanges(stats);
     res.json(stats);
@@ -20,8 +41,11 @@ router.get("/", async (req: Request, res: Response) => {
 });
 
 router.get("/history", (req: Request, res: Response) => {
-  const history = getStatsHistory();
+  const serverName = req.query.server as string;
   const { since } = req.query;
+
+  const history = resolveHistory(serverName);
+
   if (since) {
     const sinceTs = parseInt(since as string, 10);
     if (!isNaN(sinceTs)) {
@@ -40,7 +64,7 @@ router.get("/config", (req: Request, res: Response) => {
   const modelInfo = getModelInfo();
   const servers = getServers().map(s => ({
     name: s.name,
-    statsUrl: s.statsUrl || null,
+    baseUrl: s.baseUrl || null,
     models: s.models.map(m => ({
       name: m.name,
       url: m.url,

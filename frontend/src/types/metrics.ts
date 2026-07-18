@@ -125,7 +125,7 @@ export interface ModelConfig {
 
 export interface ServerConfigItem {
   name: string;
-  statsUrl: string | null;
+  baseUrl: string | null;
   models: ModelConfig[];
 }
 
@@ -143,6 +143,7 @@ export interface ModelHealthInfo {
 export interface ServerHealthInfo {
   name: string;
   healthy: boolean;
+  offline?: boolean;
   models: ModelHealthInfo[];
   lastChecked: string;
 }

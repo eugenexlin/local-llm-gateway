@@ -274,6 +274,47 @@ const ServerStats: React.FC = () => {
     forceUpdate((n) => n + 1);
   }, []);
 
+  const processStatsData = (data: ServerStatsData) => {
+    const ts = new Date(data.timestamp).getTime();
+    cpuHistoryRef.current.push({ timestamp: ts, value: data.cpu.usage });
+    if (cpuHistoryRef.current.length > MAX_SPARKLINE_POINTS) {
+      cpuHistoryRef.current = cpuHistoryRef.current.slice(-MAX_SPARKLINE_POINTS);
+    }
+    for (let i = 0; i < data.gpu.gpus.length; i++) {
+      if (!gpuHistoryRef.current[i]) gpuHistoryRef.current[i] = [];
+      gpuHistoryRef.current[i].push({ timestamp: ts, value: data.gpu.gpus[i].utilization || 0 });
+      if (gpuHistoryRef.current[i].length > MAX_SPARKLINE_POINTS) {
+        gpuHistoryRef.current[i] = gpuHistoryRef.current[i].slice(-MAX_SPARKLINE_POINTS);
+      }
+      const ranges = data.gpu.gpus[i].ranges;
+      if (ranges) {
+        gpuRangesRef.current[i] = ranges;
+      } else {
+        gpuRangesRef.current[i] = {
+          tempMin: data.gpu.gpus[i].temperatures.length > 0 ? data.gpu.gpus[i].temperatures[0].value : 0,
+          tempMax: data.gpu.gpus[i].temperatures.length > 0 ? data.gpu.gpus[i].temperatures[0].value : 1,
+          powerMin: 0, powerMax: 1, fanMin: 0, fanMax: 1,
+        };
+      }
+      if (!tempHistoryRef.current[i]) tempHistoryRef.current[i] = {};
+      for (let j = 0; j < data.gpu.gpus[i].temperatures.length; j++) {
+        if (!tempHistoryRef.current[i][j]) tempHistoryRef.current[i][j] = [];
+        tempHistoryRef.current[i][j].push({ timestamp: ts, value: data.gpu.gpus[i].temperatures[j]?.value ?? 0 });
+        if (tempHistoryRef.current[i][j].length > MAX_SPARKLINE_POINTS) {
+          tempHistoryRef.current[i][j] = tempHistoryRef.current[i][j].slice(-MAX_SPARKLINE_POINTS);
+        }
+      }
+      if (!powerHistoryRef.current[i]) powerHistoryRef.current[i] = [];
+      if (data.gpu.gpus[i].power !== null && data.gpu.gpus[i].power !== undefined) {
+        powerHistoryRef.current[i].push({ timestamp: ts, value: data.gpu.gpus[i].power! });
+        if (powerHistoryRef.current[i].length > MAX_SPARKLINE_POINTS) {
+          powerHistoryRef.current[i] = powerHistoryRef.current[i].slice(-MAX_SPARKLINE_POINTS);
+        }
+      }
+    }
+    forceUpdate((n) => n + 1);
+  };
+
   const handleVisibilityChange = useCallback(async () => {
     if (document.visibilityState !== "visible") return;
 
@@ -288,7 +329,7 @@ const ServerStats: React.FC = () => {
     if (pointsBehind > 2) {
       try {
         const response = await fetch(
-          `/api/server-stats/history?since=${lastSync}`,
+          `/api/server-stats/history?server=${selectedServerName}&since=${lastSync}`,
           { cache: "no-store" },
         );
         if (!response.ok) return;
@@ -303,7 +344,7 @@ const ServerStats: React.FC = () => {
         // silently fail
       }
     }
-  }, [seedHistory]);
+  }, [seedHistory, selectedServerName]);
 
   useEffect(() => {
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -356,8 +397,9 @@ const ServerStats: React.FC = () => {
   }, []);
 
   const fetchStats = useCallback(async () => {
+    if (!selectedServerName) return;
     try {
-      const response = await fetch("/api/server-stats", {
+      const response = await fetch(`/api/server-stats?server=${selectedServerName}`, {
         credentials: "include",
         cache: "no-store",
       });
@@ -367,123 +409,42 @@ const ServerStats: React.FC = () => {
       setLastUpdated(new Date());
       setError(null);
       lastSyncTimestampRef.current = new Date(data.timestamp).getTime();
-
-      if (data) {
-        cpuHistoryRef.current.push({
-          timestamp: Date.now(),
-          value: data.cpu.usage,
-        });
-        if (cpuHistoryRef.current.length > MAX_SPARKLINE_POINTS) {
-          cpuHistoryRef.current =
-            cpuHistoryRef.current.slice(-MAX_SPARKLINE_POINTS);
-        }
-
-        if (!gpuHistoryRef.current[0]) {
-          gpuHistoryRef.current[0] = [];
-        }
-        for (let i = 0; i < data.gpu.gpus.length; i++) {
-          if (!gpuHistoryRef.current[i]) {
-            gpuHistoryRef.current[i] = [];
-          }
-          gpuHistoryRef.current[i].push({
-            timestamp: Date.now(),
-            value: data.gpu.gpus[i].utilization || 0,
-          });
-          if (gpuHistoryRef.current[i].length > MAX_SPARKLINE_POINTS) {
-            gpuHistoryRef.current[i] =
-              gpuHistoryRef.current[i].slice(-MAX_SPARKLINE_POINTS);
-          }
-
-          const ranges = data.gpu.gpus[i].ranges;
-          if (ranges) {
-            gpuRangesRef.current[i] = ranges;
-          } else {
-            gpuRangesRef.current[i] = {
-              tempMin:
-                data.gpu.gpus[i].temperatures.length > 0
-                  ? data.gpu.gpus[i].temperatures[0].value
-                  : 0,
-              tempMax:
-                data.gpu.gpus[i].temperatures.length > 0
-                  ? data.gpu.gpus[i].temperatures[0].value
-                  : 1,
-              powerMin: 0,
-              powerMax: 1,
-              fanMin: 0,
-              fanMax: 1,
-            };
-          }
-
-          // Track per-sensor history
-          if (!tempHistoryRef.current[i]) {
-            tempHistoryRef.current[i] = {};
-          }
-          for (let j = 0; j < data.gpu.gpus[i].temperatures.length; j++) {
-            if (!tempHistoryRef.current[i][j]) {
-              tempHistoryRef.current[i][j] = [];
-            }
-            const tempVal = data.gpu.gpus[i].temperatures[j]?.value ?? 0;
-            tempHistoryRef.current[i][j].push({
-              timestamp: Date.now(),
-              value: tempVal,
-            });
-            if (tempHistoryRef.current[i][j].length > MAX_SPARKLINE_POINTS) {
-              tempHistoryRef.current[i][j] =
-                tempHistoryRef.current[i][j].slice(-MAX_SPARKLINE_POINTS);
-            }
-          }
-
-          if (!powerHistoryRef.current[i]) {
-            powerHistoryRef.current[i] = [];
-          }
-          if (
-            data.gpu.gpus[i].power !== null &&
-            data.gpu.gpus[i].power !== undefined
-          ) {
-            powerHistoryRef.current[i].push({
-              timestamp: Date.now(),
-              value: data.gpu.gpus[i].power!,
-            });
-            if (powerHistoryRef.current[i].length > MAX_SPARKLINE_POINTS) {
-              powerHistoryRef.current[i] =
-                powerHistoryRef.current[i].slice(-MAX_SPARKLINE_POINTS);
-            }
-          }
-        }
-        forceUpdate((n) => n + 1);
-      }
+      processStatsData(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedServerName]);
 
   useEffect(() => {
     if (!selectedServerName) return;
 
-    const selectedServer = serverConfig.find(s => s.name === selectedServerName);
-    const isLocal = selectedServer?.name === "Local";
+    cpuHistoryRef.current = [];
+    gpuHistoryRef.current = {};
+    tempHistoryRef.current = {};
+    powerHistoryRef.current = {};
+    gpuRangesRef.current = {};
+    lastSyncTimestampRef.current = 0;
 
-    if (isLocal) {
-      fetchStats();
-      fetch("/api/server-stats/history", { cache: "no-store" })
-        .then((r) => r.json())
-        .then((history: ServerStatsData[]) => {
-          if (history && history.length > 0) {
-            seedHistory(history);
-            lastSyncTimestampRef.current = new Date(
-              history[history.length - 1].timestamp,
-            ).getTime();
-          }
-        })
-        .catch(() => {});
-      const interval = setInterval(fetchStats, 2000);
-      return () => clearInterval(interval);
-    } else {
-      setLoading(false);
-    }
-  }, [fetchStats, seedHistory, selectedServerName, serverConfig]);
+    fetchStats();
+    fetch(`/api/server-stats/history?server=${selectedServerName}`, {
+      credentials: "include",
+      cache: "no-store",
+    })
+      .then((r) => r.json())
+      .then((history: ServerStatsData[]) => {
+        if (history && history.length > 0) {
+          seedHistory(history);
+          lastSyncTimestampRef.current = new Date(
+            history[history.length - 1].timestamp,
+          ).getTime();
+        }
+      })
+      .catch(() => {});
+    const interval = setInterval(fetchStats, 2000);
+    return () => clearInterval(interval);
+  }, [fetchStats, seedHistory, selectedServerName]);
 
   if (error && !stats) {
     return (
@@ -959,35 +920,12 @@ const ServerStats: React.FC = () => {
           onServerChange={setSelectedServerName}
         />
       </Box>
-      {selectedServer && isLocal ? (
+      {selectedServer ? (
         <Grid container spacing={2}>
           {gpuSection(stats)}
           {cpuSection(stats)}
           {otherSection(stats)}
         </Grid>
-      ) : selectedServer && !isLocal ? (
-        <Card sx={{ bgcolor: "background.paper", boxShadow: "0 2px 4px rgba(0,0,0,0.05)" }}>
-          <CardContent>
-            <Box sx={{ textAlign: "center", py: 4 }}>
-              <Typography variant="h6" sx={{ mb: 1 }}>
-                Remote Server: {selectedServer.name}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                System stats for remote servers will be available when Phase 3 (Agent Mode) is implemented.
-              </Typography>
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, justifyContent: "center" }}>
-                {selectedServer.models.map((model, idx) => (
-                  <Chip
-                    key={idx}
-                    label={`${model.name} (${model.url})`}
-                    size="small"
-                    sx={{ bgcolor: "action.hover" }}
-                  />
-                ))}
-              </Box>
-            </Box>
-          </CardContent>
-        </Card>
       ) : null}
       
     </>

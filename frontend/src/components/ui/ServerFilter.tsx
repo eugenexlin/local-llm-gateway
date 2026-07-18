@@ -68,6 +68,12 @@ const ServerFilter: React.FC<ServerFilterProps> = ({
     onServerChange(event.target.value);
   };
 
+  const statusColor = (health?: ServerHealthInfo) => {
+    if (!health) return "#9e9e9e";
+    if (health.offline) return "#ff9800";
+    return health.healthy ? "#4caf50" : "#f44336";
+  };
+
   return (
     <FormControl size="small" sx={{ minWidth: 200 }}>
       <InputLabel>Server</InputLabel>
@@ -87,7 +93,7 @@ const ServerFilter: React.FC<ServerFilterProps> = ({
                   width: 8,
                   height: 8,
                   borderRadius: "50%",
-                  bgcolor: health?.healthy ? "#4caf50" : "#f44336",
+                  bgcolor: statusColor(health),
                 }}
               />
               <Chip
@@ -110,7 +116,7 @@ const ServerFilter: React.FC<ServerFilterProps> = ({
                     width: 8,
                     height: 8,
                     borderRadius: "50%",
-                    bgcolor: health?.healthy ? "#4caf50" : "#f44336",
+bgcolor: statusColor(health),
                   }}
                 />
                 <Typography variant="body2">{server.name}</Typography>

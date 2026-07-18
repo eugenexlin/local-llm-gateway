@@ -9,7 +9,7 @@ export interface ModelConfig {
 
 export interface ServerConfig {
   name: string;
-  statsUrl?: string | null;
+  baseUrl?: string | null;
   models: ModelConfig[];
 }
 
@@ -43,14 +43,14 @@ if (serversEnv) {
         console.log(`[CONFIG] Auto-wrapping legacy server format for "${s.id}"`);
         return {
           name: s.name || s.id,
-          statsUrl: s.agentUrl || null,
+          baseUrl: s.agentUrl || null,
           models: (s.models || []).map((m: string) => ({ name: m, url: s.url })),
         };
       }
-      // New format: { name, statsUrl?, models: [{ name, url }] }
+      // New format: { name, baseUrl?, models: [{ name, url }] }
       return {
         name: s.name,
-        statsUrl: s.statsUrl || null,
+        baseUrl: s.baseUrl || null,
         models: s.models || [],
       };
     });
@@ -63,7 +63,7 @@ if (serversEnv) {
 if (servers.length === 0) {
   servers = [{
     name: 'Local',
-    statsUrl: null,
+    baseUrl: null,
     models: [{ name: 'default', url: 'http://localhost:8080/v1' }],
   }];
 }

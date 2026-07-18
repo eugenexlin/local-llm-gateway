@@ -4,7 +4,7 @@ import path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import si from 'systeminformation';
-import config from '../config';
+import config, { ServerConfig } from '../config';
 import * as database from '../database';
 
 const execFilePromise = promisify(execFile);
@@ -609,4 +609,170 @@ export function startStatsHistoryCollector(): void {
   }
 
   setTimeout(collectAndSchedule, HISTORY_INTERVAL);
+}
+
+const remoteStatsHistory: Record<string, ServerStats[]> = {};
+const zeroFilled = Symbol("zeroFilled");
+
+interface RemoteServerState {
+  consecutiveFailures: number;
+  offline: boolean;
+  gapStartTimestamp: string | null;
+}
+const remoteServerState: Record<string, RemoteServerState> = {};
+
+const OFFLINE_THRESHOLD = 3;
+
+function createZeroStats(): ServerStats & { [zeroFilled]?: true } {
+  const stats: ServerStats & { [zeroFilled]: true } = {
+    [zeroFilled]: true,
+    cpu: {
+      usage: 0,
+      loadAvg: [0, 0, 0],
+      cores: [],
+      model: 'Offline',
+      speed: 0,
+    },
+    ram: {
+      used: 0,
+      total: 0,
+      usedPercent: 0,
+      swapUsed: 0,
+      swapTotal: 0,
+    },
+    gpu: {
+      gpuAvailable: false,
+      gpus: [],
+    },
+    database: {
+      path: '',
+      size: 0,
+      sizeHuman: '0 B',
+      lastModified: null,
+      totalRequests: 0,
+    },
+    network: {
+      bytesSent: 0,
+      bytesReceived: 0,
+      bytesSentHuman: '0 B',
+      bytesReceivedHuman: '0 B',
+    },
+    platform: 'offline',
+    timestamp: new Date().toISOString(),
+  };
+  return stats;
+}
+
+export function getRemoteStatsHistory(serverName: string): ServerStats[] {
+  return remoteStatsHistory[serverName] || [];
+}
+
+export function getRemoteServerStatus(): Record<string, { offline: boolean }> {
+  const result: Record<string, { offline: boolean }> = {};
+  for (const [name, state] of Object.entries(remoteServerState)) {
+    result[name] = { offline: state.offline };
+  }
+  return result;
+}
+
+export function startRemoteStatsPolling(): void {
+  const servers = config.servers.filter((s: ServerConfig) => s.baseUrl);
+  for (const server of servers) {
+    const key = server.name;
+    remoteStatsHistory[key] = [];
+    remoteServerState[key] = {
+      consecutiveFailures: 0,
+      offline: false,
+      gapStartTimestamp: null,
+    };
+    pollRemoteServer(server.name, server.baseUrl!);
+  }
+}
+
+async function mergeRemoteHistory(name: string, baseUrl: string): Promise<void> {
+  const state = remoteServerState[name];
+  if (!state || !state.gapStartTimestamp) return;
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const response = await fetch(`${baseUrl}/api/server-stats/history?since=${new Date(state.gapStartTimestamp).getTime()}`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      const remoteHistory = await response.json() as ServerStats[];
+      if (remoteHistory.length > 0) {
+        const cached = remoteStatsHistory[name];
+        const gapStartMs = new Date(state.gapStartTimestamp).getTime();
+        const gapEndMs = Date.now();
+
+        for (let i = 0; i < cached.length; i++) {
+          const pointTs = new Date(cached[i].timestamp).getTime();
+          if (pointTs >= gapStartMs && pointTs <= gapEndMs && (cached[i] as any)[zeroFilled]) {
+            const closest = remoteHistory.reduce((best, remote) => {
+              const remoteTs = new Date(remote.timestamp).getTime();
+              const bestDiff = Math.abs(new Date(best.timestamp).getTime() - pointTs);
+              const remoteDiff = Math.abs(remoteTs - pointTs);
+              return remoteDiff < bestDiff ? remote : best;
+            });
+            cached[i] = closest;
+          }
+        }
+      }
+    }
+  } catch {
+    // Merge failed, keep zero-filled data
+  }
+}
+
+async function pollRemoteServer(name: string, baseUrl: string): Promise<void> {
+  const fetchAndSchedule = async () => {
+    const state = remoteServerState[name];
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const response = await fetch(`${baseUrl}/api/server-stats`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const stats = await response.json() as ServerStats;
+        remoteStatsHistory[name].push(stats);
+        if (remoteStatsHistory[name].length > HISTORY_MAX_POINTS) {
+          remoteStatsHistory[name] = remoteStatsHistory[name].slice(-HISTORY_MAX_POINTS);
+        }
+
+        if (state && state.offline) {
+          await mergeRemoteHistory(name, baseUrl);
+          state.offline = false;
+          state.consecutiveFailures = 0;
+          state.gapStartTimestamp = null;
+        } else if (state) {
+          state.consecutiveFailures = 0;
+        }
+      } else {
+        throw new Error(`HTTP ${response.status}`);
+      }
+    } catch {
+      if (state) {
+        state.consecutiveFailures++;
+        if (!state.gapStartTimestamp) {
+          state.gapStartTimestamp = new Date().toISOString();
+        }
+        if (state.consecutiveFailures >= OFFLINE_THRESHOLD) {
+          state.offline = true;
+        }
+      }
+      const zeroStats = createZeroStats();
+      remoteStatsHistory[name].push(zeroStats);
+      if (remoteStatsHistory[name].length > HISTORY_MAX_POINTS) {
+        remoteStatsHistory[name] = remoteStatsHistory[name].slice(-HISTORY_MAX_POINTS);
+      }
+    }
+    setTimeout(fetchAndSchedule, HISTORY_INTERVAL);
+  };
+  setTimeout(fetchAndSchedule, HISTORY_INTERVAL);
 }
