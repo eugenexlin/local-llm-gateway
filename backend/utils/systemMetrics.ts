@@ -200,6 +200,7 @@ async function getGpuInfo(): Promise<GpuInfo> {
   // Step 4: NVIDIA-specific enrichment via nvidia-smi
   if (process.platform === 'linux') {
     await enrichGpusWithNvidiaSmi(gpus, detectedGpus);
+    await enrichGpusWithAmdSmi(gpus, detectedGpus);
   }
   return { gpuAvailable: gpus.length > 0, gpus };
 }
@@ -333,6 +334,210 @@ async function enrichGpuWindows(_controller: any, gpu: GpuDetail): Promise<void>
       gpu.power = Math.round(powerVal);
     }
   } catch {
+  }
+}
+
+async function detectAmdSmiTool(): Promise<'amd-smi' | 'rocm-smi' | null> {
+  try {
+    await execFilePromise('amd-smi', ['version'], { timeout: 5000 });
+    return 'amd-smi';
+  } catch { /* not available */ }
+
+  try {
+    await execFilePromise('rocm-smi', ['--showhw'], { timeout: 5000 });
+    return 'rocm-smi';
+  } catch { /* not available */ }
+
+  return null;
+}
+
+async function enrichGpusWithAmdSmi(gpus: GpuDetail[], detectedGpus: Array<{ name: string; vendorId: string }>): Promise<void> {
+  const amdIndices: number[] = [];
+  for (let i = 0; i < detectedGpus.length; i++) {
+    const v = detectedGpus[i].vendorId || '';
+    const n = (detectedGpus[i].name || '').toLowerCase();
+    if (v === '0x1002' || n.includes('amd') || n.includes('radeon') || n.includes('radon') || /mi\d+/.test(n)) {
+      amdIndices.push(i);
+    }
+  }
+
+  if (amdIndices.length === 0) return;
+
+  const tool = await detectAmdSmiTool();
+  if (!tool) return;
+
+  if (tool === 'amd-smi') {
+    await enrichGpusWithAmdSmiJson(gpus, amdIndices);
+  } else {
+    await enrichGpusWithRocmSmiText(gpus, amdIndices);
+  }
+}
+
+async function enrichGpusWithAmdSmiJson(gpus: GpuDetail[], amdIndices: number[]): Promise<void> {
+  try {
+    const { stdout } = await execFilePromise('amd-smi', ['metric', '--json'], { timeout: 10000 });
+    const data = JSON.parse(stdout);
+    const gpuData = data.gpu_data || [];
+
+    for (let i = 0; i < amdIndices.length && i < gpuData.length; i++) {
+      const gd = gpuData[i];
+      const gpu = gpus[amdIndices[i]];
+
+      // Temperature: EDGE and HOTSPOT
+      const temps = gd.temperature || {};
+      const edge = temps.EDGE;
+      if (edge && edge !== 'N/A') {
+        const v = typeof edge === 'number' ? edge : parseFloat(edge);
+        if (!isNaN(v) && v > 0) gpu.temperatures[0] = { value: Math.round(v), label: 'Edge' };
+      }
+      const hotspot = temps.HOTSPOT;
+      if (hotspot && hotspot !== 'N/A') {
+        const v = typeof hotspot === 'number' ? hotspot : parseFloat(hotspot);
+        if (!isNaN(v) && v > 0) gpu.temperatures.push({ value: Math.round(v), label: 'Hotspot' });
+      }
+
+      // Memory: USED_VRAM, TOTAL_VRAM (in MB)
+      const mem = gd.memory_usage || {};
+      const usedVram = mem.USED_VRAM;
+      if (usedVram && usedVram !== 'N/A') {
+        const mb = typeof usedVram === 'number' ? usedVram : parseFloat(usedVram);
+        if (!isNaN(mb) && mb > 0) gpu.memUsed = Math.round(mb / 1024);
+      }
+      const totalVram = mem.TOTAL_VRAM;
+      if (totalVram && totalVram !== 'N/A') {
+        const mb = typeof totalVram === 'number' ? totalVram : parseFloat(totalVram);
+        if (!isNaN(mb) && mb > 0) gpu.memTotal = Math.round(mb / 1024);
+      }
+
+      // Utilization: GFX_ACTIVITY (percentage)
+      const usage = gd.usage || {};
+      const gfx = usage.GFX_ACTIVITY;
+      if (gfx && gfx !== 'N/A') {
+        const v = typeof gfx === 'number' ? gfx : parseFloat(gfx);
+        if (!isNaN(v) && v >= 0 && v <= 100) gpu.utilization = Math.round(v);
+      }
+
+      // Power: SOCKET_POWER (in W)
+      const power = gd.power || {};
+      const socketPwr = power.SOCKET_POWER;
+      if (socketPwr && socketPwr !== 'N/A') {
+        const v = typeof socketPwr === 'number' ? socketPwr : parseFloat(socketPwr);
+        if (!isNaN(v) && v > 0) gpu.power = Math.round(v);
+      }
+
+      // Fan speed
+      const fan = gd.fan || {};
+      const fanRpm = fan.FAN_RPM || fan.FAN_SPEED;
+      if (fanRpm && fanRpm !== 'N/A') {
+        const v = typeof fanRpm === 'number' ? fanRpm : parseFloat(fanRpm);
+        if (!isNaN(v) && v >= 0) gpu.fanSpeed = Math.round(v);
+      }
+
+      // GPU name from amd-smi
+      const gpuName = gd.gpu_name || gd.NAME;
+      if (gpuName && gpuName !== 'N/A' && gpuName !== 'Unknown GPU') {
+        gpu.name = gpuName;
+      }
+    }
+  } catch { /* amd-smi failed, fall through to nothing */ }
+}
+
+async function enrichGpusWithRocmSmiText(gpus: GpuDetail[], amdIndices: number[]): Promise<void> {
+  const metrics: Array<{ key: string; gpuIdx: number; value: string }> = [];
+
+  const commands: Array<{ args: string[]; parse: (line: string) => { key: string; gpuIdx: number; value: string } | null }> = [
+    {
+      args: ['--showtemp'],
+      parse: (line: string) => {
+        const m = line.match(/GPU\[(\d+)\]\s*:\s*Temp\s*\(\w+(?:\s+\w+)*\)\s*:\s*([\d.]+)/);
+        if (m) return { key: 'temp', gpuIdx: parseInt(m[1], 10), value: m[2] };
+        return null;
+      },
+    },
+    {
+      args: ['--showmemused'],
+      parse: (line: string) => {
+        const m = line.match(/GPU\[(\d+)\]\s*:\s*VRAM\s+Used\s*\(MiB\)\s*:\s*([\d.]+)/);
+        if (m) return { key: 'memUsedMiB', gpuIdx: parseInt(m[1], 10), value: m[2] };
+        const m2 = line.match(/GPU\[(\d+)\]\s*:\s*VRAM\s+Total\s*\(MiB\)\s*:\s*([\d.]+)/);
+        if (m2) return { key: 'memTotalMiB', gpuIdx: parseInt(m2[1], 10), value: m2[2] };
+        return null;
+      },
+    },
+    {
+      args: ['--showpower'],
+      parse: (line: string) => {
+        const m = line.match(/GPU\[(\d+)\]\s*:\s*Power\s*\(Avg\)\s*:\s*([\d.]+)/);
+        if (m) return { key: 'power', gpuIdx: parseInt(m[1], 10), value: m[2] };
+        return null;
+      },
+    },
+    {
+      args: ['--showusage'],
+      parse: (line: string) => {
+        const m = line.match(/GPU\[(\d+)\]\s*:\s*GFX\s+Activity\s*\(%\)\s*:\s*([\d.]+)/);
+        if (m) return { key: 'utilization', gpuIdx: parseInt(m[1], 10), value: m[2] };
+        return null;
+      },
+    },
+    {
+      args: ['--showfan'],
+      parse: (line: string) => {
+        const m = line.match(/GPU\[(\d+)\]\s*:\s*Fan\s+RPM\s*:\s*([\d.]+)/);
+        if (m) return { key: 'fanSpeed', gpuIdx: parseInt(m[1], 10), value: m[2] };
+        return null;
+      },
+    },
+  ];
+
+  for (const cmd of commands) {
+    try {
+      const { stdout } = await execFilePromise('rocm-smi', cmd.args, { timeout: 5000 });
+      const lines = stdout.split('\n');
+      for (const line of lines) {
+        const parsed = cmd.parse(line);
+        if (parsed) metrics.push(parsed);
+      }
+    } catch { /* skip this metric */ }
+  }
+
+  // Apply collected metrics to GPU objects
+  for (const m of metrics) {
+    const gpu = gpus[amdIndices[m.gpuIdx]];
+    if (!gpu) continue;
+
+    switch (m.key) {
+      case 'temp': {
+        const v = parseFloat(m.value);
+        if (!isNaN(v) && v > 0) gpu.temperatures[0] = { value: Math.round(v), label: 'GPU' };
+        break;
+      }
+      case 'memUsedMiB': {
+        const mb = parseFloat(m.value);
+        if (!isNaN(mb) && mb > 0) gpu.memUsed = Math.round(mb / 1024);
+        break;
+      }
+      case 'memTotalMiB': {
+        const mb = parseFloat(m.value);
+        if (!isNaN(mb) && mb > 0) gpu.memTotal = Math.round(mb / 1024);
+        break;
+      }
+      case 'power': {
+        const v = parseFloat(m.value);
+        if (!isNaN(v) && v > 0) gpu.power = Math.round(v);
+        break;
+      }
+      case 'utilization': {
+        const v = parseInt(m.value, 10);
+        if (!isNaN(v) && v >= 0 && v <= 100) gpu.utilization = v;
+        break;
+      }
+      case 'fanSpeed': {
+        const v = parseInt(m.value, 10);
+        if (!isNaN(v) && v >= 0) gpu.fanSpeed = v;
+        break;
+      }
+    }
   }
 }
 

@@ -54,8 +54,11 @@ if (serversEnv) {
         models: s.models || [],
       };
     });
-  } catch {
-    console.error('Failed to parse SERVERS env var, falling back to default');
+  } catch (e: any) {
+    console.error(`[CONFIG ERROR] Failed to parse SERVERS env var: ${e.message}`);
+    console.error(`[CONFIG ERROR] Received value: "${serversEnv}"`);
+    console.error('[CONFIG ERROR] Expected JSON array, e.g.: [{"name":"Local","baseUrl":null,"models":[{"name":"default","url":"http://localhost:8080/v1"}]}]');
+    console.error('[CONFIG ERROR] Falling back to default server config');
     servers = [];
   }
 }
