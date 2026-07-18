@@ -108,11 +108,13 @@ async function detectGpusFromSysfs(): Promise<Array<{ name: string; vendorId: st
       try {
         const uevent = fs.readFileSync(ueventPath, 'utf8');
         const vendorMatch = uevent.match(/PCI_VENDOR_ID=(.+)/);
+        const pciIdMatch = uevent.match(/PCI_ID=([0-9a-fA-F]+):/);
+        const driverMatch = uevent.match(/DRIVER=(.+)/);
         const drmNameMatch = uevent.match(/DRM_NAME=(.+)/);
         const pciNameMatch = uevent.match(/PCI_DEVICE_NAME=(.+)/);
 
-        const vendorId = vendorMatch?.[1]?.trim() || '';
-        const name = pciNameMatch?.[1]?.trim() || drmNameMatch?.[1]?.trim() || card;
+        const vendorId = vendorMatch?.[1]?.trim() || (pciIdMatch ? `0x${pciIdMatch[1]}` : '');
+        const name = pciNameMatch?.[1]?.trim() || drmNameMatch?.[1]?.trim() || (driverMatch ? driverMatch[1].trim() : card);
 
         let vram: number | undefined;
         try {
