@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import {
   FormControl,
   InputLabel,
@@ -8,7 +8,8 @@ import {
   Box,
   Typography,
 } from "@mui/material";
-import { ServerConfigItem, ServerHealthInfo } from "../../types/metrics";
+import { ServerHealthInfo } from "../../types/metrics";
+import { useServerContext } from "../../context/ServerContext";
 
 interface ServerFilterProps {
   selectedServerName: string | null;
@@ -21,48 +22,7 @@ const ServerFilter: React.FC<ServerFilterProps> = ({
   onServerChange,
   loading = false,
 }) => {
-  const [servers, setServers] = useState<ServerConfigItem[]>([]);
-  const [healthMap, setHealthMap] = useState<Record<string, ServerHealthInfo>>({});
-
-  useEffect(() => {
-    const fetchServers = async () => {
-      try {
-        const response = await fetch("/api/server-stats/config", {
-          credentials: "include",
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setServers(data);
-        }
-      } catch (error) {
-        console.error("Error fetching server config:", error);
-      }
-    };
-    fetchServers();
-  }, []);
-
-  useEffect(() => {
-    const fetchHealth = async () => {
-      try {
-        const response = await fetch("/api/server-stats/health", {
-          credentials: "include",
-        });
-        if (response.ok) {
-          const data: ServerHealthInfo[] = await response.json();
-          const map: Record<string, ServerHealthInfo> = {};
-          data.forEach(h => {
-            map[h.name] = h;
-          });
-          setHealthMap(map);
-        }
-      } catch (error) {
-        console.error("Error fetching server health:", error);
-      }
-    };
-    fetchHealth();
-    const interval = setInterval(fetchHealth, 5000);
-    return () => clearInterval(interval);
-  }, []);
+  const { serverConfig, healthMap } = useServerContext();
 
   const handleServerChange = (event: any) => {
     onServerChange(event.target.value);
@@ -81,10 +41,10 @@ const ServerFilter: React.FC<ServerFilterProps> = ({
         value={selectedServerName || ""}
         label="Server"
         onChange={handleServerChange}
-        disabled={loading || servers.length === 0}
+        disabled={loading || serverConfig.length === 0}
         renderValue={(value) => {
           if (!value) return null;
-          const server = servers.find(s => s.name === value);
+          const server = serverConfig.find(s => s.name === value);
           const health = healthMap[value];
           return (
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -106,7 +66,7 @@ const ServerFilter: React.FC<ServerFilterProps> = ({
           );
         }}
       >
-        {servers.map((server) => {
+        {serverConfig.map((server) => {
           const health = healthMap[server.name];
           return (
             <MenuItem key={server.name} value={server.name}>
@@ -116,7 +76,7 @@ const ServerFilter: React.FC<ServerFilterProps> = ({
                     width: 8,
                     height: 8,
                     borderRadius: "50%",
-bgcolor: statusColor(health),
+                    bgcolor: statusColor(health),
                   }}
                 />
                 <Typography variant="body2">{server.name}</Typography>

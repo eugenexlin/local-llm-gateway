@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { APIKeyProvider } from "./context/APIKeyContext";
 import { ChatProvider } from "./context/ChatContext";
 import { ThemeContextProvider } from "./context/ThemeContext";
+import { ServerProvider } from "./context/ServerContext";
 import Dashboard from "./pages/Dashboard";
 import APIKeys from "./pages/APIKeys";
 import ServerStats from "./pages/ServerStats";
@@ -112,13 +113,15 @@ function AppContent() {
           path="/"
           element={
             <PrivateRoute>
-              <APIKeyProvider>
-                <ChatProvider>
-                  <MainLayout>
-                    <Outlet />
-                  </MainLayout>
-                </ChatProvider>
-              </APIKeyProvider>
+              <ServerProvider>
+                <APIKeyProvider>
+                  <ChatProvider>
+                    <MainLayout>
+                      <Outlet />
+                    </MainLayout>
+                  </ChatProvider>
+                </APIKeyProvider>
+              </ServerProvider>
             </PrivateRoute>
           }
         >

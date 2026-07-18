@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useContext } from "react";
 import {
   Box,
   Typography,
@@ -29,7 +29,7 @@ import InfoIcon from "@mui/icons-material/Info";
 import StorageIcon from "@mui/icons-material/Storage";
 import NetworkIoIcon from "../components/icons/NetworkIoIcon";
 import ServerFilter from "../components/ui/ServerFilter";
-import { ServerConfigItem, ServerHealthInfo } from "../types/metrics";
+import { useServerContext } from "../context/ServerContext";
 import LoadGauge from "../components/gauges/LoadGauge";
 import TempGauge from "../components/gauges/TempGauge";
 import VramGauge from "../components/gauges/VramGauge";
@@ -156,8 +156,7 @@ const ServerStats: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [selectedServerName, setSelectedServerName] = useState<string | null>(null);
-  const [serverConfig, setServerConfig] = useState<ServerConfigItem[]>([]);
-  const [healthMap, setHealthMap] = useState<Record<string, ServerHealthInfo>>({});
+  const { serverConfig } = useServerContext();
 
   const cpuHistoryRef = useRef<{ timestamp: number; value: number }[]>([]);
   const gpuHistoryRef = useRef<
@@ -353,48 +352,12 @@ const ServerStats: React.FC = () => {
   }, [handleVisibilityChange]);
 
   useEffect(() => {
-    const fetchServerConfig = async () => {
-      try {
-        const response = await fetch("/api/server-stats/config", {
-          credentials: "include",
-        });
-        if (response.ok) {
-          const data: ServerConfigItem[] = await response.json();
-          setServerConfig(data);
-          const localServer = data.find(s => s.name === "Local") || data[0];
-          if (localServer) {
-            setSelectedServerName(localServer.name);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching server config:", error);
-      }
-    };
-    fetchServerConfig();
-  }, []);
-
-  useEffect(() => {
-    const fetchHealth = async () => {
-      try {
-        const response = await fetch("/api/server-stats/health", {
-          credentials: "include",
-        });
-        if (response.ok) {
-          const data: ServerHealthInfo[] = await response.json();
-          const map: Record<string, ServerHealthInfo> = {};
-          data.forEach(h => {
-            map[h.name] = h;
-          });
-          setHealthMap(map);
-        }
-      } catch (error) {
-        console.error("Error fetching server health:", error);
-      }
-    };
-    fetchHealth();
-    const interval = setInterval(fetchHealth, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    if (selectedServerName || serverConfig.length === 0) return;
+    const localServer = serverConfig.find(s => s.name === "Local") || serverConfig[0];
+    if (localServer) {
+      setSelectedServerName(localServer.name);
+    }
+  }, [serverConfig, selectedServerName]);
 
   const fetchStats = useCallback(async () => {
     if (!selectedServerName) return;

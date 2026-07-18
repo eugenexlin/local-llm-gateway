@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React from "react";
 import {
   Box,
   Typography,
@@ -9,55 +9,12 @@ import {
   useTheme,
   useMediaQuery,
 } from "@mui/material";
-import { ServerConfigItem, ServerHealthInfo, ModelConfig } from "../types/metrics";
+import { useServerContext } from "../context/ServerContext";
 
 const Models: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const [serverConfig, setServerConfig] = useState<ServerConfigItem[]>([]);
-  const [healthMap, setHealthMap] = useState<Record<string, ServerHealthInfo>>({});
-
-  const fetchServerConfig = useCallback(async () => {
-    try {
-      const response = await fetch("/api/server-stats/config", {
-        credentials: "include",
-      });
-      if (response.ok) {
-        const data: ServerConfigItem[] = await response.json();
-        setServerConfig(data);
-      }
-    } catch (error) {
-      console.error("Error fetching server config:", error);
-    }
-  }, []);
-
-  const fetchHealth = useCallback(async () => {
-    try {
-      const response = await fetch("/api/server-stats/health", {
-        credentials: "include",
-      });
-      if (response.ok) {
-        const data: ServerHealthInfo[] = await response.json();
-        const map: Record<string, ServerHealthInfo> = {};
-        data.forEach(h => {
-          map[h.name] = h;
-        });
-        setHealthMap(map);
-      }
-    } catch (error) {
-      console.error("Error fetching server health:", error);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchServerConfig();
-  }, [fetchServerConfig]);
-
-  useEffect(() => {
-    fetchHealth();
-    const interval = setInterval(fetchHealth, 10000);
-    return () => clearInterval(interval);
-  }, [fetchHealth]);
+  const { serverConfig, healthMap } = useServerContext();
 
   return (
     <>
