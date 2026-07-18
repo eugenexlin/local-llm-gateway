@@ -383,54 +383,59 @@ async function enrichGpusWithAmdSmiJson(gpus: GpuDetail[], amdIndices: number[])
       const gd = gpuData[i];
       const gpu = gpus[amdIndices[i]];
 
-      // Temperature: EDGE and HOTSPOT
+      // Temperature: edge, hotspot, mem (nested { value, unit })
       const temps = gd.temperature || {};
-      const edge = temps.EDGE;
-      if (edge && edge !== 'N/A') {
-        const v = typeof edge === 'number' ? edge : parseFloat(edge);
-        if (!isNaN(v) && v > 0) gpu.temperatures[0] = { value: Math.round(v), label: 'Edge' };
+      const edge = temps.edge;
+      if (edge && typeof edge === 'object' && 'value' in edge) {
+        const v = edge.value;
+        if (typeof v === 'number' && v > 0) gpu.temperatures[0] = { value: Math.round(v), label: 'Edge' };
       }
-      const hotspot = temps.HOTSPOT;
-      if (hotspot && hotspot !== 'N/A') {
-        const v = typeof hotspot === 'number' ? hotspot : parseFloat(hotspot);
-        if (!isNaN(v) && v > 0) gpu.temperatures.push({ value: Math.round(v), label: 'Hotspot' });
+      const hotspot = temps.hotspot;
+      if (hotspot && typeof hotspot === 'object' && 'value' in hotspot) {
+        const v = hotspot.value;
+        if (typeof v === 'number' && v > 0) gpu.temperatures.push({ value: Math.round(v), label: 'Hotspot' });
       }
-
-      // Memory: USED_VRAM, TOTAL_VRAM (in MB)
-      const mem = gd.memory_usage || {};
-      const usedVram = mem.USED_VRAM;
-      if (usedVram && usedVram !== 'N/A') {
-        const mb = typeof usedVram === 'number' ? usedVram : parseFloat(usedVram);
-        if (!isNaN(mb) && mb > 0) gpu.memUsed = Math.round(mb / 1024);
-      }
-      const totalVram = mem.TOTAL_VRAM;
-      if (totalVram && totalVram !== 'N/A') {
-        const mb = typeof totalVram === 'number' ? totalVram : parseFloat(totalVram);
-        if (!isNaN(mb) && mb > 0) gpu.memTotal = Math.round(mb / 1024);
+      const memTemp = temps.mem;
+      if (memTemp && typeof memTemp === 'object' && 'value' in memTemp) {
+        const v = memTemp.value;
+        if (typeof v === 'number' && v > 0) gpu.temperatures.push({ value: Math.round(v), label: 'Memory' });
       }
 
-      // Utilization: GFX_ACTIVITY (percentage)
+      // Memory: used_vram, total_vram (in MB, nested { value, unit })
+      const mem = gd.mem_usage || {};
+      const usedVram = mem.used_vram;
+      if (usedVram && typeof usedVram === 'object' && 'value' in usedVram) {
+        const mb = usedVram.value;
+        if (typeof mb === 'number' && mb > 0) gpu.memUsed = Math.round(mb / 1024);
+      }
+      const totalVram = mem.total_vram;
+      if (totalVram && typeof totalVram === 'object' && 'value' in totalVram) {
+        const mb = totalVram.value;
+        if (typeof mb === 'number' && mb > 0) gpu.memTotal = Math.round(mb / 1024);
+      }
+
+      // Utilization: gfx_activity (percentage, nested { value, unit })
       const usage = gd.usage || {};
-      const gfx = usage.GFX_ACTIVITY;
-      if (gfx && gfx !== 'N/A') {
-        const v = typeof gfx === 'number' ? gfx : parseFloat(gfx);
-        if (!isNaN(v) && v >= 0 && v <= 100) gpu.utilization = Math.round(v);
+      const gfx = usage.gfx_activity;
+      if (gfx && typeof gfx === 'object' && 'value' in gfx) {
+        const v = gfx.value;
+        if (typeof v === 'number' && v >= 0 && v <= 100) gpu.utilization = Math.round(v);
       }
 
-      // Power: SOCKET_POWER (in W)
+      // Power: socket_power (in W, nested { value, unit })
       const power = gd.power || {};
-      const socketPwr = power.SOCKET_POWER;
-      if (socketPwr && socketPwr !== 'N/A') {
-        const v = typeof socketPwr === 'number' ? socketPwr : parseFloat(socketPwr);
-        if (!isNaN(v) && v > 0) gpu.power = Math.round(v);
+      const socketPwr = power.socket_power;
+      if (socketPwr && typeof socketPwr === 'object' && 'value' in socketPwr) {
+        const v = socketPwr.value;
+        if (typeof v === 'number' && v > 0) gpu.power = Math.round(v);
       }
 
-      // Fan speed
+      // Fan speed: rpm is direct number, speed is 0-255
       const fan = gd.fan || {};
-      const fanRpm = fan.FAN_RPM || fan.FAN_SPEED;
-      if (fanRpm && fanRpm !== 'N/A') {
-        const v = typeof fanRpm === 'number' ? fanRpm : parseFloat(fanRpm);
-        if (!isNaN(v) && v >= 0) gpu.fanSpeed = Math.round(v);
+      if (typeof fan.rpm === 'number' && fan.rpm > 0) {
+        gpu.fanSpeed = fan.rpm;
+      } else if (typeof fan.speed === 'number' && fan.speed > 0) {
+        gpu.fanSpeed = fan.speed;
       }
 
       // GPU name from amd-smi
