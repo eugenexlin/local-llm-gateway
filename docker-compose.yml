@@ -18,6 +18,7 @@ services:
       - SESSION_EXPIRY_HOURS=${SESSION_EXPIRY_HOURS}
       - SUPPRESS_CONSOLE=${SUPPRESS_CONSOLE}
       - PATH=/opt/rocm/bin:${PATH}
+      - LD_LIBRARY_PATH=/opt/rocm/lib:${LD_LIBRARY_PATH}
     devices:
       - /dev/kfd:/dev/kfd
       - /dev/dri:/dev/dri
@@ -44,7 +45,7 @@ services:
     ports:
       - "80:80"
     environment:
-      - VITE_DEV_TEST_LOGIN=${VITE_DEV_TEST_LOGIN}
+      - VITE_DEV_TEST_LOGIN=false
       - BACKEND_BASE_URL=${BACKEND_BASE_URL}
     depends_on:
       - backend
