@@ -116,6 +116,10 @@ async function detectGpusFromSysfs(): Promise<Array<{ name: string; vendorId: st
         const vendorId = vendorMatch?.[1]?.trim() || (pciIdMatch ? `0x${pciIdMatch[1]}` : '');
         const name = pciNameMatch?.[1]?.trim() || drmNameMatch?.[1]?.trim() || (driverMatch ? driverMatch[1].trim() : card);
 
+        const driver = driverMatch?.[1]?.trim() || '';
+        // Whitelist known GPU drivers — add new drivers here if needed
+        if (driver && !['amdgpu', 'radeon'].includes(driver)) continue;
+
         let vram: number | undefined;
         try {
           const memTotalPath = path.join(devicePath, 'mem_info_vram_total');
@@ -161,6 +165,10 @@ async function getGpuInfo(): Promise<GpuInfo> {
   if (detectedGpus.length === 0) {
     detectedGpus = await detectGpusFromSysfs();
   }
+
+  // Step 2b: Filter out virtual GPUs
+  const isVirtual = (name: string) => /virtual|virtual\s*display|parsec|loopback|microsoft\s*basic/i.test(name);
+  detectedGpus = detectedGpus.filter((g) => !isVirtual(g.name));
 
   // Step 3: Build GPU detail objects and enrich
   if (process.platform === 'win32') {
