@@ -57,23 +57,45 @@ const matchUpstreamModel = (upstreamModels: any[], configuredName: string): any 
 
 const fetchModelInfo = async (server: ServerConfig): Promise<void> => {
   try {
-    const serverUrl = server.models[0]?.url;
-    if (!serverUrl) return;
+    const urlByBase = new Map<string, ModelConfig[]>();
+    for (const model of server.models) {
+      const url = new URL(model.url);
+      const base = `${url.origin}${url.pathname.replace(/\/$/, '')}`;
+      const existing = urlByBase.get(base);
+      if (existing) {
+        existing.push(model);
+      } else {
+        urlByBase.set(base, [model]);
+      }
+    }
 
-    const url = new URL(serverUrl);
-    const modelsUrl = `${url.origin}${url.pathname.replace(/\/$/, '')}/models`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const fetchModels = async (base: string): Promise<any[]> => {
+      const modelsUrl = `${base}/models`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      try {
+        const response = await fetch(modelsUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (!response.ok) return [];
+        const data: any = await response.json();
+        return data.data || [];
+      } catch {
+        return [];
+      }
+    };
 
-    const response = await fetch(modelsUrl, { signal: controller.signal });
-    clearTimeout(timeoutId);
-
-    if (!response.ok) return;
-
-    const data: any = await response.json();
-    const upstreamModels = data.data || [];
+    const upstreamByUrl = new Map<string, any[]>();
+    await Promise.all(
+      Array.from(urlByBase.keys()).map(async (base) => {
+        const upstreamModels = await fetchModels(base);
+        upstreamByUrl.set(base, upstreamModels);
+      })
+    );
 
     for (const configuredModel of server.models) {
+      const url = new URL(configuredModel.url);
+      const base = `${url.origin}${url.pathname.replace(/\/$/, '')}`;
+      const upstreamModels = upstreamByUrl.get(base) || [];
       const match = matchUpstreamModel(upstreamModels, configuredModel.name);
       if (!match) continue;
 
