@@ -538,7 +538,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             model: chatSettings.selectedModel,
             messages: messagesToSend,
             stream: true,
-            max_tokens: 4096,
           }),
           signal: abortController.signal,
         });
