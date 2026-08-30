@@ -75,7 +75,7 @@ const SparklineChart: React.FC<SparklineChartProps> = ({
             hide
           />
           <YAxis
-            width={24}
+            width={36}
             domain={yDomain ?? [0, 100]}
             ticks={yDomain ? [yDomain[0], yDomain[1]] : [0, 100]}
             axisLine={{ stroke: `${color}66`, strokeWidth: 1 }}
@@ -83,7 +83,7 @@ const SparklineChart: React.FC<SparklineChartProps> = ({
             tick={{ fontSize: 9, fill: `${color}88` }}
             interval={0}
             tickFormatter={(v: number) =>
-              yDomain ? Math.round(v).toString() : `${v}%`
+              valueFormatter(v)
             }
           />
           <CartesianGrid
