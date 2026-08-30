@@ -112,12 +112,14 @@ interface ChartTooltipProps {
   timestamp?: string;
   title?: string;
   rows: { label: string; value: string }[];
+  showSeconds?: boolean;
 }
 
 export const ChartTooltip: React.FC<ChartTooltipProps> = ({
   timestamp,
   title,
   rows,
+  showSeconds = false,
 }) => {
   const formattedTimestamp = timestamp
     ? new Date(timestamp).toLocaleString("en-US", {
@@ -125,6 +127,7 @@ export const ChartTooltip: React.FC<ChartTooltipProps> = ({
         day: "numeric",
         hour: "2-digit",
         minute: "2-digit",
+        ...(showSeconds ? { second: "2-digit" } : {}),
       })
     : undefined;
 
@@ -151,7 +154,9 @@ export const ChartTooltip: React.FC<ChartTooltipProps> = ({
       )}
       {rows.map((row, i) => (
         <div key={i} style={{ color: "#333" }}>
-          <span style={{ color: "#888" }}>{row.label}: </span>
+          {row.label && (
+            <span style={{ color: "#888" }}>{row.label}: </span>
+          )}
           <span>{row.value}</span>
         </div>
       ))}

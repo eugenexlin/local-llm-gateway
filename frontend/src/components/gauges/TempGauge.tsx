@@ -33,7 +33,7 @@ const TempGauge: React.FC<TempGaugeProps> = ({
             value={value ?? globalMin}
             min={globalMin}
             max={globalMax}
-            formatValue={(v) => `${v}°C`}
+            formatValue={(v) => `${v}C`}
             color={color}
           />
         </Box>
@@ -43,6 +43,7 @@ const TempGauge: React.FC<TempGaugeProps> = ({
             width={160}
             height={72}
             yDomain={[globalMin, globalMax]}
+            valueFormatter={(v) => `${Math.round(v)}C`}
           />
         </Box>
       </Box>

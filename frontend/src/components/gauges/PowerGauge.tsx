@@ -46,6 +46,7 @@ const PowerGauge: React.FC<PowerGaugeProps> = ({
             width={160}
             height={72}
             yDomain={[globalMin, globalMax]}
+            valueFormatter={(v) => `${Math.round(v)}W`}
           />
         </Box>
       </Box>

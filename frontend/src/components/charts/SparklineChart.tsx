@@ -6,15 +6,18 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
+  Tooltip,
 } from "recharts";
 import { MAX_SPARKLINE_POINTS } from "../../utils/constants";
 import { USER_COLORS } from "../../utils/colors";
+import { ChartTooltip } from "./InsightsGraph";
 
 interface SparklineChartProps {
   data: { timestamp: number; value: number }[];
   width?: number;
   height?: number;
   yDomain?: [number, number];
+  valueFormatter?: (value: number) => string;
 }
 
 const SparklineChart: React.FC<SparklineChartProps> = ({
@@ -22,6 +25,7 @@ const SparklineChart: React.FC<SparklineChartProps> = ({
   width = 160,
   height = 60,
   yDomain,
+  valueFormatter = (v) => `${v.toFixed(1)}%`,
 }) => {
   // Build chart data with fixed positions (right-aligned)
   const chartData = data.map((d, i) => ({
@@ -30,7 +34,11 @@ const SparklineChart: React.FC<SparklineChartProps> = ({
   }));
 
   // Fill empty slots for consistent spacing
-  const fullData: { index: number; value: number | null }[] = [];
+  const fullData: {
+    index: number;
+    value: number | null;
+    timestamp?: number;
+  }[] = [];
   if (data.length === 0) {
     fullData.push({ index: 0, value: null });
   } else {
@@ -39,6 +47,7 @@ const SparklineChart: React.FC<SparklineChartProps> = ({
       fullData.push({
         index: i,
         value: point ? point.value : null,
+        timestamp: point ? point.timestamp : undefined,
       });
     }
   }
@@ -81,6 +90,30 @@ const SparklineChart: React.FC<SparklineChartProps> = ({
             strokeDasharray="3 3"
             stroke={`${color}40`}
             vertical={false}
+          />
+          <Tooltip
+            isAnimationActive={false}
+            wrapperStyle={{ zIndex: 1000, outline: "none" }}
+            content={({ active, payload }) => {
+              if (active && payload && payload.length) {
+                const entry = payload[0];
+                const value = entry.value as number | null;
+                if (value === null || value === undefined) return null;
+                const timestamp = entry.payload?.timestamp;
+                return (
+                  <ChartTooltip
+                    timestamp={
+                      timestamp
+                        ? new Date(timestamp).toISOString()
+                        : undefined
+                    }
+                    showSeconds
+                    rows={[{ label: "", value: valueFormatter(value) }]}
+                  />
+                );
+              }
+              return null;
+            }}
           />
           <Line
             type="monotone"
