@@ -35,6 +35,14 @@ interface RamInfo {
 interface GpuInfo {
   gpuAvailable: boolean;
   gpus: GpuDetail[];
+  ranges?: {
+    tempMin: number;
+    tempMax: number;
+    powerMin: number;
+    powerMax: number;
+    fanMin: number;
+    fanMax: number;
+  };
 }
 
 interface GpuDetail {
@@ -45,14 +53,6 @@ interface GpuDetail {
   memUsed: number | null;
   memTotal: number | null;
   utilization: number | null;
-  ranges?: {
-    tempMin: number;
-    tempMax: number;
-    powerMin: number;
-    powerMax: number;
-    fanMin: number;
-    fanMax: number;
-  };
 }
 
 interface DatabaseInfo {
@@ -708,48 +708,63 @@ export async function getServerStats(): Promise<ServerStats> {
 const HISTORY_MAX_POINTS = 256;
 const HISTORY_INTERVAL = 2000;
 let statsHistory: ServerStats[] = [];
-let gpuRanges: Record<number, { tempMin: number; tempMax: number; powerMin: number; powerMax: number; fanMin: number; fanMax: number }> = {};
+interface GpuRangeState {
+  tempMin: number | null;
+  tempMax: number | null;
+  powerMin: number | null;
+  powerMax: number | null;
+  fanMin: number | null;
+  fanMax: number | null;
+}
+
+// Single global range shared across all GPUs, so the same metric can be
+// compared across GPUs. Grows (never shrinks) over the backend's lifetime.
+let gpuRangeState: GpuRangeState = {
+  tempMin: null,
+  tempMax: null,
+  powerMin: null,
+  powerMax: null,
+  fanMin: null,
+  fanMax: null,
+};
+
+function expandRange(
+  min: number | null,
+  max: number | null,
+  value: number,
+): [number, number] {
+  if (min === null || max === null) return [value, value];
+  return [Math.min(min, value), Math.max(max, value)];
+}
+
+function toSpan(min: number | null, max: number | null): [number, number] {
+  if (min === null || max === null) return [0, 1];
+  if (max === min) return [min, min + 1];
+  return [min, max];
+}
 
 export function updateGpuRanges(stats: ServerStats): void {
-  for (let i = 0; i < stats.gpu.gpus.length; i++) {
-    const gpu = stats.gpu.gpus[i];
-    if (!gpuRanges[i]) {
-      const initTemp = gpu.temperatures.length > 0 ? gpu.temperatures[0].value : 0;
-      gpuRanges[i] = {
-        tempMin: initTemp,
-        tempMax: initTemp,
-        powerMin: 0,
-        powerMax: 1,
-        fanMin: 0,
-        fanMax: 1,
-      };
-    }
+  const s = gpuRangeState;
 
-    const range = gpuRanges[i];
+  for (const gpu of stats.gpu.gpus) {
     for (const temp of gpu.temperatures) {
-      range.tempMin = Math.min(range.tempMin, temp.value);
-      range.tempMax = Math.max(range.tempMax, temp.value);
+      [s.tempMin, s.tempMax] = expandRange(s.tempMin, s.tempMax, temp.value);
     }
 
     if (gpu.power !== null && gpu.power !== undefined) {
-      range.powerMin = Math.min(range.powerMin, gpu.power);
-      range.powerMax = Math.max(range.powerMax, gpu.power);
+      [s.powerMin, s.powerMax] = expandRange(s.powerMin, s.powerMax, gpu.power);
     }
 
     if (gpu.fanSpeed !== null && gpu.fanSpeed !== undefined) {
-      range.fanMin = Math.min(range.fanMin, gpu.fanSpeed);
-      range.fanMax = Math.max(range.fanMax, gpu.fanSpeed);
+      [s.fanMin, s.fanMax] = expandRange(s.fanMin, s.fanMax, gpu.fanSpeed);
     }
-
-    gpu.ranges = {
-      tempMin: range.tempMin,
-      tempMax: range.tempMax,
-      powerMin: range.powerMin,
-      powerMax: range.powerMax,
-      fanMin: range.fanMin,
-      fanMax: range.fanMax,
-    };
   }
+
+  const [tempMin, tempMax] = toSpan(s.tempMin, s.tempMax);
+  const [powerMin, powerMax] = toSpan(s.powerMin, s.powerMax);
+  const [fanMin, fanMax] = toSpan(s.fanMin, s.fanMax);
+
+  stats.gpu.ranges = { tempMin, tempMax, powerMin, powerMax, fanMin, fanMax };
 }
 
 export function getStatsHistory(): ServerStats[] {

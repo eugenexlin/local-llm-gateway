@@ -51,14 +51,6 @@ interface GpuDetail {
   memUsed: number | null;
   memTotal: number | null;
   utilization: number | null;
-  ranges: {
-    tempMin: number;
-    tempMax: number;
-    powerMin: number;
-    powerMax: number;
-    fanMin: number;
-    fanMax: number;
-  };
 }
 
 interface ServerStatsData {
@@ -79,6 +71,14 @@ interface ServerStatsData {
   gpu: {
     gpuAvailable: boolean;
     gpus: GpuDetail[];
+    ranges?: {
+      tempMin: number;
+      tempMax: number;
+      powerMin: number;
+      powerMax: number;
+      fanMin: number;
+      fanMax: number;
+    };
   };
   database: {
     path: string;
@@ -168,19 +168,14 @@ const ServerStats: React.FC = () => {
   const powerHistoryRef = useRef<
     Record<number, { timestamp: number; value: number }[]>
   >({});
-  const gpuRangesRef = useRef<
-    Record<
-      number,
-      {
-        tempMin: number;
-        tempMax: number;
-        powerMin: number;
-        powerMax: number;
-        fanMin: number;
-        fanMax: number;
-      }
-    >
-  >({});
+  const gpuRangesRef = useRef<{
+    tempMin: number;
+    tempMax: number;
+    powerMin: number;
+    powerMax: number;
+    fanMin: number;
+    fanMax: number;
+  } | null>(null);
   const lastSyncTimestampRef = useRef<number>(0);
   const [, forceUpdate] = useState(0);
 
@@ -246,24 +241,15 @@ const ServerStats: React.FC = () => {
     }
     const lastEntry = history[history.length - 1];
     if (lastEntry) {
-      for (let i = 0; i < lastEntry.gpu.gpus.length; i++) {
-        const gpu = lastEntry.gpu.gpus[i];
-        const ranges = gpu.ranges;
-        if (ranges) {
-          gpuRangesRef.current[i] = ranges;
-        } else {
-          gpuRangesRef.current[i] = {
-            tempMin:
-              gpu.temperatures.length > 0 ? gpu.temperatures[0].value : 0,
-            tempMax:
-              gpu.temperatures.length > 0 ? gpu.temperatures[0].value : 1,
-            powerMin: 0,
-            powerMax: 1,
-            fanMin: 0,
-            fanMax: 1,
-          };
-        }
-      }
+      const ranges = lastEntry.gpu.ranges;
+      gpuRangesRef.current = ranges ?? {
+        tempMin: 0,
+        tempMax: 1,
+        powerMin: 0,
+        powerMax: 1,
+        fanMin: 0,
+        fanMax: 1,
+      };
     }
     if (history.length > 0) {
       lastSyncTimestampRef.current = new Date(
@@ -279,21 +265,20 @@ const ServerStats: React.FC = () => {
     if (cpuHistoryRef.current.length > MAX_SPARKLINE_POINTS) {
       cpuHistoryRef.current = cpuHistoryRef.current.slice(-MAX_SPARKLINE_POINTS);
     }
+    const ranges = data.gpu.ranges;
+    gpuRangesRef.current = ranges ?? {
+      tempMin: 0,
+      tempMax: 1,
+      powerMin: 0,
+      powerMax: 1,
+      fanMin: 0,
+      fanMax: 1,
+    };
     for (let i = 0; i < data.gpu.gpus.length; i++) {
       if (!gpuHistoryRef.current[i]) gpuHistoryRef.current[i] = [];
       gpuHistoryRef.current[i].push({ timestamp: ts, value: data.gpu.gpus[i].utilization || 0 });
       if (gpuHistoryRef.current[i].length > MAX_SPARKLINE_POINTS) {
         gpuHistoryRef.current[i] = gpuHistoryRef.current[i].slice(-MAX_SPARKLINE_POINTS);
-      }
-      const ranges = data.gpu.gpus[i].ranges;
-      if (ranges) {
-        gpuRangesRef.current[i] = ranges;
-      } else {
-        gpuRangesRef.current[i] = {
-          tempMin: data.gpu.gpus[i].temperatures.length > 0 ? data.gpu.gpus[i].temperatures[0].value : 0,
-          tempMax: data.gpu.gpus[i].temperatures.length > 0 ? data.gpu.gpus[i].temperatures[0].value : 1,
-          powerMin: 0, powerMax: 1, fanMin: 0, fanMax: 1,
-        };
       }
       if (!tempHistoryRef.current[i]) tempHistoryRef.current[i] = {};
       for (let j = 0; j < data.gpu.gpus[i].temperatures.length; j++) {
@@ -387,7 +372,7 @@ const ServerStats: React.FC = () => {
     gpuHistoryRef.current = {};
     tempHistoryRef.current = {};
     powerHistoryRef.current = {};
-    gpuRangesRef.current = {};
+    gpuRangesRef.current = null;
     lastSyncTimestampRef.current = 0;
 
     fetchStats();
@@ -458,7 +443,7 @@ const ServerStats: React.FC = () => {
                           ? gpu.temperatures
                           : [{ value: null, label: "N/A" }]
                         ).map((temp, j) => {
-                          const range = gpuRangesRef.current[idx] ?? {
+                          const range = gpuRangesRef.current ?? {
                             tempMin: 0,
                             tempMax: 1,
                             powerMin: 0,
@@ -496,8 +481,8 @@ const ServerStats: React.FC = () => {
                           <PowerGauge
                             value={gpu.power}
                             history={powerHistoryRef.current[idx] || []}
-                            globalMin={gpuRangesRef.current[idx]?.powerMin ?? 0}
-                            globalMax={gpuRangesRef.current[idx]?.powerMax ?? 1}
+                            globalMin={gpuRangesRef.current?.powerMin ?? 0}
+                            globalMax={gpuRangesRef.current?.powerMax ?? 1}
                           />
                         </Box>
                         <Box
@@ -528,8 +513,8 @@ const ServerStats: React.FC = () => {
                           >
                             <FanGauge
                               value={gpu.fanSpeed}
-                              globalMin={gpuRangesRef.current[idx]?.fanMin ?? 0}
-                              globalMax={gpuRangesRef.current[idx]?.fanMax ?? 1}
+                              globalMin={gpuRangesRef.current?.fanMin ?? 0}
+                              globalMax={gpuRangesRef.current?.fanMax ?? 1}
                             />
                           </Box>
                         </Box>
