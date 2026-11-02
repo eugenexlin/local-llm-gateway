@@ -60,6 +60,11 @@ interface ServerStatsData {
     cores: CpuCore[];
     model: string;
     speed: number;
+    temperature?: {
+      main: number | null;
+      cores: number[];
+      max: number | null;
+    };
   };
   ram: {
     used: number;
@@ -159,6 +164,7 @@ const ServerStats: React.FC = () => {
   const { serverConfig } = useServerContext();
 
   const cpuHistoryRef = useRef<{ timestamp: number; value: number }[]>([]);
+  const cpuTempHistoryRef = useRef<{ timestamp: number; value: number }[]>([]);
   const gpuHistoryRef = useRef<
     Record<number, { timestamp: number; value: number }[]>
   >({});
@@ -177,68 +183,68 @@ const ServerStats: React.FC = () => {
     fanMax: number;
   } | null>(null);
   const lastSyncTimestampRef = useRef<number>(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isSyncingRef = useRef<boolean>(false);
   const [, forceUpdate] = useState(0);
 
-  const seedHistory = useCallback((history: ServerStatsData[]) => {
+  const resetHistory = useCallback((history: ServerStatsData[]) => {
+    cpuHistoryRef.current = [];
+    cpuTempHistoryRef.current = [];
+    gpuHistoryRef.current = {};
+    tempHistoryRef.current = {};
+    powerHistoryRef.current = {};
+    gpuRangesRef.current = null;
+
     for (const data of history) {
+      const ts = new Date(data.timestamp).getTime();
       cpuHistoryRef.current.push({
-        timestamp: new Date(data.timestamp).getTime(),
+        timestamp: ts,
         value: data.cpu.usage,
       });
       if (cpuHistoryRef.current.length > MAX_SPARKLINE_POINTS) {
-        cpuHistoryRef.current =
-          cpuHistoryRef.current.slice(-MAX_SPARKLINE_POINTS);
+        cpuHistoryRef.current = cpuHistoryRef.current.slice(-MAX_SPARKLINE_POINTS);
+      }
+
+      if (data.cpu.temperature?.main !== null && data.cpu.temperature?.main !== undefined) {
+        cpuTempHistoryRef.current.push({
+          timestamp: ts,
+          value: data.cpu.temperature.main,
+        });
+        if (cpuTempHistoryRef.current.length > MAX_SPARKLINE_POINTS) {
+          cpuTempHistoryRef.current = cpuTempHistoryRef.current.slice(-MAX_SPARKLINE_POINTS);
+        }
       }
 
       for (let i = 0; i < data.gpu.gpus.length; i++) {
-        if (!gpuHistoryRef.current[i]) {
-          gpuHistoryRef.current[i] = [];
-        }
+        if (!gpuHistoryRef.current[i]) gpuHistoryRef.current[i] = [];
         gpuHistoryRef.current[i].push({
-          timestamp: new Date(data.timestamp).getTime(),
+          timestamp: ts,
           value: data.gpu.gpus[i].utilization || 0,
         });
         if (gpuHistoryRef.current[i].length > MAX_SPARKLINE_POINTS) {
-          gpuHistoryRef.current[i] =
-            gpuHistoryRef.current[i].slice(-MAX_SPARKLINE_POINTS);
+          gpuHistoryRef.current[i] = gpuHistoryRef.current[i].slice(-MAX_SPARKLINE_POINTS);
         }
 
-        if (!tempHistoryRef.current[i]) {
-          tempHistoryRef.current[i] = {};
-        }
+        if (!tempHistoryRef.current[i]) tempHistoryRef.current[i] = {};
         for (let j = 0; j < data.gpu.gpus[i].temperatures.length; j++) {
-          if (!tempHistoryRef.current[i][j]) {
-            tempHistoryRef.current[i][j] = [];
-          }
+          if (!tempHistoryRef.current[i][j]) tempHistoryRef.current[i][j] = [];
           const tempVal = data.gpu.gpus[i].temperatures[j]?.value ?? 0;
-          tempHistoryRef.current[i][j].push({
-            timestamp: new Date(data.timestamp).getTime(),
-            value: tempVal,
-          });
+          tempHistoryRef.current[i][j].push({ timestamp: ts, value: tempVal });
           if (tempHistoryRef.current[i][j].length > MAX_SPARKLINE_POINTS) {
-            tempHistoryRef.current[i][j] =
-              tempHistoryRef.current[i][j].slice(-MAX_SPARKLINE_POINTS);
+            tempHistoryRef.current[i][j] = tempHistoryRef.current[i][j].slice(-MAX_SPARKLINE_POINTS);
           }
         }
 
-        if (!powerHistoryRef.current[i]) {
-          powerHistoryRef.current[i] = [];
-        }
-        if (
-          data.gpu.gpus[i].power !== null &&
-          data.gpu.gpus[i].power !== undefined
-        ) {
-          powerHistoryRef.current[i].push({
-            timestamp: new Date(data.timestamp).getTime(),
-            value: data.gpu.gpus[i].power!,
-          });
+        if (!powerHistoryRef.current[i]) powerHistoryRef.current[i] = [];
+        if (data.gpu.gpus[i].power !== null && data.gpu.gpus[i].power !== undefined) {
+          powerHistoryRef.current[i].push({ timestamp: ts, value: data.gpu.gpus[i].power! });
           if (powerHistoryRef.current[i].length > MAX_SPARKLINE_POINTS) {
-            powerHistoryRef.current[i] =
-              powerHistoryRef.current[i].slice(-MAX_SPARKLINE_POINTS);
+            powerHistoryRef.current[i] = powerHistoryRef.current[i].slice(-MAX_SPARKLINE_POINTS);
           }
         }
       }
     }
+
     const lastEntry = history[history.length - 1];
     if (lastEntry) {
       const ranges = lastEntry.gpu.ranges;
@@ -250,85 +256,156 @@ const ServerStats: React.FC = () => {
         fanMin: 0,
         fanMax: 1,
       };
-    }
-    if (history.length > 0) {
-      lastSyncTimestampRef.current = new Date(
-        history[history.length - 1].timestamp,
-      ).getTime();
+      setStats(lastEntry);
+      setLastUpdated(new Date());
+      lastSyncTimestampRef.current = new Date(lastEntry.timestamp).getTime();
     }
     forceUpdate((n) => n + 1);
   }, []);
 
-  const processStatsData = (data: ServerStatsData) => {
-    const ts = new Date(data.timestamp).getTime();
-    cpuHistoryRef.current.push({ timestamp: ts, value: data.cpu.usage });
-    if (cpuHistoryRef.current.length > MAX_SPARKLINE_POINTS) {
-      cpuHistoryRef.current = cpuHistoryRef.current.slice(-MAX_SPARKLINE_POINTS);
+  const appendHistory = useCallback((newItems: ServerStatsData[]) => {
+    if (newItems.length === 0) return;
+
+    const lastTs = lastSyncTimestampRef.current;
+    const items = lastTs > 0 ? newItems.filter((d) => new Date(d.timestamp).getTime() > lastTs) : newItems;
+    if (items.length === 0) return;
+
+    for (const data of items) {
+      const ts = new Date(data.timestamp).getTime();
+      cpuHistoryRef.current.push({ timestamp: ts, value: data.cpu.usage });
+      if (cpuHistoryRef.current.length > MAX_SPARKLINE_POINTS) {
+        cpuHistoryRef.current = cpuHistoryRef.current.slice(-MAX_SPARKLINE_POINTS);
+      }
+
+      if (data.cpu.temperature?.main !== null && data.cpu.temperature?.main !== undefined) {
+        cpuTempHistoryRef.current.push({ timestamp: ts, value: data.cpu.temperature.main });
+        if (cpuTempHistoryRef.current.length > MAX_SPARKLINE_POINTS) {
+          cpuTempHistoryRef.current = cpuTempHistoryRef.current.slice(-MAX_SPARKLINE_POINTS);
+        }
+      }
+
+      for (let i = 0; i < data.gpu.gpus.length; i++) {
+        if (!gpuHistoryRef.current[i]) gpuHistoryRef.current[i] = [];
+        gpuHistoryRef.current[i].push({ timestamp: ts, value: data.gpu.gpus[i].utilization || 0 });
+        if (gpuHistoryRef.current[i].length > MAX_SPARKLINE_POINTS) {
+          gpuHistoryRef.current[i] = gpuHistoryRef.current[i].slice(-MAX_SPARKLINE_POINTS);
+        }
+
+        if (!tempHistoryRef.current[i]) tempHistoryRef.current[i] = {};
+        for (let j = 0; j < data.gpu.gpus[i].temperatures.length; j++) {
+          if (!tempHistoryRef.current[i][j]) tempHistoryRef.current[i][j] = [];
+          const tempVal = data.gpu.gpus[i].temperatures[j]?.value ?? 0;
+          tempHistoryRef.current[i][j].push({ timestamp: ts, value: tempVal });
+          if (tempHistoryRef.current[i][j].length > MAX_SPARKLINE_POINTS) {
+            tempHistoryRef.current[i][j] = tempHistoryRef.current[i][j].slice(-MAX_SPARKLINE_POINTS);
+          }
+        }
+
+        if (!powerHistoryRef.current[i]) powerHistoryRef.current[i] = [];
+        if (data.gpu.gpus[i].power !== null && data.gpu.gpus[i].power !== undefined) {
+          powerHistoryRef.current[i].push({ timestamp: ts, value: data.gpu.gpus[i].power! });
+          if (powerHistoryRef.current[i].length > MAX_SPARKLINE_POINTS) {
+            powerHistoryRef.current[i] = powerHistoryRef.current[i].slice(-MAX_SPARKLINE_POINTS);
+          }
+        }
+      }
     }
-    const ranges = data.gpu.ranges;
-    gpuRangesRef.current = ranges ?? {
-      tempMin: 0,
-      tempMax: 1,
-      powerMin: 0,
-      powerMax: 1,
-      fanMin: 0,
-      fanMax: 1,
-    };
-    for (let i = 0; i < data.gpu.gpus.length; i++) {
-      if (!gpuHistoryRef.current[i]) gpuHistoryRef.current[i] = [];
-      gpuHistoryRef.current[i].push({ timestamp: ts, value: data.gpu.gpus[i].utilization || 0 });
-      if (gpuHistoryRef.current[i].length > MAX_SPARKLINE_POINTS) {
-        gpuHistoryRef.current[i] = gpuHistoryRef.current[i].slice(-MAX_SPARKLINE_POINTS);
-      }
-      if (!tempHistoryRef.current[i]) tempHistoryRef.current[i] = {};
-      for (let j = 0; j < data.gpu.gpus[i].temperatures.length; j++) {
-        if (!tempHistoryRef.current[i][j]) tempHistoryRef.current[i][j] = [];
-        tempHistoryRef.current[i][j].push({ timestamp: ts, value: data.gpu.gpus[i].temperatures[j]?.value ?? 0 });
-        if (tempHistoryRef.current[i][j].length > MAX_SPARKLINE_POINTS) {
-          tempHistoryRef.current[i][j] = tempHistoryRef.current[i][j].slice(-MAX_SPARKLINE_POINTS);
-        }
-      }
-      if (!powerHistoryRef.current[i]) powerHistoryRef.current[i] = [];
-      if (data.gpu.gpus[i].power !== null && data.gpu.gpus[i].power !== undefined) {
-        powerHistoryRef.current[i].push({ timestamp: ts, value: data.gpu.gpus[i].power! });
-        if (powerHistoryRef.current[i].length > MAX_SPARKLINE_POINTS) {
-          powerHistoryRef.current[i] = powerHistoryRef.current[i].slice(-MAX_SPARKLINE_POINTS);
-        }
-      }
+    const lastEntry = items[items.length - 1];
+    if (lastEntry) {
+      const ranges = lastEntry.gpu.ranges;
+      gpuRangesRef.current = ranges ?? {
+        tempMin: 0,
+        tempMax: 1,
+        powerMin: 0,
+        powerMax: 1,
+        fanMin: 0,
+        fanMax: 1,
+      };
+      setStats(lastEntry);
+      setLastUpdated(new Date());
+      lastSyncTimestampRef.current = new Date(lastEntry.timestamp).getTime();
     }
     forceUpdate((n) => n + 1);
-  };
+  }, []);
+
+  const fetchStats = useCallback(async () => {
+    if (!selectedServerName || isSyncingRef.current) return;
+    try {
+      const response = await fetch(`/api/server-stats?server=${selectedServerName}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error("Failed to fetch server stats");
+      const data: ServerStatsData = await response.json();
+      setError(null);
+      appendHistory([data]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedServerName, appendHistory]);
+
+  const stopPolling = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, []);
+
+  const startPolling = useCallback(() => {
+    stopPolling();
+    intervalRef.current = setInterval(() => {
+      fetchStats();
+    }, 2000);
+  }, [fetchStats, stopPolling]);
 
   const handleVisibilityChange = useCallback(async () => {
-    if (document.visibilityState !== "visible") return;
+    if (document.visibilityState === "hidden") {
+      stopPolling();
+      return;
+    }
+
+    if (document.visibilityState !== "visible" || !selectedServerName) return;
 
     const now = Date.now();
     const lastSync = lastSyncTimestampRef.current;
-    if (lastSync === 0) return;
+    const RETENTION_MS = MAX_SPARKLINE_POINTS * 2000;
 
-    const gapMs = now - lastSync;
-    const POINT_INTERVAL = 2000;
-    const pointsBehind = Math.floor(gapMs / POINT_INTERVAL);
-
-    if (pointsBehind > 2) {
-      try {
+    isSyncingRef.current = true;
+    try {
+      if (lastSync === 0 || now - lastSync > RETENTION_MS) {
+        const response = await fetch(
+          `/api/server-stats/history?server=${selectedServerName}`,
+          { credentials: "include", cache: "no-store" },
+        );
+        if (response.ok) {
+          const history: ServerStatsData[] = await response.json();
+          if (history && history.length > 0) {
+            resetHistory(history);
+          }
+        }
+      } else if (now - lastSync >= 4000) {
         const response = await fetch(
           `/api/server-stats/history?server=${selectedServerName}&since=${lastSync}`,
-          { cache: "no-store" },
+          { credentials: "include", cache: "no-store" },
         );
-        if (!response.ok) return;
-        const history: ServerStatsData[] = await response.json();
-        if (history && history.length > 0) {
-          seedHistory(history);
-          lastSyncTimestampRef.current = new Date(
-            history[history.length - 1].timestamp,
-          ).getTime();
+        if (response.ok) {
+          const history: ServerStatsData[] = await response.json();
+          if (history && history.length > 0) {
+            appendHistory(history);
+          }
         }
-      } catch {
-        // silently fail
+      } else {
+        await fetchStats();
       }
+    } catch {
+      // silently fail
+    } finally {
+      isSyncingRef.current = false;
+      startPolling();
     }
-  }, [seedHistory, selectedServerName]);
+  }, [appendHistory, fetchStats, resetHistory, selectedServerName, startPolling, stopPolling]);
 
   useEffect(() => {
     document.addEventListener("visibilitychange", handleVisibilityChange);
@@ -338,44 +415,25 @@ const ServerStats: React.FC = () => {
 
   useEffect(() => {
     if (selectedServerName || serverConfig.length === 0) return;
-    const localServer = serverConfig.find(s => s.name === "Local") || serverConfig[0];
+    const localServer = serverConfig.find((s) => s.name === "Local") || serverConfig[0];
     if (localServer) {
       setSelectedServerName(localServer.name);
     }
   }, [serverConfig, selectedServerName]);
 
-  const fetchStats = useCallback(async () => {
-    if (!selectedServerName) return;
-    try {
-      const response = await fetch(`/api/server-stats?server=${selectedServerName}`, {
-        credentials: "include",
-        cache: "no-store",
-      });
-      if (!response.ok) throw new Error("Failed to fetch server stats");
-      const data: ServerStatsData = await response.json();
-      setStats(data);
-      setLastUpdated(new Date());
-      setError(null);
-      lastSyncTimestampRef.current = new Date(data.timestamp).getTime();
-      processStatsData(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedServerName]);
-
   useEffect(() => {
     if (!selectedServerName) return;
 
+    stopPolling();
     cpuHistoryRef.current = [];
+    cpuTempHistoryRef.current = [];
     gpuHistoryRef.current = {};
     tempHistoryRef.current = {};
     powerHistoryRef.current = {};
     gpuRangesRef.current = null;
     lastSyncTimestampRef.current = 0;
+    setLoading(true);
 
-    fetchStats();
     fetch(`/api/server-stats/history?server=${selectedServerName}`, {
       credentials: "include",
       cache: "no-store",
@@ -383,16 +441,25 @@ const ServerStats: React.FC = () => {
       .then((r) => r.json())
       .then((history: ServerStatsData[]) => {
         if (history && history.length > 0) {
-          seedHistory(history);
-          lastSyncTimestampRef.current = new Date(
-            history[history.length - 1].timestamp,
-          ).getTime();
+          resetHistory(history);
+        } else {
+          fetchStats();
         }
       })
-      .catch(() => {});
-    const interval = setInterval(fetchStats, 2000);
-    return () => clearInterval(interval);
-  }, [fetchStats, seedHistory, selectedServerName]);
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Failed to load stats");
+      })
+      .finally(() => {
+        setLoading(false);
+        if (document.visibilityState === "visible") {
+          startPolling();
+        }
+      });
+
+    return () => {
+      stopPolling();
+    };
+  }, [fetchStats, resetHistory, selectedServerName, startPolling, stopPolling]);
 
   if (error && !stats) {
     return (
@@ -537,6 +604,10 @@ const ServerStats: React.FC = () => {
   };
 
   const cpuSection = (stats: ServerStatsData | null) => {
+    const cpuTemp = stats?.cpu.temperature?.main ?? null;
+    const cpuTempMax = stats?.cpu.temperature?.max ?? 90;
+    const hasCoreTemps = (stats?.cpu.temperature?.cores?.length ?? 0) > 0;
+
     return (
       <Grid size={{ xs: 12 }}>
         <StatsCard title="CPU" icon={<CpuIcon />}>
@@ -548,6 +619,26 @@ const ServerStats: React.FC = () => {
                 color={getGaugeColor(cpuUsage)}
                 sparklineData={cpuHistoryRef.current}
               />
+              {cpuTemp !== null && (
+                <Box sx={{ mt: 2 }}>
+                  <TempGauge
+                    title="Temperature"
+                    value={cpuTemp}
+                    history={cpuTempHistoryRef.current}
+                    globalMin={30}
+                    globalMax={Math.max(90, Math.round(cpuTempMax))}
+                    color={getGaugeColor(
+                      Math.min(
+                        100,
+                        Math.max(
+                          0,
+                          ((cpuTemp - 30) / (Math.max(90, cpuTempMax) - 30)) * 100,
+                        ),
+                      ),
+                    )}
+                  />
+                </Box>
+              )}
               <Box
                 sx={{
                   display: "flex",
@@ -556,56 +647,77 @@ const ServerStats: React.FC = () => {
                   marginTop: 2,
                 }}
               >
-                {stats.cpu.cores.map((core, idx) => (
-                  <Box
-                    key={idx}
-                    sx={{
-                      flex: "1 1 calc(25% - 8px)",
-                      minWidth: 120,
-                      [theme.breakpoints.down("sm")]: {
-                        flex: "1 1 calc(50% - 8px)",
-                      },
-                    }}
-                  >
+                {stats.cpu.cores.map((core, idx) => {
+                  const coreTemp = hasCoreTemps ? stats.cpu.temperature?.cores?.[idx] : null;
+                  return (
                     <Box
+                      key={idx}
                       sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <Typography variant="caption" sx={{ fontWeight: 500 }}>
-                        Core {idx}
-                      </Typography>
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          fontWeight: 600,
-                          color: getGaugeColor(core.load),
-                        }}
-                      >
-                        {core.load.toFixed(1)}%
-                      </Typography>
-                    </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={core.load}
-                      sx={{
-                        height: 6,
-                        borderRadius: 3,
-                        bgcolor: "rgba(0,0,0,0.06)",
-                        "& .MuiLinearProgress-bar": {
-                          borderRadius: 3,
-                          bgcolor:
-                            core.load >= 85
-                              ? "#d32f2f"
-                              : core.load >= 70
-                                ? "#f57c00"
-                                : "#2e7d32",
+                        flex: "1 1 calc(25% - 8px)",
+                        minWidth: 120,
+                        [theme.breakpoints.down("sm")]: {
+                          flex: "1 1 calc(50% - 8px)",
                         },
                       }}
-                    />
-                  </Box>
-                ))}
+                    >
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <Typography variant="caption" sx={{ fontWeight: 500 }}>
+                          Core {idx}
+                        </Typography>
+                        <Box sx={{ display: "flex", gap: 1 }}>
+                          {coreTemp !== null && coreTemp !== undefined && (
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                fontWeight: 500,
+                                color: getGaugeColor(
+                                  Math.min(
+                                    100,
+                                    Math.max(0, ((coreTemp - 30) / 60) * 100),
+                                  ),
+                                ),
+                              }}
+                            >
+                              {coreTemp.toFixed(1)}°C
+                            </Typography>
+                          )}
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              fontWeight: 600,
+                              color: getGaugeColor(core.load),
+                            }}
+                          >
+                            {core.load.toFixed(1)}%
+                          </Typography>
+                        </Box>
+                      </Box>
+                      <LinearProgress
+                        variant="determinate"
+                        value={core.load}
+                        sx={{
+                          height: 6,
+                          borderRadius: 3,
+                          bgcolor: "rgba(0,0,0,0.06)",
+                          "& .MuiLinearProgress-bar": {
+                            borderRadius: 3,
+                            bgcolor:
+                              core.load >= 85
+                                ? "#d32f2f"
+                                : core.load >= 70
+                                  ? "#f57c00"
+                                  : "#2e7d32",
+                          },
+                        }}
+                      />
+                    </Box>
+                  );
+                })}
               </Box>
             </>
           )}

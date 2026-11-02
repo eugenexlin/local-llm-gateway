@@ -22,6 +22,11 @@ interface CpuInfo {
   cores: CpuCore[];
   model: string;
   speed: number;
+  temperature?: {
+    main: number | null;
+    cores: number[];
+    max: number | null;
+  };
 }
 
 interface RamInfo {
@@ -575,6 +580,119 @@ function execPromise(command: string, args: string[]): Promise<{ stdout: string;
   });
 }
 
+let winLhmAvailable: boolean | null = null;
+
+function getCpuTemperatureLinuxSysfs(): { main: number | null; cores: number[]; max: number | null } | null {
+  const hwmonBase = '/sys/class/hwmon';
+  try {
+    if (!fs.existsSync(hwmonBase)) return null;
+    const entries = fs.readdirSync(hwmonBase);
+    let mainTemp: number | null = null;
+    const coreTemps: number[] = [];
+
+    for (const entry of entries) {
+      const dir = path.join(hwmonBase, entry);
+      const nameFile = path.join(dir, 'name');
+      if (!fs.existsSync(nameFile)) continue;
+      const driverName = fs.readFileSync(nameFile, 'utf8').trim().toLowerCase();
+
+      if (driverName === 'coretemp' || driverName === 'k10temp' || driverName === 'zenpower') {
+        const files = fs.readdirSync(dir);
+        const tempInputs = files.filter(f => f.startsWith('temp') && f.endsWith('_input'));
+
+        for (const input of tempInputs) {
+          const num = input.replace('temp', '').replace('_input', '');
+          const labelFile = path.join(dir, `temp${num}_label`);
+          let label = '';
+          if (fs.existsSync(labelFile)) {
+            label = fs.readFileSync(labelFile, 'utf8').trim().toLowerCase();
+          }
+
+          try {
+            const valRaw = fs.readFileSync(path.join(dir, input), 'utf8').trim();
+            const val = parseInt(valRaw, 10) / 1000;
+            if (!isNaN(val) && val > 0 && val < 130) {
+              const rounded = Math.round(val * 10) / 10;
+              if (
+                label.includes('package') ||
+                label === 'tdie' ||
+                label === 'tctl' ||
+                (!label && num === '1' && mainTemp === null)
+              ) {
+                if (mainTemp === null || label === 'tdie') {
+                  mainTemp = rounded;
+                }
+              }
+              if (label.startsWith('core')) {
+                coreTemps.push(rounded);
+              }
+            }
+          } catch { /* skip */ }
+        }
+      }
+    }
+
+    if (mainTemp !== null || coreTemps.length > 0) {
+      if (mainTemp === null && coreTemps.length > 0) {
+        mainTemp = Math.round((coreTemps.reduce((a, b) => a + b, 0) / coreTemps.length) * 10) / 10;
+      }
+      const max = coreTemps.length > 0 ? Math.max(mainTemp ?? 0, ...coreTemps) : mainTemp;
+      return { main: mainTemp, cores: coreTemps, max };
+    }
+  } catch {
+    // sysfs read error
+  }
+  return null;
+}
+
+async function getCpuTemperature(): Promise<{ main: number | null; cores: number[]; max: number | null }> {
+  if (process.platform === 'linux') {
+    const sysfsResult = getCpuTemperatureLinuxSysfs();
+    if (sysfsResult) return sysfsResult;
+  }
+
+  try {
+    const siTemp = await si.cpuTemperature();
+    if (siTemp && (siTemp.main !== null || (siTemp.cores && siTemp.cores.length > 0))) {
+      const cores = siTemp.cores ? siTemp.cores.map(c => Math.round(c * 10) / 10) : [];
+      const main = siTemp.main !== null
+        ? Math.round(siTemp.main * 10) / 10
+        : (cores.length > 0 ? Math.round((cores.reduce((a, b) => a + b, 0) / cores.length) * 10) / 10 : null);
+      const max = siTemp.max !== null ? Math.round(siTemp.max * 10) / 10 : (cores.length > 0 ? Math.max(main ?? 0, ...cores) : main);
+      return { main, cores, max };
+    }
+  } catch {
+    // si error
+  }
+
+  if (process.platform === 'win32') {
+    if (winLhmAvailable !== false) {
+      try {
+        const result = await execFilePromise('powershell.exe', [
+          '-NoProfile',
+          '-Command',
+          `$sensors = Get-CimInstance -Namespace 'root/LibreHardwareMonitor' -ClassName 'Sensor' -Filter "SensorType = 'Temperature' and (Name like '%CPU%' or Name like '%Core%')" -ErrorAction Stop; if ($sensors) { $m = ($sensors | Where-Object { $_.Name -like '*Package*' -or $_.Name -like '*Total*' -or $_.Name -eq 'CPU Core' } | Select-Object -First 1).Value; $c = ($sensors | Where-Object { $_.Name -match 'CPU Core #[0-9]+' } | ForEach-Object { [math]::Round($_.Value, 1) }) -join ','; Write-Output "$m|$c" }`,
+        ], { timeout: 3000 });
+
+        winLhmAvailable = true;
+        const out = result.stdout.trim();
+        if (out) {
+          const [mainStr, coresStr] = out.split('|');
+          const mainVal = parseFloat(mainStr);
+          const coreVals = coresStr ? coresStr.split(',').map(s => parseFloat(s)).filter(v => !isNaN(v)) : [];
+          const main = !isNaN(mainVal) ? Math.round(mainVal * 10) / 10 : (coreVals.length > 0 ? Math.round((coreVals.reduce((a, b) => a + b, 0) / coreVals.length) * 10) / 10 : null);
+          const max = coreVals.length > 0 ? Math.max(main ?? 0, ...coreVals) : main;
+          return { main, cores: coreVals, max };
+        }
+      } catch {
+        winLhmAvailable = false;
+      }
+    }
+  }
+
+  return { main: null, cores: [], max: null };
+}
+
 async function getCpuInfo(): Promise<CpuInfo> {
   const cpuLoad = os.cpus();
   const loadAvg = os.loadavg();
@@ -586,8 +704,12 @@ async function getCpuInfo(): Promise<CpuInfo> {
     load: 0,
   }));
 
+  const [currentLoad, temperature] = await Promise.all([
+    si.currentLoad().catch(() => null),
+    getCpuTemperature().catch(() => ({ main: null, cores: [], max: null })),
+  ]);
+
   try {
-    const currentLoad = await si.currentLoad();
     if (currentLoad && currentLoad.cpus) {
       const totalLoad = currentLoad.cpus.reduce((sum: number, load: any) => sum + (load.load || 0), 0);
       const avgLoad = totalLoad / currentLoad.cpus.length;
@@ -607,6 +729,7 @@ async function getCpuInfo(): Promise<CpuInfo> {
     cores,
     model: cpuLoad[0]?.model || 'Unknown',
     speed: cpuLoad[0]?.speed || 0,
+    temperature,
   };
 }
 
@@ -822,6 +945,11 @@ function createZeroStats(): ServerStats & { [zeroFilled]?: true } {
       cores: [],
       model: 'Offline',
       speed: 0,
+      temperature: {
+        main: null,
+        cores: [],
+        max: null,
+      },
     },
     ram: {
       used: 0,

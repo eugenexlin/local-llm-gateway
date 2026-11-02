@@ -20,6 +20,12 @@ interface SparklineChartProps {
   valueFormatter?: (value: number) => string;
 }
 
+interface SparklineDataPoint {
+  index: number;
+  value: number | null;
+  timestamp?: number;
+}
+
 const SparklineChart: React.FC<SparklineChartProps> = ({
   data,
   width = 160,
@@ -27,30 +33,24 @@ const SparklineChart: React.FC<SparklineChartProps> = ({
   yDomain,
   valueFormatter = (v) => `${v.toFixed(1)}%`,
 }) => {
-  // Build chart data with fixed positions (right-aligned)
-  const chartData = data.map((d, i) => ({
-    ...d,
-    index: MAX_SPARKLINE_POINTS - data.length + i,
-  }));
+  const emptyCount = Math.max(0, MAX_SPARKLINE_POINTS - data.length);
+  const fullData: SparklineDataPoint[] = [];
 
-  // Fill empty slots for consistent spacing
-  const fullData: {
-    index: number;
-    value: number | null;
-    timestamp?: number;
-  }[] = [];
   if (data.length === 0) {
     fullData.push({ index: 0, value: null });
   } else {
-    for (let i = 0; i < MAX_SPARKLINE_POINTS; i++) {
-      const point = chartData.find((d) => d.index === i);
+    for (let i = 0; i < emptyCount; i++) {
+      fullData.push({ index: i, value: null });
+    }
+    for (let i = 0; i < data.length; i++) {
       fullData.push({
-        index: i,
-        value: point ? point.value : null,
-        timestamp: point ? point.timestamp : undefined,
+        index: emptyCount + i,
+        value: data[i].value,
+        timestamp: data[i].timestamp,
       });
     }
   }
+
   const color = USER_COLORS[0];
 
   return (
