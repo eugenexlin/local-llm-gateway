@@ -41,15 +41,14 @@ The application will be available at http://localhost:5173 by default.
 ```
 frontend/
 ├── src/
-│   ├── components/     # Reusable UI components
-│   ├── context/        # Auth and theme management
-│   ├── pages/          # Dashboard, Login, API Keys, Usage, ServerStats
-│   ├── theme/          # MUI theme configuration
-│   ├── models/         # Data models
-│   ├── types/          # TypeScript type definitions
-│   ├── utils/          # Helper functions
-│   ├── App.tsx         # Main application component
-│   ├── App.css         # Global styles
+│   ├── components/          # Reusable UI components (chat, dashboard, gauges, layout, charts, ui)
+│   ├── context/             # Auth, chat, theme, API key, server, dashboard contexts
+│   ├── pages/               # Dashboard, Login, Chat, ServerStats, Models, API Keys, Usage
+│   ├── models/              # Data models
+│   ├── types/               # TypeScript type definitions
+│   ├── utils/               # Helper functions
+│   ├── App.tsx              # Main application component
+│   ├── App.css              # Global styles
 │   ├── main.tsx        # Entry point
 │   └── index.css       # Base styles
 ├── vite.config.js      # Vite configuration

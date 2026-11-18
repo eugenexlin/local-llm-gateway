@@ -90,6 +90,9 @@ CREATE TABLE usage_logs (
     idempotency_key TEXT,
     cache_creation_input_tokens INTEGER DEFAULT 0,
     cache_read_input_tokens INTEGER DEFAULT 0,
+    ttft_ms INTEGER DEFAULT NULL,
+    stream_duration_ms INTEGER DEFAULT NULL,
+    model TEXT DEFAULT '',
     FOREIGN KEY (api_key_id) REFERENCES api_keys(id) ON DELETE CASCADE
 );
 ```
@@ -111,6 +114,7 @@ CREATE TABLE usage_logs (
 - `idx_api_key_id` on `api_key_id`
 - `idx_usage_timestamp` on `timestamp`
 - `idx_usage_api_key` on `api_key_id` (duplicate of idx_api_key_id)
+- `idx_usage_model` on `model`
 
 ## Session Storage
 
@@ -129,6 +133,7 @@ CREATE UNIQUE INDEX idx_api_key_hash ON api_keys(key_hash);
 CREATE INDEX idx_api_key_id ON usage_logs(api_key_id);
 CREATE INDEX idx_usage_timestamp ON usage_logs(timestamp);
 CREATE INDEX idx_usage_api_key ON usage_logs(api_key_id);
+CREATE INDEX idx_usage_model ON usage_logs(model);
 ```
 
 ## Sample Data

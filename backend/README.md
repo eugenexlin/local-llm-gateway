@@ -129,6 +129,7 @@ backend/
 │   ├── hash.ts           # API key hashing
 │   ├── passport.ts       # Google OAuth strategy
 │   ├── proxy-util.ts     # Proxy request helpers
+│   ├── serverHealth.ts   # Model context length detection
 │   ├── streaming-token-parser.ts  # Token counting from streams
 │   └── systemMetrics.ts  # System hardware monitoring
 ├── tests/                # Jest test suite
